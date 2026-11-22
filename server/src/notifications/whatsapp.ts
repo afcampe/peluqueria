@@ -27,13 +27,29 @@ export const whatsappApiConfigured = () => Boolean(config.whatsapp.token && conf
  * fuera de esa ventana hay que usar plantillas aprobadas.
  */
 export async function sendWhatsApp(phone: string, body: string) {
+  return post(phone, { type: 'text', text: { body } });
+}
+
+/**
+ * Envío con una plantilla aprobada en Meta (necesaria para los recordatorios,
+ * que se mandan sin que el cliente haya escrito antes). Los parámetros
+ * rellenan {{1}}, {{2}}... del cuerpo de la plantilla, en orden.
+ */
+export async function sendWhatsAppTemplate(phone: string, name: string, lang: string, params: string[]) {
+  return post(phone, {
+    type: 'template',
+    template: { name, language: { code: lang || 'es' }, components: [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text })) }] },
+  });
+}
+
+async function post(phone: string, message: Record<string, unknown>) {
   if (!whatsappApiConfigured()) throw new HttpError(400, 'La API de WhatsApp no está configurada');
   const to = normalizePhone(phone);
   if (!to) throw new HttpError(400, `Teléfono no válido: ${phone}`);
   const res = await fetch(`https://graph.facebook.com/v21.0/${config.whatsapp.phoneNumberId}/messages`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${config.whatsapp.token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body } }),
+    body: JSON.stringify({ messaging_product: 'whatsapp', to, ...message }),
   });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };

@@ -11,6 +11,27 @@ const twoShifts = [
   { start: '16:00', end: '20:00' },
 ];
 
+/** Recordatorios automáticos antes de cada cita. */
+export const remindersSchema = z.object({
+  enabled: z.boolean().default(false),
+  email: z.boolean().default(true),
+  whatsapp: z.boolean().default(false),
+  /** Antelaciones en minutos (p. ej. 1440 = 1 día). Como mucho 3. */
+  offsetsMinutes: z.array(z.number().int().min(15, 'La antelación mínima es de 15 minutos').max(30 * 1440, 'La antelación máxima es de 30 días'))
+    .min(1, 'Indica al menos una antelación').max(3, 'Como mucho 3 avisos por cita').default([1440]),
+  emailSubject: z.string().trim().min(1).max(150).default('Recordatorio de tu cita en {peluqueria}'),
+  emailBody: z.string().trim().min(1).max(2000).default(
+    'Hola {nombre},\n\nTe recordamos tu cita en {peluqueria} el {fecha} a las {hora} ({servicio}).\n\nTe esperamos en {direccion}. Si no puedes venir, cancélala desde la app o llámanos al {telefono}.',
+  ),
+  whatsappBody: z.string().trim().min(1).max(1000).default(
+    'Hola {nombre}, te recordamos tu cita en {peluqueria} el {fecha} a las {hora} ({servicio}). Si no puedes venir, avísanos al {telefono}.',
+  ),
+  /** Plantilla aprobada en Meta (obligatoria para escribir a quien no ha escrito en las últimas 24 h). */
+  whatsappTemplate: z.string().trim().max(100).default(''),
+  whatsappTemplateLang: z.string().trim().max(10).default('es'),
+});
+export type ReminderSettings = z.infer<typeof remindersSchema>;
+
 export const settingsSchema = z.object({
   shopName: z.string().min(1),
   shopPhone: z.string().default(''),
@@ -40,6 +61,7 @@ export const settingsSchema = z.object({
   /** IVA incluido en los precios (%). 0 = no se desglosa. */
   ticketVatPercent: z.number().min(0).max(100).default(21),
   ticketFooter: z.string().max(300).default('Gracias por su visita'),
+  reminders: remindersSchema.default({}),
   /** Métodos de pago activos. La clave es el id del proveedor. */
   paymentMethods: z.record(z.string(), z.object({ enabled: z.boolean() })),
 });
@@ -73,6 +95,7 @@ export const defaultSettings: Settings = {
     '6': [], // sábado cerrado
     '7': [],
   },
+  reminders: remindersSchema.parse({}),
   paymentMethods: { cash: { enabled: true }, paypal: { enabled: true } },
 };
 

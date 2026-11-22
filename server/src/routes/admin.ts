@@ -8,6 +8,8 @@ import { avatarData, avatarField } from '../lib/avatar.js';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
 import { mergeClient } from '../services/agendaImport.js';
+import { recentReminders, sendTestReminder } from '../services/reminders.js';
+import { remindersSchema } from '../services/settings.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
@@ -356,8 +358,28 @@ adminRouter.delete('/closures/:id', h(async (req, res) => {
 }));
 
 // ---------------------------------------------------------------- Configuración y servicios
+// ---------------------------------------------------------------- Recordatorios
+adminRouter.get('/reminders', h(async (_req, res) => { res.json(await recentReminders(40)); }));
+
+/** Manda un recordatorio de ejemplo al propio administrador (email) o al teléfono indicado. */
+adminRouter.post('/reminders/test', h(async (req, res) => {
+  const { channel, phone, reminders } = z.object({
+    channel: z.enum(['EMAIL', 'WHATSAPP']), phone: z.string().optional(), reminders: remindersSchema.partial().optional(),
+  }).parse(req.body);
+  const me = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id } });
+  try {
+    res.json(await sendTestReminder(channel, { email: me.email, phone: phone || me.phone }, reminders));
+  } catch (e) {
+    throw badRequest(e instanceof Error ? e.message : 'No se pudo enviar');
+  }
+}));
+
 adminRouter.get('/settings', h(async (_req, res) => {
-  res.json({ settings: await getSettings(), providers: allProviders().map((p) => ({ id: p.id, label: p.label, online: p.online, configured: p.isConfigured() })) });
+  res.json({
+    settings: await getSettings(),
+    providers: allProviders().map((p) => ({ id: p.id, label: p.label, online: p.online, configured: p.isConfigured() })),
+    channels: { email: emailConfigured(), whatsappApi: whatsappApiConfigured() },
+  });
 }));
 
 adminRouter.put('/settings', h(async (req, res) => {

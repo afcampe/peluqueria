@@ -43,6 +43,11 @@ export interface Settings {
   paymentHoldMinutes: number; recurringEnabled: boolean; recurringMaxAppointments: number;
   ticketLegalName: string; ticketTaxId: string; ticketVatPercent: number; ticketFooter: string;
   weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
+  reminders: ReminderSettings;
+}
+export interface ReminderSettings {
+  enabled: boolean; email: boolean; whatsapp: boolean; offsetsMinutes: number[];
+  emailSubject: string; emailBody: string; whatsappBody: string; whatsappTemplate: string; whatsappTemplateLang: string;
 }
 
 export interface Occurrence { requested: string; start: string | null; status: 'OK' | 'MOVED' | 'UNAVAILABLE'; reason?: string; bookedBy?: Owner[] }

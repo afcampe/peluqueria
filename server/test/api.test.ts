@@ -661,4 +661,66 @@ describe('importar la agenda en papel', () => {
   });
 });
 
+describe('recordatorios de citas', () => {
+  it('avisa con cada antelación una sola vez y vuelve a avisar si cambia la hora', async () => {
+    const { runReminders } = await import('../src/services/reminders.js');
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: true, offsetsMinutes: [1440, 120] } }, adminToken);
+    const start = await slotIn(3);
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    const id = r.body.id as string;
+    const t = new Date(start).getTime();
+    const at = (minutesBefore: number) => new Date(t - minutesBefore * 60_000);
+    const mine = () => prisma.appointmentReminder.findMany({ where: { appointmentId: id }, orderBy: { createdAt: 'asc' } });
+
+    await runReminders(at(1500)); // aún no toca
+    expect(await mine()).toHaveLength(0);
+    await runReminders(at(1430)); // 1 día antes
+    await runReminders(at(1400)); // no repite
+    let rs = await mine();
+    expect(rs.map((x) => [x.offsetMinutes, x.channel, x.status])).toEqual([[1440, 'EMAIL', 'SENT'], [1440, 'WHATSAPP', 'SKIPPED']]);
+    expect(rs[1].detail).toContain('WhatsApp');
+    await runReminders(at(100)); // 2 h antes
+    rs = await mine();
+    expect(rs.filter((x) => x.offsetMinutes === 120 && x.channel === 'EMAIL')).toHaveLength(1);
+
+    // Cambia la hora: se vuelve a avisar para la nueva
+    const newStart = await slotIn(5);
+    await call('PATCH', `/api/admin/appointments/${id}`, { startAt: newStart }, adminToken);
+    await runReminders(new Date(new Date(newStart).getTime() - 1400 * 60_000));
+    rs = await mine();
+    expect(rs.filter((x) => x.startAt.toISOString() === new Date(newStart).toISOString() && x.channel === 'EMAIL')).toHaveLength(1);
+
+    // Las canceladas no se avisan
+    await call('POST', `/api/admin/appointments/${id}/cancel`, { notify: false }, adminToken);
+    const before = (await mine()).length;
+    await runReminders(new Date(new Date(newStart).getTime() - 60 * 60_000));
+    expect(await mine()).toHaveLength(before);
+
+    const list = await call('GET', '/api/admin/reminders', undefined, adminToken);
+    expect(list.body[0]).toMatchObject({ offsetLabel: expect.any(String), appointment: { client: { name: 'Cliente' } } });
+  });
+
+  it('no avisa con una antelación que ya había pasado al reservar ni si están desactivados', async () => {
+    const { runReminders } = await import('../src/services/reminders.js');
+    const start = await slotIn(4, 1);
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    const t = new Date(start).getTime();
+    // Reservada 3 h antes de la cita: el aviso de 1 día no se manda; el de 2 h sí.
+    await prisma.appointment.update({ where: { id: r.body.id }, data: { createdAt: new Date(t - 180 * 60_000) } });
+    await runReminders(new Date(t - 150 * 60_000));
+    expect(await prisma.appointmentReminder.count({ where: { appointmentId: r.body.id } })).toBe(0);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: false, email: true, whatsapp: false, offsetsMinutes: [120] } }, adminToken);
+    await runReminders(new Date(t - 100 * 60_000));
+    expect(await prisma.appointmentReminder.count({ where: { appointmentId: r.body.id } })).toBe(0);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [1440, 120] } }, adminToken);
+    await runReminders(new Date(t - 100 * 60_000));
+    expect(await prisma.appointmentReminder.findMany({ where: { appointmentId: r.body.id } })).toMatchObject([{ offsetMinutes: 120, status: 'SENT' }]);
+    // Validación y envío de prueba
+    expect((await call('PUT', '/api/admin/settings', { reminders: { enabled: true, offsetsMinutes: [5] } }, adminToken)).status).toBe(400);
+    expect((await call('POST', '/api/admin/reminders/test', { channel: 'EMAIL' }, adminToken)).body).toMatchObject({ status: 'SENT', detail: 'a@a.es' });
+    expect((await call('POST', '/api/admin/reminders/test', { channel: 'WHATSAPP', phone: '600000000' }, adminToken)).status).toBe(400);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
+  });
+});
+
 vi.setConfig({ testTimeout: 20_000 });

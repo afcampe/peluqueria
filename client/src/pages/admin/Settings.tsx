@@ -5,18 +5,21 @@ import { money, weekdayNames } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { Service, Settings as S } from '../../lib/types';
 
+import { Reminders } from './Reminders';
+
 interface ProviderInfo { id: string; label: string; online: boolean; configured: boolean }
 
 export function Settings() {
   const { reloadConfig } = useSession();
   const [s, setS] = useState<S | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [channels, setChannels] = useState({ email: false, whatsappApi: false });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get<{ settings: S; providers: ProviderInfo[] }>('/admin/settings')
-      .then((r) => { setS(r.settings); setProviders(r.providers); })
+    api.get<{ settings: S; providers: ProviderInfo[]; channels: { email: boolean; whatsappApi: boolean } }>('/admin/settings')
+      .then((r) => { setS(r.settings); setProviders(r.providers); setChannels(r.channels); })
       .catch((e) => setError(e.message));
   }, []);
 
@@ -86,6 +89,8 @@ export function Settings() {
           })}
         </div>
       </section>
+
+      <Reminders value={s.reminders} channels={channels} onChange={(reminders) => setS({ ...s, reminders })} />
 
       <section className="card">
         <h2>Formas de pago</h2>

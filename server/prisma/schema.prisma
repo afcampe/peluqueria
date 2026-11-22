@@ -74,6 +74,7 @@ model Appointment {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   payments      Payment[]
+  reminders     AppointmentReminder[]
 
   @@index([startAt])
   @@index([clientId])
@@ -179,4 +180,22 @@ model AgendaImport {
   importedCount Int       @default(0)
   importedAt    DateTime?
   createdBy     String?
+}
+
+// Recordatorio automático enviado (o intentado) antes de una cita.
+// Uno por cita, hora de la cita, antelación y canal: así nunca se repite,
+// y si la cita cambia de hora se vuelve a avisar.
+model AppointmentReminder {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  startAt       DateTime // hora de la cita cuando se avisó
+  offsetMinutes Int
+  channel       String // EMAIL | WHATSAPP
+  status        String // SENDING | SENT | FAILED | SKIPPED
+  detail        String? // motivo del fallo o de que no se enviara
+  createdAt     DateTime    @default(now())
+
+  @@unique([appointmentId, startAt, offsetMinutes, channel])
+  @@index([createdAt])
 }
