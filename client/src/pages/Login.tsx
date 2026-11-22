@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import authPhoto from '../assets/photos/corte-estilista.jpg';
 import { AvatarInput } from '../components/Avatar';
 import { Alert, errMsg } from '../components/ui';
 import { useSession } from '../lib/session';
@@ -30,7 +31,12 @@ export function Login() {
   };
 
   return (
-    <form className="card narrow" onSubmit={submit}>
+    <div className="auth">
+    <aside className="auth-photo" aria-hidden>
+      <img src={authPhoto} alt="" />
+      <p>El corte de siempre,<br />reservado en un minuto.</p>
+    </aside>
+    <form className="card auth-card" onSubmit={submit}>
       <h1>Entrar</h1>
       <Alert>{error}</Alert>
       <label>Email<input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
@@ -38,6 +44,7 @@ export function Login() {
       <button className="btn btn-primary" disabled={busy}>{busy ? 'Entrando…' : 'Entrar'}</button>
       <p className="muted">¿No tienes cuenta? <Link to={`/registro${params.get('next') ? `?next=${params.get('next')}` : ''}`}>Regístrate</Link></p>
     </form>
+    </div>
   );
 }
 
@@ -67,7 +74,12 @@ export function Register() {
   };
 
   return (
-    <form className="card narrow" onSubmit={submit}>
+    <div className="auth">
+    <aside className="auth-photo" aria-hidden>
+      <img src={authPhoto} alt="" />
+      <p>El corte de siempre,<br />reservado en un minuto.</p>
+    </aside>
+    <form className="card auth-card" onSubmit={submit}>
       <h1>Crear cuenta</h1>
       <Alert>{error}</Alert>
       <AvatarInput name={f.name} value={avatar} onChange={setAvatar} />
@@ -79,5 +91,6 @@ export function Register() {
       <button className="btn btn-primary" disabled={busy}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
       <p className="muted">¿Ya tienes cuenta? <Link to="/entrar">Entra</Link></p>
     </form>
+    </div>
   );
 }

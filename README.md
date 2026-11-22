@@ -44,6 +44,12 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 
 Si cambias la duración de las citas o el horario, las citas ya reservadas se mantienen y nunca se solapan con las nuevas.
 
+## Diseño
+
+- **Estilo** de barbería de caballeros: blanco y negro con un acento dorado. Títulos en Oswald (mayúsculas estrechas) y texto en Inter. Las tipografías van incluidas en la app, así que funcionan sin conexión.
+- **Dos temas**, claro (blanco) y oscuro (negro). Se cambian con el botón ☀/☾ de la cabecera o en *Mi perfil → Apariencia*, donde también está la opción "Automático", que sigue al dispositivo. La elección se guarda en cada dispositivo. Los colores de cada tema están al principio de `client/src/styles.css`.
+- **Fotos** en `client/src/assets/photos/`: son de Unsplash, con licencia gratuita de uso comercial (ver `CREDITOS.md`). Para usar fotos del propio local, sustituye esos archivos manteniendo el nombre. Los iconos y el logotipo son SVG propios (`client/src/components/icons.tsx`).
+
 ## Configuración (`server/.env`)
 
 | Qué | Variables | Dónde conseguirlo |

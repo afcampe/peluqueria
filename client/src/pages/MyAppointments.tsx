@@ -7,6 +7,7 @@ import { canClientChange, dateTime, isoToLocalDate, methodLabel, money, noticeTe
 import { useSession } from '../lib/session';
 import { onlinePayment } from '../lib/payment';
 import type { Appointment } from '../lib/types';
+import { IconRepeat } from '../components/icons';
 
 export function MyAppointments() {
   const { config } = useSession();
@@ -52,7 +53,7 @@ export function MyAppointments() {
       {[...seriesGroups.values()].map((g) => (
         <section key={g.id} className="card series-card">
           <div>
-            <span className="series-badge">🔁 Citas periódicas · cada {g.intervalDays} días</span>
+            <span className="series-badge"><IconRepeat size={14} /> Citas periódicas · cada {g.intervalDays} días</span>
             <h3>{g.service}: {g.appts.length} citas próximas</h3>
             <p className="muted small">Próxima: {dateTime(g.appts[0].startAt)} · Última: {dateTime(g.appts.at(-1)!.startAt)}</p>
           </div>
@@ -69,7 +70,7 @@ export function MyAppointments() {
                 <h3>{dateTime(a.startAt)}</h3>
                 <p>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} {paid(a) && '(pagada)'}</p>
                 <Badge status={a.status}>{statusLabel[a.status]}</Badge>
-                {a.series && <span className="series-badge"> 🔁 cada {a.series.intervalDays} días</span>}
+                {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
               </div>
               <div className="actions">
                 {changeable ? (

@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { dateLong } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { User } from '../../lib/types';
+import { IconCalendar } from '../../components/icons';
 
 const statusText = { ACTIVE: 'Activo', BLOCKED: 'Bloqueado', DELETED: 'De baja' };
 
@@ -72,7 +73,7 @@ export function Users() {
                     {u.status === 'BLOCKED' && <div className="muted small">{u.blockedUntil ? `hasta ${dateLong(u.blockedUntil)}` : 'indefinido'}{u.blockReason && ` · ${u.blockReason}`}</div>}
                   </td>
                   <td className="actions">
-                    {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}>📅 Ver citas</Link>}
+                    {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}><IconCalendar size={14} /> Ver citas</Link>}
                     {u.whatsappLink && <a className="btn btn-sm btn-wa" href={u.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
                     <button className="btn btn-sm" onClick={() => setModal({ kind: 'edit', user: u })}>{u.status === 'DELETED' ? 'Reactivar' : 'Editar'}</button>
                     {u.id !== me?.id && u.status === 'ACTIVE' && <button className="btn btn-sm" onClick={() => setModal({ kind: 'block', user: u })}>Bloquear</button>}

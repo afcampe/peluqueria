@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { dateTime, money, noticeText } from '../lib/format';
 import { useSession } from '../lib/session';
 import type { Appointment, SeriesResult } from '../lib/types';
+import { IconRepeat } from '../components/icons';
 
 /** Lo que queda pendiente de pagar online: una cita suelta o una serie. */
 type Pending =
@@ -120,7 +121,7 @@ export function Book() {
               <span>Solo esta cita</span><small>{dateTime(start)}</small>
             </button>
             <button type="button" className={`option ${repeat ? 'selected' : ''}`} onClick={() => setRepeat(true)}>
-              <span>🔁 Citas periódicas</span><small>Reserva de una vez, por ejemplo, cada 15 días todo el año</small>
+              <span className="with-icon"><IconRepeat size={18} /> Citas periódicas</span><small>Reserva de una vez, por ejemplo, cada 15 días todo el año</small>
             </button>
           </div>
           {repeat && <RecurrencePlanner firstStart={start} priceCents={service.priceCents} onChange={setPlan} />}

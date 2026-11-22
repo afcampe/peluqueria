@@ -8,6 +8,7 @@ import { api } from '../../lib/api';
 import { dateLong, dateShort, isoToLocalDate, localISODate, methodLabel, money, statusLabel, time } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { Appointment, Payment, User } from '../../lib/types';
+import { IconRepeat } from '../../components/icons';
 
 const waUrl = (phone: string | null, text: string) => {
   if (!phone) return null;
@@ -87,10 +88,10 @@ export function Agenda() {
                   <div className="agenda-main">
                     <Link to={`/admin/usuarios/${a.client.id}`}><strong>{a.client.name}</strong></Link> <span className="muted small">{a.client.phone} · {a.client.email}</span>
                     <div>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} · <span className={`pay pay-${pay.kind}`}>{pay.label}</span></div>
-                    {a.notes && <div className="muted small">📝 {a.notes}</div>}
+                    {a.notes && <div className="muted small">Nota: {a.notes}</div>}
                     {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
                     <Badge status={a.status}>{statusLabel[a.status]}</Badge>
-                    {a.series && <span className="series-badge"> 🔁 cada {a.series.intervalDays} días</span>}
+                    {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
                   </div>
                   <div className="actions">
                     {active && <button className="btn btn-sm" onClick={() => setModal({ kind: 'move', appt: a })}>Cambiar hora</button>}
@@ -175,7 +176,7 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
           </label>
           <SlotPicker admin value={start} onPick={setStart} />
           {start && (
-            <label className="check"><input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} /> 🔁 Repetir periódicamente</label>
+            <label className="check"><input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} /> Repetir periódicamente</label>
           )}
           {start && repeat && service && <RecurrencePlanner admin firstStart={start} priceCents={service.priceCents} onChange={setPlan} />}
           <label>Notas<input value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
@@ -221,7 +222,7 @@ function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: ()
       {cash && <p className="muted small">Esta cita se cobró en el local ({money(cash.amountCents)}): si hay que devolverlo, hazlo en mano.</p>}
       <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar al cliente por email</label>
       {appt.series && (
-        <label className="check"><input type="checkbox" checked={wholeSeries} onChange={(e) => setWholeSeries(e.target.checked)} /> 🔁 Cancelar también las siguientes citas de esta serie (cada {appt.series.intervalDays} días)</label>
+        <label className="check"><input type="checkbox" checked={wholeSeries} onChange={(e) => setWholeSeries(e.target.checked)} /> Cancelar también las siguientes citas de esta serie (cada {appt.series.intervalDays} días)</label>
       )}
       <button className="btn btn-danger" disabled={busy} onClick={async () => {
         setBusy(true);

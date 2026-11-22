@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
 import { cashPayment, paymentInfo } from '../../lib/payment';
 import type { Appointment, User } from '../../lib/types';
+import { IconRepeat } from '../../components/icons';
 
 type Filter = 'all' | 'future' | 'past';
 const statusText = { ACTIVE: 'Activo', BLOCKED: 'Bloqueado', DELETED: 'De baja' };
@@ -124,13 +125,13 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         <span>{time(a.startAt)}–{time(a.endAt)}</span>
       </div>
       <div className="history-main">
-        <div>{a.service.name} · {money(a.priceCents)} {a.series && <span className="series-badge">🔁 cada {a.series.intervalDays} días</span>}</div>
+        <div>{a.service.name} · {money(a.priceCents)} {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}</div>
         <div className="history-tags">
           <Badge status={a.status}>{statusLabel[a.status]}</Badge>
           <span className={`pay pay-${pay.kind}`}>{pay.label}</span>
           <span className="muted small">· {methodLabel(a.paymentMethod)}</span>
         </div>
-        {a.notes && <div className="muted small">📝 {a.notes}</div>}
+        {a.notes && <div className="muted small">Nota: {a.notes}</div>}
         {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
         {error && <div className="error-text small">{error}</div>}
       </div>

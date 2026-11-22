@@ -3,10 +3,12 @@ import { AvatarInput } from '../components/Avatar';
 import { Alert, Badge, errMsg } from '../components/ui';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
+import { useTheme, type ThemePref } from '../lib/theme';
 import type { User } from '../lib/types';
 
 export function Profile() {
   const { user, setUser } = useSession();
+  const { pref, setPref } = useTheme();
   const [f, setF] = useState({ name: user!.name, phone: user!.phone ?? '', acceptsEmail: user!.acceptsEmail, password: '' });
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);
   const [msg, setMsg] = useState('');
@@ -42,6 +44,17 @@ export function Profile() {
         <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Recibir avisos por email</label>
       )}
       <label>Nueva contraseña (opcional)<input type="password" minLength={8} autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></label>
+      <fieldset className="theme-picker">
+        <legend>Apariencia</legend>
+        {([['light', 'Claro', 'Fondo blanco'], ['dark', 'Oscuro', 'Fondo negro'], ['system', 'Automático', 'Como el dispositivo']] as [ThemePref, string, string][]).map(([v, label, hint]) => (
+          <label key={v} className={`theme-option theme-option-${v} ${pref === v ? 'selected' : ''}`}>
+            <input type="radio" name="theme" checked={pref === v} onChange={() => setPref(v)} />
+            <span className="theme-swatch" aria-hidden />
+            <span><strong>{label}</strong><small>{hint}</small></span>
+          </label>
+        ))}
+        <p className="muted small">Se aplica al momento y se recuerda en este dispositivo.</p>
+      </fieldset>
       <button className="btn btn-primary">Guardar</button>
     </form>
   );
