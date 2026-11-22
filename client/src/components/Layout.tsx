@@ -42,6 +42,8 @@ export function Layout() {
               <>
                 <NavLink to="/" end>Inicio</NavLink>
                 {user && <NavLink to="/mis-citas">Mis citas</NavLink>}
+                {/* En pantallas estrechas el botón Reservar de la cabecera se oculta y va en el menú */}
+                <NavLink to={user ? '/reservar' : '/entrar?next=/reservar'} className="nav-book">Reservar cita</NavLink>
               </>
             )}
             {user ? (

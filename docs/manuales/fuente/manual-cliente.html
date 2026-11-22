@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Manual del cliente · Peluquería Armando</title>
+<link rel="stylesheet" href="manual.css">
+</head>
+<body>
+
+<!-- ============================================================ PORTADA -->
+<section class="cover">
+  <div class="cover-inner">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" fill="none" stroke="#c9a46a" stroke-width="1.6" stroke-linecap="round"><circle cx="24" cy="24" r="22"/><circle cx="17" cy="17" r="4"/><circle cx="17" cy="31" r="4"/><path d="M20 19.5 34 33M20 28.5 34 15"/></svg>
+      <div>Peluquería Armando<small>Barbería de caballeros</small></div>
+    </div>
+    <div class="title">
+      <div class="eyebrow">Aplicación de reservas</div>
+      <h1>Manual del cliente</h1>
+      <p class="lead">Cómo crear tu cuenta, reservar y pagar tus citas, reservar varias de una vez, cambiar o anular una cita, descargar tus tickets y ajustar tu perfil, paso a paso.</p>
+      <div class="meta">
+        <div><strong>Para</strong>Clientes de la peluquería</div>
+        <div><strong>Funciona en</strong>Navegador, móvil (Android e iOS) y ordenador (Mac y Windows)</div>
+        <div><strong>Versión</strong>Noviembre de 2026</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ ÍNDICE -->
+<section class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#bienvenida">Bienvenida</a>
+      <ol><li>Qué puedes hacer</li><li>Dónde se usa</li><li>Cómo leer este manual</li></ol></li>
+    <li><a href="#cuenta">Tu cuenta</a>
+      <ol><li>Crear una cuenta</li><li>Entrar</li><li>Salir</li></ol></li>
+    <li><a href="#portada">La página de inicio</a>
+      <ol><li>Servicios y precios</li><li>Horario</li></ol></li>
+    <li><a href="#reservar">Reservar una cita</a>
+      <ol><li>Servicio</li><li>Día y hora</li><li>Una o varias</li><li>Forma de pago</li><li>Pagar con PayPal</li></ol></li>
+    <li><a href="#periodicas">Citas periódicas</a>
+      <ol><li>Cada cuánto</li><li>Hasta cuándo</li><li>Revisar las fechas</li></ol></li>
+    <li><a href="#miscitas">Mis citas</a>
+      <ol><li>Próximas citas</li><li>Cambiar la hora</li><li>Cancelar</li><li>Reembolsar</li><li>Cancelar una serie</li><li>Historial</li></ol></li>
+    <li><a href="#tickets">Tickets de compra</a></li>
+    <li><a href="#perfil">Mi perfil</a>
+      <ol><li>Datos y foto</li><li>Contraseña</li><li>Avisos por email</li><li>Tema claro u oscuro</li></ol></li>
+    <li><a href="#movil">En el móvil</a></li>
+    <li><a href="#faq">Preguntas frecuentes</a></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 1 -->
+<section class="chapter" id="bienvenida">
+  <h2><span class="n">01</span>Bienvenida</h2>
+  <p class="intro">Con la aplicación de Peluquería Armando puedes pedir cita a cualquier hora, sin llamar, y tenerlo todo controlado: tus próximas citas, lo que has pagado y tus tickets.</p>
+
+  <h3>Qué puedes hacer</h3>
+  <ul>
+    <li><strong>Reservar</strong> una cita eligiendo el servicio, el día y la hora que te vengan bien, hasta con un año de antelación.</li>
+    <li><strong>Reservar varias citas de una vez</strong> si vienes con regularidad (por ejemplo, cada 15 días durante todo el año).</li>
+    <li><strong>Pagar</strong> online con PayPal al reservar o <strong>pagar en la peluquería</strong> el día de la cita.</li>
+    <li><strong>Cambiar la hora</strong> o <strong>anular</strong> tus citas desde la app, hasta 1 hora antes.</li>
+    <li><strong>Recuperar el dinero</strong> automáticamente si anulas una cita pagada online.</li>
+    <li><strong>Ver y descargar tus tickets</strong> de compra en PDF.</li>
+    <li>Elegir el <strong>aspecto</strong> de la app: fondo blanco o negro.</li>
+  </ul>
+
+  <h3>Dónde se usa</h3>
+  <p>La aplicación es la misma en todas partes: en la web desde cualquier navegador, en la app del móvil (Android e iOS) y en la app de escritorio (Mac y Windows). Tu cuenta y tus citas son las mismas en todos ellos.</p>
+
+  <h3>Cómo leer este manual</h3>
+  <ul>
+    <li>Los pasos numerados (<strong style="color:var(--gold)">1, 2, 3…</strong>) se hacen en orden.</li>
+    <li>Los botones aparecen así: <span class="btn-ref dark">Reservar</span>, <span class="btn-ref">Cambiar hora</span>, <span class="btn-ref blue">Reembolsar</span>, <span class="btn-ref red">Cancelar</span>.</li>
+    <li>Los recuadros te avisan de cosas útiles:</li>
+  </ul>
+  <div class="tip"><p><strong>Consejo.</strong> Trucos para ir más rápido.</p></div>
+  <div class="note"><p><strong>Información.</strong> Cómo funciona algo por dentro.</p></div>
+  <div class="warn"><p><strong>Importante.</strong> Normas que conviene conocer, como los plazos para anular.</p></div>
+  <p class="muted" style="color:var(--muted);font-size:9pt">Las capturas de este manual usan datos de ejemplo. Las fechas, nombres e importes que veas en tu app serán los tuyos.</p>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="chapter" id="cuenta">
+  <h2><span class="n">02</span>Tu cuenta</h2>
+  <p class="intro">Para reservar necesitas una cuenta. Crearla es gratis y lleva menos de un minuto.</p>
+
+  <h3>Crear una cuenta</h3>
+  <ol class="steps">
+    <li>En la parte superior de la página, pulsa <span class="ui">Entrar</span> y después <span class="ui">Regístrate</span>. Si pulsas <span class="btn-ref dark">Reservar</span> sin haber entrado, la app te lleva a la pantalla de entrar, donde también tienes el enlace <span class="ui">Regístrate</span>; al terminar, vuelves directamente a la reserva.</li>
+    <li><strong>Foto de perfil (opcional).</strong> Pulsa <span class="btn-ref">Añadir foto de perfil</span> y elige una imagen JPG, PNG o WebP. En el móvil puedes hacerte una foto en ese momento. La app la recorta en cuadrado automáticamente; si no pones ninguna, se muestran tus iniciales.</li>
+    <li>Escribe tu <strong>nombre y apellidos</strong>, tu <strong>email</strong> y tu <strong>teléfono</strong>. El teléfono es el que usará la peluquería para escribirte por WhatsApp si hace falta.</li>
+    <li>Elige una <strong>contraseña</strong> de al menos 8 caracteres.</li>
+    <li>Deja marcada la casilla <span class="ui">Quiero recibir avisos y novedades por email</span> si quieres enterarte de cierres por vacaciones, cambios de horario o promociones. Puedes cambiarlo cuando quieras en tu perfil.</li>
+    <li>Pulsa <span class="btn-ref dark">Crear cuenta</span>. Entrarás directamente en la pantalla de reservar, lista para pedir tu primera cita.</li>
+  </ol>
+  <figure class="sm"><img src="capturas/c-registro.jpg" alt=""><figcaption><b>Figura 2.1</b> · Formulario para crear una cuenta</figcaption></figure>
+
+  <h3>Entrar</h3>
+  <ol class="steps">
+    <li>Pulsa <span class="ui">Entrar</span> en la parte superior.</li>
+    <li>Escribe tu email y tu contraseña y pulsa <span class="btn-ref dark">Entrar</span>. Irás a <span class="ui">Mis citas</span> (o a la reserva, si venías de pulsar Reservar).</li>
+  </ol>
+  <p>La app recuerda tu sesión en ese dispositivo, así que la próxima vez entrarás directamente.</p>
+  <figure class="sm"><img src="capturas/c-entrar.jpg" alt=""><figcaption><b>Figura 2.2</b> · Pantalla para entrar</figcaption></figure>
+  <div class="note"><p><strong>¿Has olvidado la contraseña?</strong> Llama o escribe a la peluquería: te pondrán una contraseña nueva y luego podrás cambiarla en <span class="ui">Mi perfil</span>.</p></div>
+  <div class="warn"><p><strong>Cuenta bloqueada.</strong> Si al entrar ves un mensaje de cuenta bloqueada (por ejemplo, tras varias ausencias sin avisar), no podrás reservar hasta la fecha indicada. Para cualquier duda, habla con la peluquería.</p></div>
+
+  <h3>Salir</h3>
+  <p>Pulsa <span class="ui">Salir</span> en la parte superior (en el móvil, dentro del menú <strong>☰</strong>). Hazlo siempre si usas un ordenador compartido.</p>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="chapter" id="portada">
+  <h2><span class="n">03</span>La página de inicio</h2>
+  <p class="intro">Es lo primero que ves al abrir la app. Desde aquí puedes reservar, consultar los servicios con sus precios y ver el horario.</p>
+  <figure><img src="capturas/c-portada.jpg" alt=""><figcaption><b>Figura 3.1</b> · Página de inicio. Abajo, el horario de hoy, la dirección y el teléfono</figcaption></figure>
+  <p>Arriba a la derecha tienes siempre el botón <span class="btn-ref dark">Reservar</span>, el acceso a <span class="ui">Mis citas</span>, tu nombre (que abre tu perfil) y el botón <strong>☾ / ☀</strong> para cambiar entre fondo blanco y negro.</p>
+  <p>Cuando has entrado con tu cuenta, verás tu nombre arriba a la derecha y el enlace <span class="ui">Mis citas</span>.</p>
+
+  <h3>Servicios y precios</h3>
+  <p>Baja por la página o pulsa <span class="btn-ref">Ver servicios</span> para ver la carta con todos los servicios y su precio. El precio es el mismo que pagarás online o en la peluquería.</p>
+  <div class="pair">
+    <figure><img src="capturas/c-carta.jpg" alt=""><figcaption><b>Figura 3.2</b> · Carta de servicios</figcaption></figure>
+    <figure><img src="capturas/c-horario.jpg" alt=""><figcaption><b>Figura 3.3</b> · Horario semanal</figcaption></figure>
+  </div>
+  <h3>Horario</h3>
+  <p>El apartado <strong>Cuándo venir</strong> muestra el horario de cada día de la semana. Si la peluquería cierra un día concreto (festivo, vacaciones), ese día no aparecerán horas libres al reservar.</p>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="chapter" id="reservar">
+  <h2><span class="n">04</span>Reservar una cita</h2>
+  <p class="intro">La reserva se hace en una sola pantalla de cuatro pasos. Cada paso aparece cuando completas el anterior.</p>
+  <p>Pulsa <span class="btn-ref dark">Reservar</span> (arriba a la derecha), <span class="btn-ref" style="background:#a9813f;color:#141414;border-color:#a9813f">Reservar cita</span> en la portada o <span class="btn-ref dark">Nueva cita</span> en Mis citas.</p>
+
+  <h3>Paso 1 · Elige el servicio</h3>
+  <p>Pulsa el servicio que quieres. Se marca con un borde dorado y se muestra su precio.</p>
+  <figure><img src="capturas/c-reservar-1.jpg" alt=""><figcaption><b>Figura 4.1</b> · Paso 1: servicio</figcaption></figure>
+
+  <h3>Paso 2 · Elige el día y la hora</h3>
+  <ol class="steps">
+    <li>Elige el día con las flechas <strong>‹ ›</strong> o pulsando en la fecha para abrir el calendario. Puedes reservar hasta un año vista.</li>
+    <li>Verás las horas libres de ese día, separadas en <strong>Mañana</strong> y <strong>Tarde</strong>. Las horas ocupadas, pasadas o fuera del horario no aparecen.</li>
+    <li>Pulsa la hora que quieras. Queda marcada en negro.</li>
+  </ol>
+  <figure><img src="capturas/c-reservar-2b.jpg" alt=""><figcaption><b>Figura 4.2</b> · Paso 2: día y hora. La hora elegida aparece en negro</figcaption></figure>
+  <div class="note"><p>Si un día la peluquería está cerrada (domingos, festivos, vacaciones), la app te lo indica y no muestra horas. Pasa al día siguiente con <strong>›</strong>.</p></div>
+
+  <h3>Paso 3 · ¿Una cita o varias?</h3>
+  <p>Elige <span class="ui">Solo esta cita</span> para una reserva normal, o <span class="ui">Citas periódicas</span> para reservar varias de una vez (lo explicamos en el <a href="#periodicas">capítulo 5</a>).</p>
+  <figure><img src="capturas/c-reservar-3.jpg" alt=""><figcaption><b>Figura 4.3</b> · Paso 3: una cita o varias</figcaption></figure>
+
+  <h3>Paso 4 · Forma de pago</h3>
+  <ul>
+    <li><strong>PayPal / tarjeta:</strong> pagas ahora, con tu cuenta de PayPal o con tarjeta. La cita queda pagada y recibes tu ticket al momento.</li>
+    <li><strong>Pago en el local:</strong> no pagas nada ahora; pagas en la peluquería el día de la cita.</li>
+  </ul>
+  <p>Si quieres, escribe algo en <span class="ui">Comentarios</span> (por ejemplo, «vengo con mi hijo» o «quiero degradado bajo»).</p>
+  <figure><img src="capturas/c-reservar-4.jpg" alt=""><figcaption><b>Figura 4.4</b> · Paso 4: forma de pago y comentarios</figcaption></figure>
+
+  <h3>Confirmar</h3>
+  <p>Abajo verás un resumen con el servicio, el día, la hora y el precio. Revísalo y pulsa:</p>
+  <ul>
+    <li><span class="btn-ref dark">Confirmar reserva</span> si pagas en el local. La cita queda reservada al momento.</li>
+    <li><span class="btn-ref dark">Continuar al pago</span> si pagas con PayPal. Pasas a la pantalla de pago.</li>
+  </ul>
+  <figure><img src="capturas/c-reservar-resumen.jpg" alt=""><figcaption><b>Figura 4.5</b> · Resumen antes de confirmar</figcaption></figure>
+  <p>Al terminar, recibirás un <strong>email de confirmación</strong> y la cita aparecerá en <span class="ui">Mis citas</span>.</p>
+
+  <h3>Pagar con PayPal</h3>
+  <ol class="steps">
+    <li>En la pantalla <strong>Pago de la cita</strong> verás el total.</li>
+    <li>Pulsa <span class="btn-ref" style="background:#ffc439;border-color:#ffc439">Pagar con PayPal</span> para pagar con tu cuenta, o el botón negro con el icono de tarjeta para pagar con tarjeta sin cuenta de PayPal.</li>
+    <li>Se abre la ventana de PayPal. Inicia sesión (o escribe los datos de tu tarjeta) y confirma el pago.</li>
+    <li>Al volver, la app confirma la cita, la marca como <strong>pagada</strong> y genera tu <strong>ticket de compra</strong>. Te lleva a Mis citas con el mensaje «Pago completado».</li>
+  </ol>
+  <figure class="xs"><img src="capturas/c-pago-paypal.jpg" alt=""><figcaption><b>Figura 4.6</b> · Pantalla de pago con PayPal</figcaption></figure>
+  <div class="warn"><p><strong>Tienes unos minutos para pagar.</strong> Mientras pagas, la hora queda guardada para ti (15 minutos, salvo que la peluquería lo cambie). Si no terminas el pago a tiempo, la hora se libera y tendrás que reservar de nuevo. Si te arrepientes, pulsa <span class="btn-ref">Cancelar y volver</span>.</p></div>
+  <div class="note"><p>En el caso muy raro de que otra persona coja la misma hora justo mientras pagas, la app te devuelve el importe completo automáticamente y te lo indica.</p></div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="chapter" id="periodicas">
+  <h2><span class="n">05</span>Citas periódicas</h2>
+  <p class="intro">Si vienes con regularidad, puedes reservar todas tus citas de una vez, por ejemplo cada 15 días durante todo el año, y olvidarte de pedir cita cada vez.</p>
+  <ol class="steps">
+    <li>Haz los pasos 1 y 2 de la reserva normal: elige el servicio y el día y la hora de la <strong>primera</strong> cita.</li>
+    <li>En el paso 3 pulsa <span class="ui">Citas periódicas</span>.</li>
+    <li><strong>Repetir cada:</strong> elige cada cuánto quieres venir: <em>1 semana, 2 semanas, 15 días, 3 semanas, 4 semanas, 30 días</em> u <span class="ui">Otro…</span> para escribir cualquier número de días.</li>
+    <li><strong>Hasta:</strong> elige <span class="ui">Fecha</span> (por defecto, un año después) o <span class="ui">Número de citas</span> (por ejemplo, 10 citas).</li>
+    <li>Revisa la lista de fechas que aparece debajo (ver más abajo).</li>
+    <li>Elige la forma de pago y pulsa <span class="btn-ref dark">Reservar N citas</span> (o <span class="btn-ref dark">Continuar al pago</span> si pagas todas juntas con PayPal).</li>
+  </ol>
+  <figure class="tall"><img src="capturas/c-periodicas.jpg" alt=""><figcaption><b>Figura 5.1</b> · Citas periódicas cada 15 días durante un año</figcaption></figure>
+
+  <h3>Revisar las fechas</h3>
+  <p>Antes de confirmar, la app comprueba una a una todas las fechas:</p>
+  <ul>
+    <li>Si una fecha cae en un día que la peluquería cierra (un domingo, un festivo…) o la hora ya está ocupada, la app <strong>propone automáticamente el hueco libre más cercano</strong> y lo indica en color (por ejemplo, «La peluquería está cerrada: pedida Mar, 8 dic»).</li>
+    <li>Puedes <strong>quitar</strong> una fecha desmarcando su casilla, o <strong>cambiarla</strong> con el botón <span class="btn-ref">Cambiar</span>.</li>
+    <li>Arriba de la lista verás cuántas citas son y el total a pagar.</li>
+  </ul>
+  <div class="note"><p><strong>Se reservan todas o ninguna.</strong> Si en el momento de confirmar alguna fecha deja de estar libre, la app no reserva ninguna y te avisa para que la cambies. Así nunca te quedas con una serie a medias.</p></div>
+  <div class="tip"><p><strong>Pagar una serie.</strong> Con PayPal pagas todas las citas en un único pago y recibes un único ticket con todas ellas. Si eliges pagar en el local, pagas cada cita el día que vengas. Más adelante puedes anular citas sueltas de la serie o todas a la vez.</p></div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="chapter" id="miscitas">
+  <h2><span class="n">06</span>Mis citas</h2>
+  <p class="intro">Aquí tienes todas tus citas: las próximas, con sus opciones, y el historial de las pasadas.</p>
+  <p>Pulsa <span class="ui">Mis citas</span> en la parte superior.</p>
+  <figure><img src="capturas/c-mis-citas.jpg" alt=""><figcaption><b>Figura 6.1</b> · Mis citas: una serie periódica, una cita pagada con PayPal y citas a pagar en el local</figcaption></figure>
+
+  <h3>Próximas citas</h3>
+  <p>Cada cita muestra el día y la hora, el servicio, el precio, la forma de pago y su estado (<strong>Confirmada</strong> o <strong>Pendiente de pago</strong>). Las citas que forman parte de una serie llevan el distintivo «cada 15 días» y, al principio de la lista, una tarjeta que resume la serie.</p>
+  <p>Según cómo esté pagada la cita, verás unos botones u otros:</p>
+  <table>
+    <thead><tr><th>La cita está…</th><th>Botones</th><th>Qué puedes hacer</th></tr></thead>
+    <tbody>
+      <tr><td>Sin pagar (se paga en el local)</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref red">Cancelar</span></td><td>Cambiarla de hora o anularla.</td></tr>
+      <tr><td>Pagada con PayPal</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref blue">Reembolsar</span></td><td>Cambiarla de hora, o anularla y recuperar el dinero.</td></tr>
+      <tr><td>Cobrada en la peluquería</td><td><span class="btn-ref">Cambiar hora</span></td><td>Cambiarla de hora. Para anularla, habla con la peluquería.</td></tr>
+      <tr><td>Falta menos de 1 hora</td><td>—</td><td>Ya no se puede cambiar, anular ni reembolsar desde la app: llama a la peluquería.</td></tr>
+    </tbody>
+  </table>
+  <div class="warn"><p><strong>Plazo de 1 hora.</strong> Puedes cambiar o anular tus citas hasta <strong>1 hora antes</strong> de su comienzo. Con menos tiempo, la app muestra el teléfono de la peluquería para que llames. La peluquería sí puede hacer cambios en cualquier momento.</p></div>
+
+  <h3>Cambiar la hora</h3>
+  <ol class="steps">
+    <li>Pulsa <span class="btn-ref">Cambiar hora</span> en la cita.</li>
+    <li>Arriba verás la cita actual. Elige el nuevo día y la nueva hora, igual que al reservar.</li>
+    <li>Pulsa el botón inferior, que indica la nueva fecha (por ejemplo, <span class="btn-ref dark">Cambiar al lunes, 23…</span>).</li>
+  </ol>
+  <p>El pago se mantiene: si la cita estaba pagada, sigue pagada. Recibirás un email con la nueva hora.</p>
+  <figure class="sm"><img src="capturas/c-modal-cambiar.jpg" alt=""><figcaption><b>Figura 6.2</b> · Cambiar la hora de una cita</figcaption></figure>
+
+  <h3>Cancelar una cita sin pagar</h3>
+  <ol class="steps">
+    <li>Pulsa <span class="btn-ref red">Cancelar</span> en la cita.</li>
+    <li>Confirma con <span class="btn-ref red">Sí, cancelar cita</span>.</li>
+  </ol>
+  <figure class="sm"><img src="capturas/c-modal-cancelar.jpg" alt=""><figcaption><b>Figura 6.3</b> · Confirmación para cancelar</figcaption></figure>
+
+  <h3>Reembolsar una cita pagada con PayPal</h3>
+  <p>En las citas pagadas online, el botón <span class="btn-ref red">Cancelar</span> se sustituye por <span class="btn-ref blue">Reembolsar</span>: al usarlo, la cita se anula y te devolvemos el dinero.</p>
+  <ol class="steps">
+    <li>Pulsa <span class="btn-ref blue">Reembolsar</span>.</li>
+    <li>La ventana te indica qué cita se anula, cuánto se devuelve y a qué cuenta de PayPal.</li>
+    <li>Pulsa <span class="btn-ref blue">Sí, reembolsar y anular</span>.</li>
+  </ol>
+  <p>El dinero vuelve a la misma cuenta de PayPal o tarjeta con la que pagaste. Puede tardar unos días en aparecer, según tu banco. Tu ticket se conserva y queda marcado como <strong>reembolsado</strong>.</p>
+  <figure class="sm"><img src="capturas/c-modal-reembolsar.jpg" alt=""><figcaption><b>Figura 6.4</b> · Reembolsar y anular una cita pagada online</figcaption></figure>
+  <div class="note"><p><strong>¿Y si pagué en la peluquería?</strong> Si la cita ya se cobró en el local y tiene ticket, no se puede anular desde la app, porque el dinero se devuelve en mano. Habla con la peluquería: te devolverán el importe y anularán la cita.</p></div>
+
+  <h3>Cancelar una serie de citas periódicas</h3>
+  <ol class="steps">
+    <li>En la tarjeta de la serie (arriba del todo), pulsa <span class="btn-ref red">Cancelar todas</span>.</li>
+    <li>La ventana te dice cuántas citas se van a cancelar. Confirma con <span class="btn-ref red">Sí, cancelar todas</span>.</li>
+  </ol>
+  <p>Se anulan todas las citas próximas de la serie. Las que estuvieran pagadas online se reembolsan una a una. Las que falten menos de 1 hora, o que ya estén cobradas en el local, no se anulan y la app te lo indica.</p>
+  <figure class="sm"><img src="capturas/c-modal-serie.jpg" alt=""><figcaption><b>Figura 6.5</b> · Cancelar todas las citas de una serie</figcaption></figure>
+  <div class="tip"><p>¿Solo quieres saltarte una fecha de la serie? Cancela esa cita suelta con su propio botón y el resto de la serie se mantiene.</p></div>
+
+  <h3>Historial</h3>
+  <p>Debajo de tus próximas citas está el <strong>Historial</strong>, con tus citas pasadas y anuladas: fecha, servicio, estado (<em>Realizada, Cancelada, No se presentó</em>…) y su ticket, si lo tiene.</p>
+  <figure><img src="capturas/c-historial.jpg" alt=""><figcaption><b>Figura 6.6</b> · Historial de citas</figcaption></figure>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="chapter" id="tickets">
+  <h2><span class="n">07</span>Tickets de compra</h2>
+  <p class="intro">Cada pago tiene su ticket de compra, con su número, la fecha, el desglose de IVA y la forma de pago. Puedes verlo en la app y descargarlo en PDF.</p>
+  <h3>Cuándo se genera el ticket</h3>
+  <ul>
+    <li><strong>Pago online:</strong> automáticamente al completar el pago con PayPal.</li>
+    <li><strong>Pago en la peluquería:</strong> cuando la peluquería registra el cobro y genera el ticket.</li>
+  </ul>
+  <p>Los tickets se numeran así: <strong>año-número</strong>, por ejemplo <strong>2026-0051</strong>.</p>
+  <h3>Ver y descargar un ticket</h3>
+  <ol class="steps">
+    <li>En <span class="ui">Mis citas</span> (o en el Historial), pulsa el botón <span class="btn-ref">▤ Ticket 2026-…</span> de la cita.</li>
+    <li>Se abre una ventana con el ticket: datos de la peluquería, número, fecha, tu nombre, forma de pago, concepto e importes.</li>
+    <li>Pulsa <span class="btn-ref dark">Descargar PDF</span> para guardarlo. En el móvil se abre con el visor de PDF, desde donde puedes guardarlo o compartirlo.</li>
+    <li>Pulsa <span class="btn-ref">Cerrar</span> para volver.</li>
+  </ol>
+  <figure class="xs"><img src="capturas/c-modal-ticket.jpg" alt=""><figcaption><b>Figura 7.1</b> · Vista previa del ticket con el botón de descarga</figcaption></figure>
+  <div class="note"><p>Si una cita se reembolsa, su ticket no desaparece: se conserva con la línea <strong>Reembolsado</strong> y el botón indica «· reembolsado». Si después se vuelve a cobrar, la cita tendrá un ticket nuevo.</p></div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section class="chapter" id="perfil">
+  <h2><span class="n">08</span>Mi perfil</h2>
+  <p class="intro">Pulsa tu nombre (junto a tu foto o iniciales) en la parte superior para abrir tu perfil.</p>
+  <figure class="xs tall"><img src="capturas/c-perfil.jpg" alt=""><figcaption><b>Figura 8.1</b> · Mi perfil</figcaption></figure>
+  <h3>Datos y foto</h3>
+  <ul>
+    <li><strong>Tipo de cuenta:</strong> verás <em>Cliente</em>.</li>
+    <li><strong>Foto:</strong> pulsa <span class="btn-ref">Añadir foto de perfil</span> (o <span class="btn-ref">Cambiar foto</span>) para ponerla o cambiarla, y <span class="btn-ref">Quitar</span> para borrarla.</li>
+    <li><strong>Nombre y teléfono:</strong> corrígelos si han cambiado. El email no se puede cambiar desde aquí; si lo necesitas, pídeselo a la peluquería.</li>
+  </ul>
+  <h3>Contraseña</h3>
+  <p>Escribe una contraseña nueva en <span class="ui">Nueva contraseña (opcional)</span>. Si lo dejas vacío, se mantiene la actual.</p>
+  <h3>Avisos por email</h3>
+  <p>Marca o desmarca <span class="ui">Recibir avisos por email</span>. Los emails de tus propias citas (confirmación, cambios, anulaciones) se envían siempre; esta casilla solo afecta a los avisos generales de la peluquería.</p>
+  <p>Cuando termines, pulsa <span class="btn-ref dark">Guardar</span>.</p>
+  <h3>Tema claro u oscuro</h3>
+  <p>En <strong>Apariencia</strong> elige <em>Claro</em> (fondo blanco), <em>Oscuro</em> (fondo negro) o <em>Automático</em> (igual que tu móvil u ordenador). Se aplica al momento y se recuerda en ese dispositivo. También puedes cambiarlo en cualquier pantalla con el botón <strong>☾ / ☀</strong> de la parte superior.</p>
+  <figure class="sm"><img src="capturas/c-oscuro.jpg" alt=""><figcaption><b>Figura 8.2</b> · Mis citas con el tema oscuro</figcaption></figure>
+</section>
+
+<!-- ============================================================ 9 -->
+<section class="chapter" id="movil">
+  <h2><span class="n">09</span>En el móvil</h2>
+  <p class="intro">En el móvil la app funciona igual, adaptada a la pantalla pequeña.</p>
+  <ul>
+    <li>Pulsa el icono <strong>☰</strong> (arriba a la derecha) para abrir el menú con <span class="ui">Inicio</span>, <span class="ui">Mis citas</span>, <span class="ui">Reservar cita</span>, tu perfil y <span class="ui">Salir</span>.</li>
+    <li>El botón <strong>☾ / ☀</strong> está siempre visible junto al menú.</li>
+    <li>Al añadir la foto de perfil puedes usar la cámara directamente.</li>
+    <li>Los tickets en PDF se abren con el visor del móvil para guardarlos o compartirlos.</li>
+  </ul>
+  <div class="trio">
+    <figure><img src="capturas/c-movil-inicio.jpg" alt=""><figcaption><b>Figura 9.1</b> · Inicio</figcaption></figure>
+    <figure><img src="capturas/c-movil-menu.jpg" alt=""><figcaption><b>Figura 9.2</b> · Menú abierto</figcaption></figure>
+    <figure><img src="capturas/c-movil-citas.jpg" alt=""><figcaption><b>Figura 9.3</b> · Mis citas</figcaption></figure>
+  </div>
+</section>
+
+<!-- ============================================================ 10 -->
+<section class="chapter" id="faq">
+  <h2><span class="n">10</span>Preguntas frecuentes</h2>
+  <dl class="faq">
+    <dt>¿Con cuánta antelación puedo reservar?</dt>
+    <dd>Hasta un año vista. Para el mismo día, verás las horas que aún estén libres.</dd>
+    <dt>¿Hasta cuándo puedo cambiar o anular una cita?</dt>
+    <dd>Hasta 1 hora antes de que empiece. Después, llama a la peluquería.</dd>
+    <dt>He pagado con PayPal y no puedo ir, ¿recupero el dinero?</dt>
+    <dd>Sí. Pulsa <span class="btn-ref blue">Reembolsar</span> en la cita con al menos 1 hora de antelación: la cita se anula y el dinero vuelve a tu PayPal o tarjeta automáticamente.</dd>
+    <dt>Pagué en la peluquería y quiero anular la cita.</dt>
+    <dd>Habla con la peluquería: te devolverán el importe en mano y anularán la cita.</dd>
+    <dt>No me aparecen horas libres.</dt>
+    <dd>Puede que ese día la peluquería cierre o que esté completo. Prueba con el día siguiente con la flecha <strong>›</strong>.</dd>
+    <dt>¿Me avisan de mis citas?</dt>
+    <dd>Recibes un email al reservar, al cambiar la hora y al anular. La peluquería también puede escribirte por WhatsApp al teléfono de tu cuenta.</dd>
+    <dt>¿Dónde está mi ticket?</dt>
+    <dd>En Mis citas, en la propia cita o en el Historial, con el botón <span class="btn-ref">▤ Ticket</span>. Si pagaste en el local y no lo ves, pídeselo a la peluquería.</dd>
+    <dt>¿Puedo reservar para otra persona?</dt>
+    <dd>Cada persona debe tener su propia cuenta. Si es un niño, puedes reservar el <em>Corte infantil</em> y escribirlo en <span class="ui">Comentarios</span>.</dd>
+    <dt>¿La app guarda mis datos de pago?</dt>
+    <dd>No. El pago se hace en PayPal; la app solo guarda que la cita está pagada y la referencia del pago, para poder devolvértelo si la anulas.</dd>
+  </dl>
+  <p class="colophon">Peluquería Armando · Calle Mayor 12, 24001 León · 987 000 000 · hola@peluqueriaarmando.es<br>
+  Los datos de contacto, nombres y fechas de las capturas son de ejemplo. Fotografías de la app: Thom Holmes, Hair Spies, Redd Francisco y Adam Sherez (Unsplash).</p>
+</section>
+
+</body>
+</html>

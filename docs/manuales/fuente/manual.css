@@ -1,0 +1,100 @@
+/* Manuales de Peluquería Armando — estilos de impresión (A4) */
+@font-face { font-family: 'Oswald'; font-weight: 500; src: url(fuentes/oswald-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Oswald'; font-weight: 600; src: url(fuentes/oswald-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 400; src: url(fuentes/inter-latin-400-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 400; font-style: italic; src: url(fuentes/inter-latin-400-italic.woff2) format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 500; src: url(fuentes/inter-latin-500-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 600; src: url(fuentes/inter-latin-600-normal.woff2) format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 700; src: url(fuentes/inter-latin-700-normal.woff2) format('woff2'); }
+
+@page { size: A4; margin: 18mm 17mm 20mm; }
+@page :first { margin: 0; }
+:root { --ink: #141414; --muted: #5f5f5f; --line: #e2dfda; --gold: #a9813f; --gold-soft: #f6f0e6; --blue: #1f5fa8; --blue-soft: #edf3fb; --red: #b3261e; --red-soft: #fbeceb; --green: #1e5b2e; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: 'Inter', sans-serif; font-size: 10.2pt; line-height: 1.55; color: var(--ink); }
+h1, h2, h3, h4 { font-family: 'Oswald', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; line-height: 1.15; break-after: avoid; }
+h2 { font-size: 21pt; margin: 0 0 4mm; padding-bottom: 2.5mm; border-bottom: 2px solid var(--gold); }
+h2 .n { color: var(--gold); margin-right: 3mm; }
+h3 { font-size: 13pt; margin: 7mm 0 2mm; }
+h4 { font-size: 10.5pt; margin: 5mm 0 1.5mm; letter-spacing: .04em; color: #333; }
+p { margin: 0 0 2.6mm; }
+a { color: inherit; }
+strong { font-weight: 600; }
+.ui { font-weight: 600; white-space: nowrap; }
+.btn-ref { display: inline-block; font-size: 7.6pt; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: .2mm 2mm; border: 1px solid #cfcac3; border-radius: 1.2mm; background: #fff; white-space: nowrap; vertical-align: 1px; }
+.btn-ref.dark { background: #141414; color: #fff; border-color: #141414; }
+.btn-ref.blue { background: var(--blue); color: #fff; border-color: var(--blue); }
+.btn-ref.red { color: var(--red); border-color: #e3a19c; }
+.btn-ref.green { color: #1f8f4e; border-color: #9fd3b4; }
+
+/* Portada */
+.cover { height: 297mm; position: relative; color: #f2f0ed; background: #0a0a0a url(portada.jpg) center / cover; break-after: page; }
+.cover::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,.55) 0%, rgba(10,10,10,.82) 60%, #0a0a0a 100%); }
+.cover-inner { position: absolute; inset: 0; padding: 26mm 22mm; display: flex; flex-direction: column; }
+.cover .brand { display: flex; align-items: center; gap: 4mm; font-family: 'Oswald'; font-size: 13pt; letter-spacing: .12em; text-transform: uppercase; }
+.cover .brand svg { width: 13mm; height: 13mm; }
+.cover .brand small { display: block; color: #c9a46a; font-family: 'Inter'; font-size: 7.5pt; letter-spacing: .32em; }
+.cover .title { margin-top: auto; }
+.cover .eyebrow { color: #c9a46a; font-size: 9pt; letter-spacing: .3em; text-transform: uppercase; font-weight: 600; }
+.cover h1 { font-size: 46pt; margin: 3mm 0 5mm; color: #fff; }
+.cover .lead { font-size: 12.5pt; color: #d9d4ce; max-width: 140mm; }
+.cover .meta { margin-top: 14mm; padding-top: 5mm; border-top: 1px solid rgba(201,164,106,.5); display: flex; gap: 14mm; font-size: 8.6pt; color: #bdb7b1; }
+.cover .meta strong { display: block; color: #fff; font-weight: 600; }
+
+/* Índice */
+.toc { break-after: page; }
+.toc ol { list-style: none; padding: 0; margin: 0; counter-reset: c; }
+.toc > ol > li { counter-increment: c; padding: 2.4mm 0; border-bottom: 1px solid var(--line); }
+.toc > ol > li > a { font-family: 'Oswald'; font-weight: 500; font-size: 12pt; text-transform: uppercase; letter-spacing: .03em; text-decoration: none; }
+.toc > ol > li > a::before { content: counter(c, decimal-leading-zero); color: var(--gold); margin-right: 4mm; }
+.toc li ol { margin: 1mm 0 0 11mm; display: flex; flex-wrap: wrap; gap: .5mm 5mm; }
+.toc li li { font-size: 8.8pt; color: var(--muted); }
+.toc li li a { text-decoration: none; }
+
+/* Capítulos */
+.chapter { break-before: page; }
+.intro { font-size: 11pt; color: #333; margin-bottom: 4mm; }
+
+/* Pasos numerados */
+ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 2mm 0 4mm; }
+ol.steps > li { counter-increment: s; position: relative; padding: 0 0 2.6mm 10mm; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: .2mm; width: 6.4mm; height: 6.4mm; border-radius: 50%; border: 1.3px solid var(--gold); color: var(--gold);
+  font-family: 'Oswald'; font-weight: 600; font-size: 9pt; display: grid; place-items: center; line-height: 1; }
+ul { padding-left: 5mm; margin: 0 0 3mm; }
+ul li { margin-bottom: 1.2mm; }
+
+/* Figuras */
+figure { margin: 3mm 0 5mm; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 120mm; margin: 0 auto; border: 1px solid var(--line); border-radius: 2mm; box-shadow: 0 1mm 4mm rgba(0,0,0,.08); }
+figure.sm img { max-width: 105mm; }
+figure.xs img { max-width: 82mm; }
+figure.tall img { max-height: 175mm; }
+figcaption { font-size: 8.3pt; color: var(--muted); text-align: center; margin-top: 2mm; }
+figcaption b { color: var(--gold); font-weight: 600; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; align-items: start; break-inside: avoid; }
+.pair figure { margin: 0; }
+.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; break-inside: avoid; margin: 3mm 0 5mm; }
+.trio figure { margin: 0; }
+.trio img { max-height: 115mm; }
+
+/* Avisos */
+.note, .tip, .warn { break-inside: avoid; border-radius: 2mm; padding: 3mm 4mm 3mm 11mm; margin: 3mm 0 4mm; position: relative; font-size: 9.4pt; }
+.note::before, .tip::before, .warn::before { position: absolute; left: 3.6mm; top: 2.8mm; font-family: 'Oswald'; font-weight: 600; font-size: 11pt; }
+.note { background: var(--blue-soft); border-left: 1.2mm solid var(--blue); }
+.note::before { content: 'i'; color: var(--blue); }
+.tip { background: var(--gold-soft); border-left: 1.2mm solid var(--gold); }
+.tip::before { content: '★'; color: var(--gold); font-size: 9pt; top: 3.2mm; }
+.warn { background: var(--red-soft); border-left: 1.2mm solid var(--red); }
+.warn::before { content: '!'; color: var(--red); }
+.note p:last-child, .tip p:last-child, .warn p:last-child { margin: 0; }
+
+/* Tablas */
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 5mm; font-size: 9pt; break-inside: avoid; }
+th { text-align: left; font-size: 7.6pt; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: #f5f4f2; padding: 2mm 2.5mm; border-bottom: 1px solid var(--line); }
+td { padding: 2mm 2.5mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+td:first-child { font-weight: 600; white-space: nowrap; }
+.dot { display: inline-block; width: 2.4mm; height: 2.4mm; border-radius: 50%; vertical-align: 0; margin-right: 1mm; }
+.faq dt { font-weight: 600; margin-top: 3mm; break-after: avoid; }
+.faq dd { margin: 1mm 0 0 0; color: #333; }
+.colophon { font-size: 8pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 3mm; margin-top: 8mm; }
