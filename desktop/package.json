@@ -1,0 +1,26 @@
+{
+  "name": "peluqueria-armando-desktop",
+  "productName": "Peluquería Armando",
+  "version": "1.0.0",
+  "description": "Peluquería Armando para escritorio",
+  "main": "main.js",
+  "scripts": {
+    "copy-web": "node -e \"const fs=require('fs');fs.rmSync('app',{recursive:true,force:true});fs.cpSync('../client/dist','app',{recursive:true})\"",
+    "start": "npm run copy-web && electron .",
+    "dist": "npm run copy-web && electron-builder --mac --win",
+    "dist:mac": "npm run copy-web && electron-builder --mac",
+    "dist:win": "npm run copy-web && electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "es.peluqueriaarmando.desktop",
+    "productName": "Peluquería Armando",
+    "directories": { "output": "release" },
+    "files": ["main.js", "app/**/*"],
+    "mac": { "target": ["dmg"], "category": "public.app-category.business" },
+    "win": { "target": ["nsis"] }
+  }
+}

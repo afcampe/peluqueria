@@ -1,0 +1,117 @@
+// SQLite para desarrollo. Para producción cambia provider a "postgresql"
+// y DATABASE_URL a tu servidor Postgres; el resto del esquema es compatible.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         String        @default("CLIENT") // CLIENT | ADMIN
+  status       String        @default("ACTIVE") // ACTIVE | BLOCKED | DELETED
+  blockedUntil DateTime? // null + BLOCKED = bloqueo indefinido
+  blockReason  String?
+  acceptsEmail Boolean       @default(true)
+  // Foto de perfil (JPEG/PNG/WebP reducida en el cliente, máx. 300 KB)
+  avatar          Bytes?
+  avatarMime      String?
+  avatarUpdatedAt DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  appointments Appointment[]
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  name         String
+  priceCents   Int
+  active       Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  appointments Appointment[]
+}
+
+model Appointment {
+  id            String    @id @default(cuid())
+  clientId      String
+  client        User      @relation(fields: [clientId], references: [id])
+  serviceId     String
+  service       Service   @relation(fields: [serviceId], references: [id])
+  startAt       DateTime
+  endAt         DateTime
+  // PENDING_PAYMENT | CONFIRMED | CANCELLED | COMPLETED | NO_SHOW
+  status        String    @default("CONFIRMED")
+  paymentMethod String // id del proveedor: "cash", "paypal", ...
+  priceCents    Int
+  notes         String?
+  holdExpiresAt DateTime? // reserva temporal mientras se paga online
+  cancelledAt   DateTime?
+  cancelledBy   String? // CLIENT | ADMIN | SYSTEM
+  cancelReason  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  payments      Payment[]
+
+  @@index([startAt])
+  @@index([clientId])
+}
+
+model Payment {
+  id                String      @id @default(cuid())
+  appointmentId     String
+  appointment       Appointment @relation(fields: [appointmentId], references: [id])
+  provider          String
+  providerOrderId   String?
+  providerCaptureId String?
+  amountCents       Int
+  currency          String      @default("EUR")
+  // CREATED | COMPLETED | PARTIALLY_REFUNDED | REFUNDED | FAILED
+  status            String      @default("CREATED")
+  refundedCents     Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  refunds           Refund[]
+}
+
+model Refund {
+  id               String   @id @default(cuid())
+  paymentId        String
+  payment          Payment  @relation(fields: [paymentId], references: [id])
+  amountCents      Int
+  providerRefundId String?
+  reason           String?
+  requestedBy      String // CLIENT | ADMIN | SYSTEM
+  createdAt        DateTime @default(now())
+}
+
+// Cierres temporales (vacaciones, festivos, bajas...). Bloquean huecos.
+model Closure {
+  id        String   @id @default(cuid())
+  startAt   DateTime
+  endAt     DateTime
+  reason    String?
+  createdAt DateTime @default(now())
+}
+
+// Configuración de negocio en formato clave -> JSON
+model Setting {
+  key   String @id
+  value String
+}
+
+model MessageLog {
+  id         String   @id @default(cuid())
+  channel    String // EMAIL | WHATSAPP
+  subject    String?
+  body       String
+  recipients Int
+  sentBy     String?
+  createdAt  DateTime @default(now())
+}

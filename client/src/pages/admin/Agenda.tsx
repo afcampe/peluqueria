@@ -1,0 +1,225 @@
+import { useCallback, useEffect, useState } from 'react';
+import { SlotPicker } from '../../components/SlotPicker';
+import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
+import { api } from '../../lib/api';
+import { dateLong, dateShort, isoToLocalDate, localISODate, methodLabel, money, statusLabel, time } from '../../lib/format';
+import { useSession } from '../../lib/session';
+import type { Appointment, Payment, User } from '../../lib/types';
+
+const waUrl = (phone: string | null, text: string) => {
+  if (!phone) return null;
+  let d = phone.replace(/\D/g, '');
+  if (d.length === 9) d = `34${d}`;
+  return `https://wa.me/${d}?text=${encodeURIComponent(text)}`;
+};
+
+export function Agenda() {
+  const [from, setFrom] = useState(localISODate());
+  const [to, setTo] = useState(localISODate());
+  const [status, setStatus] = useState('');
+  const [list, setList] = useState<Appointment[] | null>(null);
+  const [error, setError] = useState('');
+  const [flash, setFlash] = useState('');
+  const [modal, setModal] = useState<{ kind: 'new' | 'move' | 'cancel' | 'refund'; appt?: Appointment; payment?: Payment } | null>(null);
+
+  const load = useCallback(() => {
+    setList(null);
+    const q = new URLSearchParams({ from, to, ...(status && { status }) });
+    api.get<Appointment[]>(`/admin/appointments?${q}`).then(setList).catch((e) => setError(e.message));
+  }, [from, to, status]);
+  useEffect(() => { load(); }, [load]);
+
+  const done = (msg: string) => { setModal(null); setFlash(msg); load(); };
+  const setStat = async (a: Appointment, s: string) => {
+    try { await api.patch(`/admin/appointments/${a.id}`, { status: s }); done(`Marcada como "${statusLabel[s]}"`); } catch (e) { setError(errMsg(e)); }
+  };
+  const quick = (days: number) => { const d = localISODate(new Date(), days); setFrom(d); setTo(d); };
+
+  // Agrupar por día
+  const byDay = new Map<string, Appointment[]>();
+  list?.forEach((a) => { const k = isoToLocalDate(a.startAt); byDay.set(k, [...(byDay.get(k) ?? []), a]); });
+
+  return (
+    <div>
+      <div className="page-head">
+        <h1>Agenda</h1>
+        <button className="btn btn-primary" onClick={() => setModal({ kind: 'new' })}>Nueva cita</button>
+      </div>
+      <div className="filters">
+        <button className="btn btn-sm" onClick={() => quick(0)}>Hoy</button>
+        <button className="btn btn-sm" onClick={() => quick(1)}>Mañana</button>
+        <button className="btn btn-sm" onClick={() => { setFrom(localISODate()); setTo(localISODate(new Date(), 7)); }}>7 días</button>
+        <label>Desde<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+        <label>Hasta<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        <label>Estado
+          <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">Todos</option>
+            {Object.entries(statusLabel).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+      </div>
+      <Alert kind="ok">{flash}</Alert>
+      <Alert>{error}</Alert>
+      {!list && <Spinner />}
+      {list?.length === 0 && <p className="empty">No hay citas en este periodo.</p>}
+
+      {[...byDay.entries()].map(([day, appts]) => (
+        <section key={day}>
+          <h2 className="day-title">{dateLong(`${day}T12:00:00Z`)} <small className="muted">({appts.filter((a) => a.status === 'CONFIRMED').length} confirmadas)</small></h2>
+          <div className="agenda">
+            {appts.map((a) => {
+              const paid = a.payments.find((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
+              const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status);
+              const wa = waUrl(a.client.phone, `Hola ${a.client.name}, te escribimos de la peluquería por tu cita del ${dateShort(a.startAt)} a las ${time(a.startAt)}.`);
+              return (
+                <article key={a.id} className={`card agenda-item ${a.status === 'CANCELLED' ? 'dim' : ''}`}>
+                  <div className="agenda-time">{time(a.startAt)}<small>{time(a.endAt)}</small></div>
+                  <div className="agenda-main">
+                    <strong>{a.client.name}</strong> <span className="muted small">{a.client.phone} · {a.client.email}</span>
+                    <div>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)}
+                      {paid && <> · pagado {money(paid.amountCents)}{paid.refundedCents > 0 && `, reembolsado ${money(paid.refundedCents)}`}</>}
+                    </div>
+                    {a.notes && <div className="muted small">📝 {a.notes}</div>}
+                    {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
+                    <Badge status={a.status}>{statusLabel[a.status]}</Badge>
+                  </div>
+                  <div className="actions">
+                    {active && <button className="btn btn-sm" onClick={() => setModal({ kind: 'move', appt: a })}>Cambiar hora</button>}
+                    {a.status === 'CONFIRMED' && new Date(a.startAt) < new Date() && (
+                      <>
+                        <button className="btn btn-sm" onClick={() => setStat(a, 'COMPLETED')}>Realizada</button>
+                        <button className="btn btn-sm" onClick={() => setStat(a, 'NO_SHOW')}>No vino</button>
+                      </>
+                    )}
+                    {paid && paid.refundedCents < paid.amountCents && (
+                      <button className="btn btn-sm" onClick={() => setModal({ kind: 'refund', appt: a, payment: paid })}>Reembolsar</button>
+                    )}
+                    {active && <button className="btn btn-sm btn-danger" onClick={() => setModal({ kind: 'cancel', appt: a })}>Cancelar</button>}
+                    {wa && <a className="btn btn-sm btn-wa" href={wa} target="_blank" rel="noreferrer">WhatsApp</a>}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+
+      {modal?.kind === 'new' && <NewAppointmentModal onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'move' && <MoveModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'cancel' && <CancelModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'refund' && <RefundModal payment={modal.payment!} onClose={() => setModal(null)} onDone={done} />}
+    </div>
+  );
+}
+
+function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone: (m: string) => void }) {
+  const { config } = useSession();
+  const [q, setQ] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [client, setClient] = useState<User | null>(null);
+  const [serviceId, setServiceId] = useState(config?.services[0]?.id ?? '');
+  const [start, setStart] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => api.get<User[]>(`/admin/users?status=ACTIVE&q=${encodeURIComponent(q)}`).then(setUsers).catch(() => {}), 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  const save = async () => {
+    try {
+      await api.post('/admin/appointments', { clientId: client!.id, serviceId, startAt: start, paymentMethod: 'cash', notes: notes || undefined });
+      onDone(`Cita creada para ${client!.name}`);
+    } catch (e) { setError(errMsg(e)); }
+  };
+
+  return (
+    <Modal title="Nueva cita" onClose={onClose}>
+      <Alert>{error}</Alert>
+      {!client ? (
+        <>
+          <label>Buscar cliente<input autoFocus placeholder="Nombre, email o teléfono" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+          <ul className="pick-list">
+            {users.map((u) => <li key={u.id}><button className="link" onClick={() => setClient(u)}>{u.name} <small className="muted">{u.phone} · {u.email}</small></button></li>)}
+          </ul>
+          <p className="muted small">¿No existe? Créalo antes en Usuarios.</p>
+        </>
+      ) : (
+        <>
+          <p>Cliente: <strong>{client.name}</strong> <button className="link" onClick={() => setClient(null)}>cambiar</button></p>
+          <label>Servicio
+            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
+              {config?.services.map((s) => <option key={s.id} value={s.id}>{s.name} — {money(s.priceCents)}</option>)}
+            </select>
+          </label>
+          <SlotPicker value={start} onPick={setStart} />
+          <label>Notas<input value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+          <p className="muted small">Las citas creadas desde el panel se pagan en el local.</p>
+          <button className="btn btn-primary" disabled={!start} onClick={save}>Crear cita</button>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function MoveModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
+  const [start, setStart] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  return (
+    <Modal title={`Cambiar cita de ${appt.client.name}`} onClose={onClose}>
+      <Alert>{error}</Alert>
+      <SlotPicker value={start} onPick={setStart} excludeId={appt.id} initialDate={isoToLocalDate(appt.startAt)} />
+      <button className="btn btn-primary" disabled={!start} onClick={async () => {
+        try { await api.patch(`/admin/appointments/${appt.id}`, { startAt: start }); onDone('Cita movida. Se ha avisado al cliente por email.'); } catch (e) { setError(errMsg(e)); }
+      }}>Guardar</button>
+    </Modal>
+  );
+}
+
+function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
+  const paid = appt.payments.find((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
+  const [reason, setReason] = useState('');
+  const [refund, setRefund] = useState(true);
+  const [notify, setNotify] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  return (
+    <Modal title="Cancelar cita" onClose={onClose}>
+      <p>{appt.client.name} — {dateShort(appt.startAt)} {time(appt.startAt)}</p>
+      <Alert>{error}</Alert>
+      <label>Motivo (se incluye en el email)<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+      {paid && <label className="check"><input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} /> Reembolsar {money(paid.amountCents - paid.refundedCents)} por {methodLabel(paid.provider)}</label>}
+      <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar al cliente por email</label>
+      <button className="btn btn-danger" disabled={busy} onClick={async () => {
+        setBusy(true);
+        try {
+          const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/cancel`, { reason: reason || undefined, refund, notify });
+          onDone(`Cita cancelada${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.`);
+        } catch (e) { setError(errMsg(e)); setBusy(false); }
+      }}>Cancelar cita</button>
+    </Modal>
+  );
+}
+
+function RefundModal({ payment, onClose, onDone }: { payment: Payment; onClose: () => void; onDone: (m: string) => void }) {
+  const max = payment.amountCents - payment.refundedCents;
+  const [amount, setAmount] = useState((max / 100).toFixed(2));
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  return (
+    <Modal title="Reembolso" onClose={onClose}>
+      <p>Pagado: {money(payment.amountCents)} · Ya reembolsado: {money(payment.refundedCents)}</p>
+      <Alert>{error}</Alert>
+      <label>Importe a devolver (máx. {money(max)})<input type="number" step="0.01" min="0.01" max={max / 100} value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+      <label>Nota para el cliente<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+      <p className="muted small">El reembolso no cancela la cita.</p>
+      <button className="btn btn-primary" onClick={async () => {
+        try {
+          await api.post(`/admin/payments/${payment.id}/refund`, { amountCents: Math.round(Number(amount) * 100), reason: reason || undefined });
+          onDone(`Reembolsados ${money(Math.round(Number(amount) * 100))}`);
+        } catch (e) { setError(errMsg(e)); }
+      }}>Reembolsar</button>
+    </Modal>
+  );
+}
