@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
+import { useSession } from '../../lib/session';
 import { contactLine, dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
 import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
 import { TicketButtons } from '../../components/TicketButton';
@@ -15,6 +16,7 @@ const statusText = { ACTIVE: 'Activo', BLOCKED: 'Bloqueado', DELETED: 'De baja' 
 
 export function UserDetail() {
   const { id } = useParams();
+  const { config } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [params] = useSearchParams();
@@ -66,6 +68,11 @@ export function UserDetail() {
             {!user.hasAccount && <span className="badge badge-noaccount">Sin cuenta · agenda en papel</span>}
             {user.status === 'BLOCKED' && user.blockReason && <span className="muted small"> {user.blockReason}</span>}
           </p>
+          {user.role === 'CLIENT' && (
+            <p className="muted small">
+              Recordatorios de citas: {[config?.reminders.email && user.remindEmail && 'por email', config?.reminders.whatsapp && user.remindWhatsapp && 'por WhatsApp'].filter(Boolean).join(' y ') || 'ninguno'}
+            </p>
+          )}
         </div>
  {!user.hasAccount && user.role === 'CLIENT' && <button className="btn" onClick={() => setMerging(true)}>Unir con un cliente registrado</button>}
         {user.whatsappLink && <a className="btn btn-wa" href={user.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}

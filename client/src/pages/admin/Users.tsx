@@ -1,3 +1,4 @@
+import { ReminderPrefs, reminderPayload } from '../../components/ReminderPrefs';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarInput } from '../../components/Avatar';
@@ -103,8 +104,8 @@ export function Users() {
 
 function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void; onDone: (m: string) => void }) {
   const reactivate = user?.status === 'DELETED';
-  const { user: me } = useSession();
-  const [f, setF] = useState({ name: user?.name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', role: user?.role ?? 'CLIENT', password: '', acceptsEmail: user?.acceptsEmail ?? true });
+  const { user: me, config } = useSession();
+  const [f, setF] = useState({ name: user?.name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', role: user?.role ?? 'CLIENT', password: '', acceptsEmail: user?.acceptsEmail ?? true, remindEmail: user?.remindEmail ?? true, remindWhatsapp: user?.remindWhatsapp ?? true });
   const isMe = user?.id === me?.id;
   const noAccount = !!user && !user.hasAccount;
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);
@@ -113,10 +114,10 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
     e.preventDefault();
     try {
       if (user && !reactivate) {
-        await api.patch(`/admin/users/${user.id}`, { ...f, email: f.email || undefined, password: f.password || undefined, avatar });
+        await api.patch(`/admin/users/${user.id}`, { ...f, ...reminderPayload(f, config?.reminders), email: f.email || undefined, password: f.password || undefined, avatar });
         onDone('Usuario actualizado');
       } else {
-        await api.post('/admin/users', { ...f, avatar: avatar ?? undefined });
+        await api.post('/admin/users', { ...f, ...reminderPayload(f, config?.reminders), avatar: avatar ?? undefined });
         onDone(reactivate ? 'Usuario reactivado' : 'Usuario dado de alta');
       }
     } catch (e) { setError(errMsg(e)); }
@@ -146,7 +147,10 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
           <input type="password" minLength={8} required={!user || reactivate || (noAccount && !!f.email)} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
         </label>
         {f.role === 'CLIENT' && (
-          <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta avisos por email</label>
+          <>
+            <ReminderPrefs admin value={f} onChange={(v) => setF({ ...f, ...v })} hasEmail={!!f.email.trim()} hasPhone={!!f.phone.trim()} />
+            <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta novedades y promociones por email</label>
+          </>
         )}
         <button className="btn btn-primary">Guardar</button>
       </form>

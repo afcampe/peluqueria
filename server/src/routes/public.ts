@@ -7,6 +7,7 @@ import { getSettings } from '../services/settings.js';
 import { ensureTicketFile, verifyTicketSig } from '../services/tickets.js';
 import { forbidden, notFound } from '../lib/errors.js';
 import { h } from './util.js';
+import { reminderChannels } from '../services/reminders.js';
 
 export const publicRouter = Router();
 
@@ -21,6 +22,8 @@ publicRouter.get('/config', h(async (_req, res) => {
     bookingHorizonDays: s.bookingHorizonDays,
     clientCancelMinNoticeMinutes: s.clientCancelMinNoticeMinutes,
     recurring: { enabled: s.recurringEnabled, maxAppointments: s.recurringMaxAppointments },
+    // Canales de recordatorio activados: en el perfil solo se pueden activar estos.
+    reminders: reminderChannels(s),
     weeklySchedule: s.weeklySchedule,
     services,
     paymentMethods: enabledProviders(s).map((p) => ({ id: p.id, label: p.label, online: p.online, config: p.publicConfig() })),

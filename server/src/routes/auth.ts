@@ -6,6 +6,7 @@ import { avatarData, avatarField } from '../lib/avatar.js';
 import { prisma } from '../lib/db.js';
 import { HttpError, conflict } from '../lib/errors.js';
 import { h, publicUser } from './util.js';
+import { assertReminderPrefs, defaultReminderPrefs } from '../services/reminders.js';
 
 export const authRouter = Router();
 
@@ -23,7 +24,7 @@ authRouter.post('/register', h(async (req, res) => {
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw conflict('Ya existe una cuenta con ese email');
   const user = await prisma.user.create({
     data: {
-      name: data.name, email: data.email, phone: data.phone, acceptsEmail: data.acceptsEmail ?? true,
+      name: data.name, email: data.email, phone: data.phone, acceptsEmail: data.acceptsEmail ?? true, ...(await defaultReminderPrefs()),
       passwordHash: await bcrypt.hash(data.password, 10), ...avatarData(data.avatar),
     },
   });
@@ -48,10 +49,13 @@ authRouter.patch('/me', requireAuth, h(async (req, res) => {
     name: z.string().trim().min(2).optional(),
     phone: z.string().trim().min(9).optional(),
     acceptsEmail: z.boolean().optional(),
+    remindEmail: z.boolean().optional(),
+    remindWhatsapp: z.boolean().optional(),
     password: z.string().min(8).optional(),
     avatar: avatarField,
   }).parse(req.body);
   const { password, avatar, ...rest } = data;
+  await assertReminderPrefs(rest);
   const user = await prisma.user.update({
     where: { id: req.user!.id },
     data: { ...rest, ...avatarData(avatar), ...(password && { passwordHash: await bcrypt.hash(password, 10) }) },

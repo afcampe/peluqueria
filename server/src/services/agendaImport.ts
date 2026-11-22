@@ -9,6 +9,7 @@ import { HttpError, badRequest } from '../lib/errors.js';
 import { getAgendaReader, type ReadDay, type ReadResult } from './agendaReader.js';
 import { createAppointment, type Actor } from './appointments.js';
 import { getSettings } from './settings.js';
+import { defaultReminderPrefs } from './reminders.js';
 
 /**
  * Importación de la agenda en papel:
@@ -281,7 +282,7 @@ export async function commitImport(id: string, actor: Actor, edited?: ImportRow[
         clientId = newClients.get(key) ?? null;
         if (!clientId) {
           // Ficha sin cuenta. Si dos filas de esta página tienen el mismo nombre, se usa la misma ficha.
-          const created = await prisma.user.create({ data: { name: row.name.trim(), acceptsEmail: false } });
+          const created = await prisma.user.create({ data: { name: row.name.trim(), acceptsEmail: false, ...(await defaultReminderPrefs()) } });
           clientId = createdNow = created.id;
           newClients.set(key, clientId);
         }

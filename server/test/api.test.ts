@@ -721,6 +721,41 @@ describe('recordatorios de citas', () => {
     expect((await call('POST', '/api/admin/reminders/test', { channel: 'WHATSAPP', phone: '600000000' }, adminToken)).status).toBe(400);
     await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
   });
+
+  it('cada cliente elige sus avisos entre los canales activados en Configuración', async () => {
+    const { runReminders } = await import('../src/services/reminders.js');
+    const flags = async () => (await call('GET', '/api/auth/me', undefined, clientToken)).body as { remindEmail: boolean; remindWhatsapp: boolean };
+    // Con los recordatorios apagados no se pueden activar en el perfil
+    expect((await flags())).toMatchObject({ remindEmail: false, remindWhatsapp: false });
+    expect((await call('PATCH', '/api/auth/me', { remindEmail: true }, clientToken)).status).toBe(400);
+
+    // Al activar el email en Configuración se activa en todos los perfiles; WhatsApp sigue apagado
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [120] } }, adminToken);
+    expect(await flags()).toMatchObject({ remindEmail: true, remindWhatsapp: false });
+    expect((await call('PATCH', '/api/auth/me', { remindWhatsapp: true }, clientToken)).status).toBe(400);
+    expect((await call('GET', '/api/public/config')).body.reminders).toEqual({ email: true, whatsapp: false });
+    const nuevo = await call('POST', '/api/auth/register', { name: 'Nuevo', email: 'n@n.es', phone: '600999888', password: 'nuevo1234' });
+    expect(nuevo.body.user).toMatchObject({ remindEmail: true, remindWhatsapp: false });
+
+    // El cliente quita el email: no se le avisa
+    expect((await call('PATCH', '/api/auth/me', { remindEmail: false }, clientToken)).body.remindEmail).toBe(false);
+    const start = await slotIn(6, 2);
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    await runReminders(new Date(new Date(start).getTime() - 100 * 60_000));
+    expect(await prisma.appointmentReminder.count({ where: { appointmentId: r.body.id } })).toBe(0);
+
+    // El admin se lo vuelve a activar desde su ficha
+    const me = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    expect((await call('PATCH', `/api/admin/users/${me.id}`, { remindEmail: true }, adminToken)).body.remindEmail).toBe(true);
+    expect((await call('PATCH', `/api/admin/users/${me.id}`, { remindWhatsapp: true }, adminToken)).status).toBe(400);
+
+    // Desactivar el canal en Configuración lo apaga en todos los perfiles
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: false, whatsapp: true, offsetsMinutes: [120] } }, adminToken);
+    expect(await flags()).toMatchObject({ remindEmail: false, remindWhatsapp: true });
+    expect(await prisma.user.count({ where: { role: 'CLIENT', remindEmail: true } })).toBe(0);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
+    expect(await prisma.user.count({ where: { role: 'CLIENT', OR: [{ remindEmail: true }, { remindWhatsapp: true }] } })).toBe(0);
+  });
 });
 
 vi.setConfig({ testTimeout: 20_000 });

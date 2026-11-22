@@ -22,6 +22,10 @@ model User {
   blockedUntil DateTime? // null + BLOCKED = bloqueo indefinido
   blockReason  String?
   acceptsEmail Boolean       @default(true)
+  // Recordatorios de citas que quiere recibir. Solo cuentan si el canal está
+  // activado en Configuración; al desactivarlo allí se apagan en todos.
+  remindEmail    Boolean     @default(true)
+  remindWhatsapp Boolean     @default(true)
   // Foto de perfil (JPEG/PNG/WebP reducida en el cliente, máx. 300 KB)
   avatar          Bytes?
   avatarMime      String?

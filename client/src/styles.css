@@ -620,3 +620,9 @@ label.inline input { width: 5rem; }
 .test-row { align-items: center; }
 .test-wa { display: inline-flex; gap: .5rem; flex-wrap: wrap; }
 .test-wa input { width: 11rem; }
+
+.reminder-prefs { border: 1px solid var(--border); border-radius: var(--radius); padding: .6rem .9rem .8rem; margin: .4rem 0 .8rem; display: grid; gap: .35rem; }
+.reminder-prefs legend { font-weight: 600; padding: 0 .35rem; font-size: .9rem; }
+.reminder-prefs p { margin: 0; }
+.reminder-pref.is-off { color: var(--muted); }
+.reminder-pref.is-off input { opacity: .5; }

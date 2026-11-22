@@ -4,6 +4,7 @@ export interface User {
   hasAccount: boolean;
   role: 'CLIENT' | 'ADMIN'; status: 'ACTIVE' | 'BLOCKED' | 'DELETED';
   blockedUntil: string | null; blockReason: string | null; acceptsEmail: boolean; createdAt: string;
+  remindEmail: boolean; remindWhatsapp: boolean;
   whatsappLink?: string | null;
   avatarUrl: string | null;
 }
@@ -35,6 +36,8 @@ export interface PublicConfig {
   timezone: string; currency: string; slotMinutes: number; bookingHorizonDays: number;
   clientCancelMinNoticeMinutes: number; weeklySchedule: Record<string, TimeRange[]>;
   recurring: { enabled: boolean; maxAppointments: number };
+  /** Canales de recordatorio activados en Configuración. */
+  reminders: { email: boolean; whatsapp: boolean };
   services: Service[]; paymentMethods: PaymentMethod[];
 }
 export interface Settings {

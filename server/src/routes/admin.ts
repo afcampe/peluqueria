@@ -8,7 +8,7 @@ import { avatarData, avatarField } from '../lib/avatar.js';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
 import { mergeClient } from '../services/agendaImport.js';
-import { recentReminders, sendTestReminder } from '../services/reminders.js';
+import { assertReminderPrefs, defaultReminderPrefs, recentReminders, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
 import { remindersSchema } from '../services/settings.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
@@ -197,6 +197,8 @@ const userSchema = z.object({
   role: z.enum(['CLIENT', 'ADMIN']).default('CLIENT'),
   password: z.string().min(8),
   acceptsEmail: z.boolean().default(true),
+  remindEmail: z.boolean().optional(),
+  remindWhatsapp: z.boolean().optional(),
   avatar: avatarField,
 });
 
@@ -209,7 +211,8 @@ adminRouter.post('/users', h(async (req, res) => {
   const { password, avatar, ...data } = userSchema.parse(req.body);
   const existing = await prisma.user.findUnique({ where: { email: data.email } });
   if (existing && existing.status !== 'DELETED') throw conflict('Ya existe un usuario con ese email');
-  const fields = { ...data, status: 'ACTIVE', blockedUntil: null, blockReason: null, passwordHash: await bcrypt.hash(password, 10), ...avatarData(avatar) };
+  await assertReminderPrefs(data);
+  const fields = { ...(await defaultReminderPrefs()), ...data, status: 'ACTIVE', blockedUntil: null, blockReason: null, passwordHash: await bcrypt.hash(password, 10), ...avatarData(avatar) };
   // Si estaba dado de baja se reactiva la misma cuenta (conserva su historial).
   const user = existing
     ? await prisma.user.update({ where: { id: existing.id }, data: fields })
@@ -220,6 +223,7 @@ adminRouter.post('/users', h(async (req, res) => {
 adminRouter.patch('/users/:id', h(async (req, res) => {
   const { password, avatar, ...data } = userSchema.partial().parse(req.body);
   if (req.params.id === req.user!.id && data.role === 'CLIENT') throw badRequest('No puedes quitarte tu propio rol de administrador');
+  await assertReminderPrefs(data);
   if (data.email) {
     const other = await prisma.user.findUnique({ where: { email: data.email } });
     if (other && other.id !== req.params.id) throw conflict('Ya existe un usuario con ese email');
@@ -383,7 +387,10 @@ adminRouter.get('/settings', h(async (_req, res) => {
 }));
 
 adminRouter.put('/settings', h(async (req, res) => {
-  res.json(await saveSettings(req.body));
+  const before = await getSettings();
+  const after = await saveSettings(req.body);
+  await syncReminderPrefs(before, after);
+  res.json(after);
 }));
 
 const serviceSchema = z.object({

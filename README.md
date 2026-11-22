@@ -27,6 +27,7 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 
 **Clientes**
 - Registro e inicio de sesión, con foto de perfil opcional (se puede cambiar o quitar en *Mi perfil*)
+- En *Mi perfil* eligen si quieren recordatorios de sus citas por email y/o WhatsApp, entre los que ofrezca la peluquería
 - Reserva: servicio → día y hora → forma de pago (PayPal o en el local)
 - Se puede reservar hasta 1 año vista
 - **Citas periódicas**: reservar varias de una vez cada X días (1 semana, 15 días, 4 semanas o cualquier número), hasta una fecha o un número de citas. Antes de confirmar se ven todas las fechas. Si alguna cae en día cerrado u ocupado, se propone el hueco libre más cercano, y cada fecha se puede cambiar o quitar. Se reservan todas o ninguna, se pagan en un solo pago (PayPal) o en el local, y luego se pueden cancelar una a una (con reembolso de su parte) o todas a la vez
@@ -62,6 +63,8 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
   - Textos editables con `{nombre}`, `{fecha}`, `{hora}`, `{servicio}`, `{peluqueria}`, `{telefono}` y `{direccion}`, con vista previa y envío de prueba.
   - El servidor lo revisa cada minuto y no repite un aviso. Si la cita cambia de hora, se vuelve a avisar; las canceladas no se avisan. Tampoco se manda un aviso cuyo momento ya había pasado al reservar.
   - Debajo se ven los últimos avisos enviados, con su estado.
+  - Cada cliente elige en *Mi perfil* qué avisos quiere (email y/o WhatsApp); el administrador también puede cambiarlo en *Editar usuario*. Siempre se ven las dos opciones, pero solo se pueden activar las que están activadas en Configuración.
+  - Al desactivar un canal en Configuración se pide confirmación y, al guardar, se apaga en todos los perfiles. Al volver a activarlo se enciende en todos, y cada cliente puede quitarlo después.
   - WhatsApp automático necesita la API de WhatsApp Business. Para escribir a clientes que no han escrito en las últimas 24 h, Meta exige una plantilla aprobada (categoría «Utilidad») con 4 variables: nombre, fecha, hora y servicio.
 - **Configuración**: datos fiscales del ticket (razón social, NIF, IVA incluido y texto al pie), activar o desactivar las citas periódicas, máximo de citas por serie (60 por defecto), duración de las citas (30 min por defecto), horario semanal por tramos (9–13 y 16–20 por defecto, de lunes a viernes; sábado y domingo cerrado), días máximos de antelación, antelación mínima para cancelar, número de sillones, formas de pago, servicios y precios
 

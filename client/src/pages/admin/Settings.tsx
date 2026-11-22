@@ -12,6 +12,7 @@ interface ProviderInfo { id: string; label: string; online: boolean; configured:
 export function Settings() {
   const { reloadConfig } = useSession();
   const [s, setS] = useState<S | null>(null);
+  const [saved, setSaved] = useState<S | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [channels, setChannels] = useState({ email: false, whatsappApi: false });
   const [msg, setMsg] = useState('');
@@ -19,7 +20,7 @@ export function Settings() {
 
   useEffect(() => {
     api.get<{ settings: S; providers: ProviderInfo[]; channels: { email: boolean; whatsappApi: boolean } }>('/admin/settings')
-      .then((r) => { setS(r.settings); setProviders(r.providers); setChannels(r.channels); })
+      .then((r) => { setS(r.settings); setSaved(r.settings); setProviders(r.providers); setChannels(r.channels); })
       .catch((e) => setError(e.message));
   }, []);
 
@@ -31,7 +32,8 @@ export function Settings() {
   const save = async () => {
     setMsg(''); setError('');
     try {
-      setS(await api.put<S>('/admin/settings', s));
+      const next = await api.put<S>('/admin/settings', s);
+      setS(next); setSaved(next);
       await reloadConfig();
       setMsg('Configuración guardada. Las citas ya reservadas no se modifican.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -90,7 +92,7 @@ export function Settings() {
         </div>
       </section>
 
-      <Reminders value={s.reminders} channels={channels} onChange={(reminders) => setS({ ...s, reminders })} />
+      <Reminders value={s.reminders} saved={(saved ?? s).reminders} channels={channels} onChange={(reminders) => setS({ ...s, reminders })} />
 
       <section className="card">
         <h2>Formas de pago</h2>

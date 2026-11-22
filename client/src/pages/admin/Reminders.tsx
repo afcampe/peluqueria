@@ -30,11 +30,27 @@ interface LogRow {
 const statusText = { SENDING: 'Enviando', SENT: 'Enviado', FAILED: 'Falló', SKIPPED: 'No enviado' };
 const statusClass = { SENDING: 'pending_payment', SENT: 'confirmed', FAILED: 'cancelled', SKIPPED: 'warn' };
 
-export function Reminders({ value: r, channels, onChange }: {
-  value: ReminderSettings; channels: { email: boolean; whatsappApi: boolean }; onChange: (r: ReminderSettings) => void;
+export function Reminders({ value: r, saved, channels, onChange }: {
+  value: ReminderSettings; saved: ReminderSettings; channels: { email: boolean; whatsappApi: boolean }; onChange: (r: ReminderSettings) => void;
 }) {
   const { config, user } = useSession();
   const set = (patch: Partial<ReminderSettings>) => onChange({ ...r, ...patch });
+  const on = (x: ReminderSettings) => ({ email: x.enabled && x.email, whatsapp: x.enabled && x.whatsapp });
+  /** Al apagar un canal se pide confirmación: al guardar se desactiva en todos los perfiles de cliente. */
+  const toggle = (patch: Partial<ReminderSettings>) => {
+    const next = { ...r, ...patch };
+    const lost = (['email', 'whatsapp'] as const).filter((k) => on(r)[k] && !on(next)[k]);
+    if (lost.length) {
+      const names = lost.map((k) => (k === 'email' ? 'por email' : 'por WhatsApp')).join(' y ');
+      if (!confirm(`Se desactivará el aviso ${names} en todos los perfiles de cliente y ningún cliente podrá activarlo hasta que vuelvas a activarlo aquí.\n\n¿Seguro que quieres desactivarlo?`)) return;
+    }
+    onChange(next);
+  };
+  const was = on(saved);
+  const now = on(r);
+  const gained = (['email', 'whatsapp'] as const).filter((k) => !was[k] && now[k]);
+  const lostNow = (['email', 'whatsapp'] as const).filter((k) => was[k] && !now[k]);
+  const label = (ks: readonly ('email' | 'whatsapp')[]) => ks.map((k) => (k === 'email' ? 'por email' : 'por WhatsApp')).join(' y ');
   const [log, setLog] = useState<LogRow[] | null>(null);
   const [testPhone, setTestPhone] = useState(user?.phone ?? '');
   const [testMsg, setTestMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -70,19 +86,22 @@ export function Reminders({ value: r, channels, onChange }: {
   return (
     <section className="card reminders">
       <h2>Recordatorios de citas</h2>
-      <label className="check"><input type="checkbox" checked={r.enabled} onChange={(e) => set({ enabled: e.target.checked })} /> Enviar automáticamente un aviso a los clientes antes de su cita</label>
+      <label className="check"><input type="checkbox" checked={r.enabled} onChange={(e) => toggle({ enabled: e.target.checked })} /> Enviar automáticamente un aviso a los clientes antes de su cita</label>
       <p className="muted small">Se envía a las citas confirmadas, una vez por cada antelación. Si se cambia la hora de la cita, se vuelve a avisar con la nueva hora; las canceladas no se avisan. Si la cita se reserva cuando ya ha pasado el momento del aviso (p. ej. con menos de 1 día), ese aviso no se manda porque el cliente ya recibe la confirmación.</p>
+
+      {lostNow.length > 0 && <Alert>Al guardar se desactivará el aviso {label(lostNow)} en todos los perfiles de cliente.</Alert>}
+      {gained.length > 0 && <Alert kind="info">Al guardar se activará el aviso {label(gained)} en todos los perfiles de cliente. Después cada cliente (o tú desde su ficha) puede quitarlo.</Alert>}
 
       <fieldset className="reminder-block" disabled={!r.enabled}>
         <legend>Por dónde</legend>
-        <label className="check"><input type="checkbox" checked={r.email} onChange={(e) => set({ email: e.target.checked })} /> Email</label>
+        <label className="check"><input type="checkbox" checked={r.email} onChange={(e) => toggle({ email: e.target.checked })} /> Email</label>
         {r.email && !channels.email && <p className="small warn-text">El SMTP no está configurado: los emails solo se muestran en la consola del servidor. Configúralo en <code>server/.env</code>.</p>}
-        <label className="check"><input type="checkbox" checked={r.whatsapp} onChange={(e) => set({ whatsapp: e.target.checked })} /> WhatsApp</label>
+        <label className="check"><input type="checkbox" checked={r.whatsapp} onChange={(e) => toggle({ whatsapp: e.target.checked })} /> WhatsApp</label>
         {r.whatsapp && !channels.whatsappApi && (
           <p className="small warn-text">Para enviar WhatsApp automáticamente hace falta la API de WhatsApp Business (<code>WHATSAPP_TOKEN</code> y <code>WHATSAPP_PHONE_NUMBER_ID</code> en <code>server/.env</code>). Mientras no esté, estos avisos no se envían y quedan anotados como «No enviado».</p>
         )}
         {!r.email && !r.whatsapp && <p className="small warn-text">Elige al menos un canal.</p>}
-        <p className="muted small">Los clientes sin email o sin teléfono válido no reciben ese aviso. Son avisos de servicio: se mandan aunque el cliente no quiera recibir novedades por email.</p>
+        <p className="muted small">Cada cliente puede elegir en su perfil cuáles quiere recibir, pero solo entre los activados aquí. Los clientes sin email o sin teléfono válido no reciben ese aviso. Son avisos de servicio: se mandan aunque el cliente no quiera recibir novedades por email.</p>
       </fieldset>
 
       <fieldset className="reminder-block" disabled={!r.enabled}>

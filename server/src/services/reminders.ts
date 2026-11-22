@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
 import { sendEmail } from '../notifications/email.js';
 import { normalizePhone, sendWhatsApp, sendWhatsAppTemplate, whatsappApiConfigured } from '../notifications/whatsapp.js';
+import { badRequest } from '../lib/errors.js';
 import { getSettings, type Settings } from './settings.js';
 
 /**
@@ -79,7 +80,7 @@ export async function runReminders(now = new Date()) {
     const appts = await prisma.appointment.findMany({
       where: { status: 'CONFIRMED', startAt: { gt: now, lte: new Date(now.getTime() + maxOffset * 60_000) } },
       include: {
-        client: { select: { name: true, email: true, phone: true, status: true } },
+        client: { select: { name: true, email: true, phone: true, status: true, remindEmail: true, remindWhatsapp: true } },
         service: { select: { name: true } },
         reminders: { select: { startAt: true, offsetMinutes: true } },
       },
@@ -99,7 +100,9 @@ export async function runReminders(now = new Date()) {
       const already = a.reminders.some((x) => x.offsetMinutes === offset && x.startAt.getTime() === a.startAt.getTime());
       if (already) continue;
 
-      for (const channel of channels) {
+      // Solo los canales que el cliente tiene activados en su perfil.
+      const wanted = channels.filter((c) => (c === 'EMAIL' ? a.client.remindEmail : a.client.remindWhatsapp));
+      for (const channel of wanted) {
         let rec;
         try {
           // El registro se crea antes de enviar: si otro proceso ya lo tiene, no se duplica.
@@ -145,4 +148,42 @@ export async function sendTestReminder(channel: Channel, to: { email?: string | 
   const res = await sendOne(channel, example, s);
   if (res.status !== 'SENT') throw new Error(res.detail);
   return res;
+}
+
+// ---------------------------------------------------------------- Preferencias de cada cliente
+
+/** Canales de recordatorio activados en Configuración. */
+export const reminderChannels = (s: Settings) => ({
+  email: s.reminders.enabled && s.reminders.email,
+  whatsapp: s.reminders.enabled && s.reminders.whatsapp,
+});
+
+/** Valor inicial para un cliente nuevo: activado si el canal lo está en Configuración. */
+export async function defaultReminderPrefs() {
+  const c = reminderChannels(await getSettings());
+  return { remindEmail: c.email, remindWhatsapp: c.whatsapp };
+}
+
+/** Un cliente no puede activar un canal que está desactivado en Configuración. */
+export async function assertReminderPrefs(data: { remindEmail?: boolean; remindWhatsapp?: boolean }) {
+  if (!data.remindEmail && !data.remindWhatsapp) return;
+  const c = reminderChannels(await getSettings());
+  if (data.remindEmail && !c.email) throw badRequest('Los recordatorios por email están desactivados en la configuración de la peluquería');
+  if (data.remindWhatsapp && !c.whatsapp) throw badRequest('Los recordatorios por WhatsApp están desactivados en la configuración de la peluquería');
+}
+
+/**
+ * Al cambiar los canales en Configuración se aplican a todos los clientes:
+ * desactivar un canal lo apaga en todos los perfiles; volver a activarlo
+ * lo enciende en todos (cada cliente puede quitarlo después).
+ */
+export async function syncReminderPrefs(before: Settings, after: Settings) {
+  const a = reminderChannels(before);
+  const b = reminderChannels(after);
+  const changes: { remindEmail?: boolean; remindWhatsapp?: boolean } = {};
+  if (a.email !== b.email) changes.remindEmail = b.email;
+  if (a.whatsapp !== b.whatsapp) changes.remindWhatsapp = b.whatsapp;
+  if (!Object.keys(changes).length) return 0;
+  const r = await prisma.user.updateMany({ where: { role: 'CLIENT' }, data: changes });
+  return r.count;
 }
