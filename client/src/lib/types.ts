@@ -1,5 +1,7 @@
 export interface User {
-  id: string; email: string; name: string; phone: string | null;
+  id: string; email: string | null; name: string; phone: string | null;
+  /** false = ficha sin cuenta creada al importar la agenda en papel. */
+  hasAccount: boolean;
   role: 'CLIENT' | 'ADMIN'; status: 'ACTIVE' | 'BLOCKED' | 'DELETED';
   blockedUntil: string | null; blockReason: string | null; acceptsEmail: boolean; createdAt: string;
   whatsappLink?: string | null;
@@ -19,7 +21,7 @@ export type AppointmentStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 
 export interface Appointment {
   id: string; startAt: string; endAt: string; status: AppointmentStatus; paymentMethod: string; priceCents: number;
   notes: string | null; cancelledBy: string | null; cancelReason: string | null; holdExpiresAt: string | null;
-  client: { id: string; name: string; email: string; phone: string | null };
+  client: { id: string; name: string; email: string | null; phone: string | null };
   service: Service; payments: Payment[];
   series: { id: string; intervalDays: number } | null;
 }

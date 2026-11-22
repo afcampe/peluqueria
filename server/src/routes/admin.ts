@@ -5,7 +5,9 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { requireAdmin, requireAuth } from '../lib/auth.js';
 import { avatarData, avatarField } from '../lib/avatar.js';
+import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
+import { mergeClient } from '../services/agendaImport.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
@@ -44,7 +46,7 @@ adminRouter.get('/dashboard', h(async (_req, res) => {
     clients,
     onlineRevenueMonthCents: monthPayments.filter((p) => p.provider !== 'cash').reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
     cashRevenueMonthCents: monthPayments.filter((p) => p.provider === 'cash').reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
-    integrations: { email: emailConfigured(), whatsappApi: whatsappApiConfigured(), payments: allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.isConfigured() })) },
+    integrations: { agendaReader: config.anthropicConfigured, email: emailConfigured(), whatsappApi: whatsappApiConfigured(), payments: allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.isConfigured() })) },
   });
 }));
 
@@ -216,11 +218,21 @@ adminRouter.post('/users', h(async (req, res) => {
 adminRouter.patch('/users/:id', h(async (req, res) => {
   const { password, avatar, ...data } = userSchema.partial().parse(req.body);
   if (req.params.id === req.user!.id && data.role === 'CLIENT') throw badRequest('No puedes quitarte tu propio rol de administrador');
+  if (data.email) {
+    const other = await prisma.user.findUnique({ where: { email: data.email } });
+    if (other && other.id !== req.params.id) throw conflict('Ya existe un usuario con ese email');
+  }
   const user = await prisma.user.update({
     where: { id: req.params.id },
     data: { ...data, ...avatarData(avatar), ...(password && { passwordHash: await bcrypt.hash(password, 10) }) },
   });
   res.json(publicUser(user));
+}));
+
+/** Une una ficha sin cuenta (importada de la agenda en papel) con un cliente registrado. */
+adminRouter.post('/users/:id/merge', h(async (req, res) => {
+  const { targetId } = z.object({ targetId: z.string() }).parse(req.body);
+  res.json(await mergeClient(req.params.id, targetId));
 }));
 
 /** Cancela (con reembolso) las citas futuras de un usuario. */
@@ -378,7 +390,7 @@ const audienceSchema = z.object({
 
 async function resolveAudience(a: z.infer<typeof audienceSchema>, requireEmailConsent: boolean) {
   const s = await getSettings();
-  const base: Prisma.UserWhereInput = { status: { not: 'DELETED' }, role: 'CLIENT', ...(requireEmailConsent && { acceptsEmail: true }) };
+  const base: Prisma.UserWhereInput = { status: { not: 'DELETED' }, role: 'CLIENT', email: { not: null }, ...(requireEmailConsent && { acceptsEmail: true }) };
   if (a.audience === 'selected') {
     if (!a.userIds?.length) throw badRequest('Selecciona al menos un cliente');
     // Seleccionados a mano: se respeta la baja pero no hace falta consentimiento de marketing.
@@ -397,7 +409,7 @@ async function resolveAudience(a: z.infer<typeof audienceSchema>, requireEmailCo
 
 adminRouter.post('/messages/email/preview', h(async (req, res) => {
   const users = await resolveAudience(audienceSchema.parse(req.body), true);
-  res.json({ count: users.length });
+  res.json({ count: users.filter((u) => u.email).length });
 }));
 
 adminRouter.post('/messages/email', h(async (req, res) => {
@@ -406,6 +418,7 @@ adminRouter.post('/messages/email', h(async (req, res) => {
   let sent = 0;
   const failed: string[] = [];
   for (const u of users) {
+    if (!u.email) continue; // fichas sin cuenta (sin email)
     try {
       await sendEmail(u.email, data.subject, data.body.replaceAll('{nombre}', u.name));
       sent++;

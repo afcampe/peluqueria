@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
-import { localISODate } from '../../lib/format';
+import { contactLine, localISODate } from '../../lib/format';
 import type { User } from '../../lib/types';
 
 export interface AudienceValue { audience: 'all' | 'selected' | 'date'; userIds: string[]; date: string }
@@ -32,7 +32,7 @@ export function AudiencePicker({ value, onChange, allLabel }: { value: AudienceV
           <ul>
             {users.map((u) => (
               <li key={u.id}>
-                <label className="check"><input type="checkbox" checked={value.userIds.includes(u.id)} onChange={() => toggle(u.id)} /> {u.name} <small className="muted">{u.phone ?? 'sin teléfono'} · {u.email}</small></label>
+                <label className="check"><input type="checkbox" checked={value.userIds.includes(u.id)} onChange={() => toggle(u.id)} /> {u.name} <small className="muted">{contactLine(u)}</small></label>
               </li>
             ))}
           </ul>

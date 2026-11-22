@@ -11,6 +11,7 @@ import { Profile } from './pages/Profile';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { Agenda } from './pages/admin/Agenda';
 import { Incidents } from './pages/admin/Incidents';
+import { ImportList, ImportReview } from './pages/admin/Import';
 import { Closures } from './pages/admin/Closures';
 import { Dashboard } from './pages/admin/Dashboard';
 import { Messages } from './pages/admin/Messages';
@@ -52,6 +53,8 @@ export function App() {
             <Route path="agenda" element={<Agenda />} />
             <Route path="usuarios" element={<Users />} />
             <Route path="usuarios/:id" element={<UserDetail />} />
+            <Route path="importar" element={<ImportList />} />
+            <Route path="importar/:id" element={<ImportReview />} />
             <Route path="anulaciones" element={<Incidents />} />
             <Route path="cierres" element={<Closures />} />
             <Route path="avisos" element={<Messages />} />

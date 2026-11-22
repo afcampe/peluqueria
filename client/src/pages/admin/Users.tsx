@@ -67,7 +67,7 @@ export function Users() {
                 <tr key={u.id}>
                   <td><span className="user-cell"><Avatar name={u.name} src={u.avatarUrl} /> <span><Link to={`/admin/usuarios/${u.id}`}>{u.name}</Link>{u.id === me?.id && <span className="muted small"> (tú)</span>}</span></span></td>
                   <td>{u.role === 'ADMIN' ? <Badge status="admin">Administrador</Badge> : <span className="muted">Usuario normal</span>}</td>
-                  <td><div>{u.email}</div><div className="muted small">{u.phone}</div></td>
+                  <td>{u.email ? <div>{u.email}</div> : <div><span className="badge badge-noaccount" title="Ficha creada desde la agenda en papel">Sin cuenta</span></div>}<div className="muted small">{u.phone}</div></td>
                   <td>
                     <Badge status={u.status}>{statusText[u.status]}</Badge>
                     {u.status === 'BLOCKED' && <div className="muted small">{u.blockedUntil ? `hasta ${dateLong(u.blockedUntil)}` : 'indefinido'}{u.blockReason && ` · ${u.blockReason}`}</div>}
@@ -106,13 +106,14 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
   const { user: me } = useSession();
   const [f, setF] = useState({ name: user?.name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', role: user?.role ?? 'CLIENT', password: '', acceptsEmail: user?.acceptsEmail ?? true });
   const isMe = user?.id === me?.id;
+  const noAccount = !!user && !user.hasAccount;
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState('');
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     try {
       if (user && !reactivate) {
-        await api.patch(`/admin/users/${user.id}`, { ...f, password: f.password || undefined, avatar });
+        await api.patch(`/admin/users/${user.id}`, { ...f, email: f.email || undefined, password: f.password || undefined, avatar });
         onDone('Usuario actualizado');
       } else {
         await api.post('/admin/users', { ...f, avatar: avatar ?? undefined });
@@ -138,10 +139,11 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
         </fieldset>
         <AvatarInput name={f.name} current={user?.avatarUrl} value={avatar} onChange={setAvatar} />
         <label>Nombre<input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
-        <label>Email<input type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
+        {noAccount && <p className="muted small">Ficha sin cuenta (viene de la agenda en papel). Para que pueda entrar en la app, ponle email y contraseña.</p>}
+        <label>Email<input type="email" required={!noAccount} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
         <label>Teléfono<input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
-        <label>{user && !reactivate ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'}
-          <input type="password" minLength={8} required={!user || reactivate} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
+        <label>{noAccount ? 'Contraseña (para darle acceso)' : user && !reactivate ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'}
+          <input type="password" minLength={8} required={!user || reactivate || (noAccount && !!f.email)} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
         </label>
         {f.role === 'CLIENT' && (
           <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta avisos por email</label>

@@ -9,10 +9,13 @@ import { appointmentsRouter } from './routes/appointments.js';
 import { authRouter } from './routes/auth.js';
 import { publicRouter } from './routes/public.js';
 import { ticketsRouter } from './routes/tickets.js';
+import { importsRouter } from './routes/imports.js';
 
 export function createApp() {
   const app = express();
   app.use(cors({ origin: (origin, cb) => cb(null, !origin || origin === 'null' || config.corsOrigins.includes(origin)) }));
+  // Va antes del parser general porque admite fotos de varios MB.
+  app.use('/api/admin/imports', importsRouter);
   app.use(express.json({ limit: '600kb' }) /* admite la foto de perfil */);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));

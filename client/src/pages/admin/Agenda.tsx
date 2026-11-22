@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { Alert, Badge, ErrorAlert, Modal, Spinner, errMsg } from '../../components/ui';
 import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
 import { api } from '../../lib/api';
-import { addDays, addMonths, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, statusLabel, time, weekLabel } from '../../lib/format';
+import { addDays, addMonths, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, statusLabel, time, weekLabel } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { Appointment, Closure, PublicConfig, User } from '../../lib/types';
 import { IconChevronLeft, IconChevronRight, IconRepeat, IconTicket } from '../../components/icons';
@@ -197,7 +197,7 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
     <article className={`card agenda-item ${a.status === 'CANCELLED' ? 'dim' : ''}`}>
       <div className="agenda-time">{time(a.startAt)}<small>{time(a.endAt)}</small></div>
       <div className="agenda-main">
-        <Link to={`/admin/usuarios/${a.client.id}`}><strong>{a.client.name}</strong></Link> <span className="muted small">{a.client.phone} · {a.client.email}</span>
+        <Link to={`/admin/usuarios/${a.client.id}`}><strong>{a.client.name}</strong></Link> <span className="muted small">{contactLine(a.client)}</span>
         <div>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} · <span className={`pay pay-${pay.kind}`}>{pay.label}</span></div>
         {a.notes && <div className="muted small">Nota: {a.notes}</div>}
         {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
@@ -418,7 +418,7 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
         <>
           <label>Buscar cliente<input autoFocus placeholder="Nombre, email o teléfono" value={q} onChange={(e) => setQ(e.target.value)} /></label>
           <ul className="pick-list">
-            {users.map((u) => <li key={u.id}><button className="link" onClick={() => setClient(u)}>{u.name} <small className="muted">{u.phone} · {u.email}</small></button></li>)}
+            {users.map((u) => <li key={u.id}><button className="link" onClick={() => setClient(u)}>{u.name} <small className="muted">{contactLine(u)}{!u.hasAccount && ' · sin cuenta'}</small></button></li>)}
           </ul>
           <p className="muted small">¿No existe? Créalo antes en Usuarios.</p>
         </>

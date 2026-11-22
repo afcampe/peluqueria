@@ -11,8 +11,10 @@ datasource db {
 
 model User {
   id           String        @id @default(cuid())
-  email        String        @unique
-  passwordHash String
+  // Las fichas creadas al importar la agenda en papel no tienen email ni
+  // contraseña (cliente sin cuenta) hasta que se les crea el acceso.
+  email        String?       @unique
+  passwordHash String?
   name         String
   phone        String?
   role         String        @default("CLIENT") // CLIENT | ADMIN
@@ -159,4 +161,22 @@ model MessageLog {
   recipients Int
   sentBy     String?
   createdAt  DateTime @default(now())
+}
+
+// Página de la agenda en papel fotografiada para importar sus citas.
+// La foto se guarda en IMPORT_DIR solo hasta que se importa o se descarta.
+model AgendaImport {
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // PENDING (en cola) | READING | READY (para revisar) | ERROR | IMPORTED | DISCARDED
+  status        String    @default("PENDING")
+  fileName      String?
+  imagePath     String? // relativa a IMPORT_DIR; null tras importar o descartar
+  imageMime     String?
+  error         String?
+  rows          String    @default("[]") // JSON: ImportRow[]
+  importedCount Int       @default(0)
+  importedAt    DateTime?
+  createdBy     String?
 }

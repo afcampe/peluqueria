@@ -6,7 +6,7 @@ import { money } from '../../lib/format';
 
 interface Data {
   today: number; upcoming: number; clients: number; onlineRevenueMonthCents: number; cashRevenueMonthCents: number;
-  integrations: { email: boolean; whatsappApi: boolean; payments: { id: string; label: string; configured: boolean }[] };
+  integrations: { agendaReader: boolean; email: boolean; whatsappApi: boolean; payments: { id: string; label: string; configured: boolean }[] };
 }
 
 export function Dashboard() {
@@ -28,6 +28,7 @@ export function Dashboard() {
       <section className="card">
         <h2>Estado de integraciones</h2>
         <ul className="status-list">
+          <li><span className={d.integrations.agendaReader ? 'dot ok' : 'dot warn'} /> Lectura de la agenda en papel {d.integrations.agendaReader ? 'configurada' : 'sin configurar: las fotos se revisan a mano. Añade ANTHROPIC_API_KEY en server/.env'}</li>
           <li><span className={d.integrations.email ? 'dot ok' : 'dot warn'} /> Email {d.integrations.email ? 'configurado' : 'en modo prueba (se muestra en la consola del servidor). Configura SMTP en server/.env'}</li>
           <li><span className={d.integrations.whatsappApi ? 'dot ok' : 'dot info'} /> WhatsApp {d.integrations.whatsappApi ? 'API conectada' : 'mediante enlaces wa.me (API opcional no configurada)'}</li>
           {d.integrations.payments.map((p) => (

@@ -30,6 +30,7 @@ export async function sendEmail(to: string, subject: string, text: string) {
 }
 
 /** Envío que nunca rompe el flujo principal (confirmaciones automáticas). */
-export function sendEmailSafe(to: string, subject: string, text: string) {
+export function sendEmailSafe(to: string | null, subject: string, text: string) {
+  if (!to) return; // cliente sin email (ficha importada de la agenda en papel)
   sendEmail(to, subject, text).catch((e) => console.error('[email] error enviando a', to, e.message));
 }

@@ -28,6 +28,10 @@ export const config = {
   },
   /** Carpeta de los PDF de tickets (subcarpetas año/mes). */
   ticketsDir: path.resolve(serverRoot, process.env.TICKETS_DIR ?? 'storage/tickets'),
+  /** Fotos de la agenda en papel pendientes de importar (se borran al terminar). */
+  importDir: path.resolve(serverRoot, process.env.IMPORT_DIR ?? 'storage/import'),
+  /** Lectura automática de las fotos de la agenda con Claude (opcional). */
+  anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
   whatsapp: {
     token: process.env.WHATSAPP_TOKEN ?? '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? '',

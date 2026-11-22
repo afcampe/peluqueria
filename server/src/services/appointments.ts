@@ -118,8 +118,12 @@ function resolvePaymentMethod(actor: Actor, settings: Settings, method: string, 
 export async function createAppointment(
   actor: Actor,
   input: { clientId?: string; serviceId: string; startAt: string; paymentMethod: string; notes?: string },
+  // Importación de la agenda en papel: hay citas apuntadas hasta un año vista
+  // (más allá del límite de reserva) y no se manda email de confirmación.
+  opts: { ignoreHorizon?: boolean; notify?: boolean } = {},
 ) {
-  const settings = await getSettings();
+  const base = await getSettings();
+  const settings = opts.ignoreHorizon && actor.role === 'ADMIN' ? { ...base, bookingHorizonDays: Math.max(base.bookingHorizonDays, 800) } : base;
   const clientId = actor.role === 'ADMIN' && input.clientId ? input.clientId : actor.id;
   const provider = resolvePaymentMethod(actor, settings, input.paymentMethod, clientId);
 
@@ -150,11 +154,11 @@ export async function createAppointment(
     });
   }, { isolationLevel: 'Serializable' });
 
-  if (appointment.status === 'CONFIRMED') notifyConfirmed(appointment, settings);
+  if (appointment.status === 'CONFIRMED' && opts.notify !== false) notifyConfirmed(appointment, settings);
   return appointment;
 }
 
-function notifyConfirmed(a: { startAt: Date; client: { email: string; name: string }; service: { name: string }; paymentMethod: string }, settings: Settings) {
+function notifyConfirmed(a: { startAt: Date; client: { email: string | null; name: string }; service: { name: string }; paymentMethod: string }, settings: Settings) {
   const pago = a.paymentMethod === 'cash' ? 'Pagarás en el local.' : 'El pago se ha realizado correctamente.';
   sendEmailSafe(
     a.client.email,
@@ -619,7 +623,7 @@ export async function createSeries(
   };
 }
 
-function notifySeriesConfirmed(appts: { startAt: Date; client: { email: string; name: string }; service: { name: string }; paymentMethod: string }[], settings: Settings) {
+function notifySeriesConfirmed(appts: { startAt: Date; client: { email: string | null; name: string }; service: { name: string }; paymentMethod: string }[], settings: Settings) {
   const a = appts[0];
   const list = appts.map((x) => `  • ${fmt(x.startAt, settings.timezone)}`).join('\n');
   const pago = a.paymentMethod === 'cash' ? 'Pagarás cada cita en el local.' : 'El pago se ha realizado correctamente.';

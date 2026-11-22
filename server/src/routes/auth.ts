@@ -33,7 +33,7 @@ authRouter.post('/register', h(async (req, res) => {
 authRouter.post('/login', h(async (req, res) => {
   const { email, password } = z.object({ email: z.string().trim().toLowerCase(), password: z.string() }).parse(req.body);
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) throw new HttpError(401, 'Email o contraseña incorrectos');
+  if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) throw new HttpError(401, 'Email o contraseña incorrectos');
   const blocked = userBlockReason(user);
   if (blocked) throw new HttpError(403, blocked, 'USER_BLOCKED');
   res.json({ token: signToken({ id: user.id, role: user.role as 'CLIENT' | 'ADMIN' }), user: publicUser(user) });

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Avatar } from '../../components/Avatar';
-import { Alert, Badge, Spinner, errMsg } from '../../components/ui';
+import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
-import { dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
+import { contactLine, dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
 import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
 import { TicketButtons } from '../../components/TicketButton';
 import { CashModal, CashRefundModal, OnlineRefundModal } from './Agenda';
@@ -20,6 +20,7 @@ export function UserDetail() {
   const [params] = useSearchParams();
   const [filter, setFilter] = useState<Filter>(params.get('ver') === 'incidencias' ? 'incidents' : 'all');
   const [error, setError] = useState('');
+  const [merging, setMerging] = useState(false);
 
   const load = useCallback(() => {
     api.get<User>(`/admin/users/${id}`).then(setUser).catch((e) => setError(e.message));
@@ -57,16 +58,20 @@ export function UserDetail() {
         <div className="grow">
           <h1>{user.name}</h1>
           <p className="muted">
-            {user.email}{user.phone && <> · <a href={`tel:${user.phone}`}>{user.phone}</a></>}
+            {user.email ?? 'Sin email'}{user.phone && <> · <a href={`tel:${user.phone}`}>{user.phone}</a></>}
           </p>
           <p>
             {user.role === 'ADMIN' ? <Badge status="admin">Administrador</Badge> : <Badge status="active">Usuario normal</Badge>}
             <Badge status={user.status}>{statusText[user.status]}</Badge>
+            {!user.hasAccount && <span className="badge badge-noaccount">Sin cuenta · agenda en papel</span>}
             {user.status === 'BLOCKED' && user.blockReason && <span className="muted small"> {user.blockReason}</span>}
           </p>
         </div>
+ {!user.hasAccount && user.role === 'CLIENT' && <button className="btn" onClick={() => setMerging(true)}>Unir con un cliente registrado</button>}
         {user.whatsappLink && <a className="btn btn-wa" href={user.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
       </section>
+
+      {merging && <MergeModal user={user} onClose={() => setMerging(false)} />}
 
       {user.role === 'ADMIN' ? (
         <p className="empty">Las cuentas de administrador no tienen citas.</p>
@@ -160,5 +165,45 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         return <OnlineRefundModal appt={a} onClose={close} onDone={done} />;
       })()}
     </article>
+  );
+}
+
+/** Pasa las citas de una ficha sin cuenta a un cliente registrado y borra la ficha. */
+function MergeModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const navigate = useNavigate();
+  const [q, setQ] = useState(user.name.split(' ')[0]);
+  const [list, setList] = useState<User[]>([]);
+  const [target, setTarget] = useState<User | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => {
+      api.get<User[]>(`/admin/users?role=CLIENT&q=${encodeURIComponent(q)}`)
+        .then((r) => setList(r.filter((u) => u.id !== user.id && u.status !== 'DELETED'))).catch(() => {});
+    }, 200);
+    return () => clearTimeout(t);
+  }, [q, user.id]);
+  return (
+    <Modal title="Unir con un cliente registrado" onClose={onClose}>
+      <p>Las citas de <strong>{user.name}</strong> (ficha sin cuenta) pasarán al cliente que elijas y esta ficha se borrará.</p>
+      <Alert>{error}</Alert>
+      <label>Buscar cliente<input autoFocus placeholder="Nombre, email o teléfono" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+      <ul className="pick-list">
+        {list.map((u) => (
+          <li key={u.id}>
+            <label className="check"><input type="radio" name="merge-target" checked={target?.id === u.id} onChange={() => setTarget(u)} /> {u.name} <small className="muted">{contactLine(u)}{!u.hasAccount && ' · sin cuenta'}</small></label>
+          </li>
+        ))}
+        {list.length === 0 && <li className="muted small">No hay clientes que coincidan.</li>}
+      </ul>
+      <button className="btn btn-primary" disabled={!target || busy} onClick={async () => {
+        setBusy(true);
+        try {
+          await api.post(`/admin/users/${user.id}/merge`, { targetId: target!.id });
+          navigate(`/admin/usuarios/${target!.id}`, { replace: true });
+          onClose();
+        } catch (e) { setError(errMsg(e)); setBusy(false); }
+      }}>{target ? `Unir con ${target.name}` : 'Elige un cliente'}</button>
+    </Modal>
   );
 }

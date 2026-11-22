@@ -9,9 +9,13 @@ process.env.NODE_ENV = 'test';
 process.env.PAYPAL_CLIENT_ID = 'test';
 process.env.PAYPAL_CLIENT_SECRET = 'test';
 process.env.TICKETS_DIR = 'storage/test-tickets';
+process.env.IMPORT_DIR = 'storage/test-import';
+delete process.env.ANTHROPIC_API_KEY;
+delete process.env.ANTHROPIC_AUTH_TOKEN;
 // Base de datos desechable solo para tests
 rmSync('prisma/test.db', { force: true });
 rmSync('storage/test-tickets', { recursive: true, force: true });
+rmSync('storage/test-import', { recursive: true, force: true });
 execSync('npx prisma db push --skip-generate', { stdio: 'ignore', env: process.env });
 
 const { createApp } = await import('../src/app.js');
@@ -559,6 +563,101 @@ describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
     });
     expect(row.noShow).toBeGreaterThan(0);
     expect((await call('GET', '/api/admin/reports/incidents', undefined, clientToken)).status).toBe(403);
+  });
+});
+
+describe('importar la agenda en papel', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const tz = 'Europe/Madrid';
+  // Martes dentro de un año y pico: más allá del límite de reserva de los clientes.
+  const day = DateTime.now().setZone(tz).plus({ weeks: 54 }).set({ weekday: 2 });
+
+  async function uploadWith(result: unknown) {
+    const { setAgendaReader } = await import('../src/services/agendaReader.js');
+    const { kickImportQueue } = await import('../src/services/agendaImport.js');
+    setAgendaReader(async () => result as never);
+    const up = await call('POST', '/api/admin/imports', { image: PNG, fileName: 'pagina.png' }, adminToken);
+    expect(up.status).toBe(201);
+    await kickImportQueue();
+    return (await call('GET', `/api/admin/imports/${up.body.id}`, undefined, adminToken)).body;
+  }
+
+  it('lee la foto, propone las filas y crea fichas sin cuenta y citas', async () => {
+    const entry = (time: string | null, name: string, crossedOut = false) => ({ time, name, service: null, crossedOut, uncertain: false, note: null });
+    const d = await uploadWith({
+      days: [
+        { day: day.day, month: day.month, year: null, weekday: 2, entries: [entry('11:00', 'Juan'), entry('11.30', 'juan'), entry('12', 'Cliente'), entry('12:30', 'Pepe', true)] },
+        { day: 1, month: 1, year: 2020, weekday: null, entries: [entry('10:00', 'Antiguo')] },
+      ],
+    });
+    expect(d.status).toBe('READY');
+    expect(d.rows).toHaveLength(5);
+    expect(d.rows[0]).toMatchObject({ date: day.toISODate(), time: '11:00', include: true, serviceId: expect.any(String) });
+    expect(d.rows[1].time).toBe('11:30');
+    expect(d.rows[2]).toMatchObject({ time: '12:00', clientId: expect.any(String) }); // coincide con el cliente "Cliente"
+    expect(d.rows[3].include).toBe(false); // tachada
+    expect(d.rows[4].include).toBe(false); // pasada
+
+    const r = await call('POST', `/api/admin/imports/${d.id}/commit`, { rows: d.rows }, adminToken);
+    expect(r.body).toMatchObject({ imported: 3, failed: 0, done: true });
+    expect(r.body.detail).toMatchObject({ status: 'IMPORTED', hasImage: false });
+
+    const fichas = await prisma.user.findMany({ where: { name: 'Juan' }, include: { appointments: true } });
+    expect(fichas).toHaveLength(1); // las dos filas "Juan" van a la misma ficha
+    expect(fichas[0]).toMatchObject({ email: null, passwordHash: null });
+    expect(fichas[0].appointments).toHaveLength(2);
+    expect((await call('GET', `/api/admin/imports/${d.id}/image`, undefined, adminToken)).status).toBe(410);
+
+    // La misma página subida otra vez no duplica las citas.
+    const again = await uploadWith({ days: [{ day: day.day, month: day.month, year: null, weekday: 2, entries: [entry('11:00', 'Juan')] }] });
+    const r2 = await call('POST', `/api/admin/imports/${again.id}/commit`, { rows: again.rows }, adminToken);
+    expect(r2.body).toMatchObject({ imported: 1, done: true });
+    expect(r2.body.detail.rows[0].result.message).toBe('Ya estaba en la agenda');
+    expect(await prisma.appointment.count({ where: { client: { name: 'Juan' } } })).toBe(2);
+    expect((await call('GET', '/api/admin/imports', undefined, clientToken)).status).toBe(403);
+  });
+
+  it('las filas con error se corrigen y se vuelven a importar', async () => {
+    const d = await uploadWith({ days: [{ day: day.day, month: day.month, year: day.year, weekday: null, entries: [{ time: '11:10', name: 'Rosa', service: null, crossedOut: false, uncertain: true, note: 'llamar' }] }] });
+    const r1 = await call('POST', `/api/admin/imports/${d.id}/commit`, { rows: d.rows }, adminToken);
+    expect(r1.body).toMatchObject({ imported: 0, failed: 1, done: false });
+    expect(r1.body.detail.rows[0].result.status).toBe('error');
+    expect(await prisma.user.count({ where: { name: 'Rosa' } })).toBe(0);
+    const fixed = r1.body.detail.rows.map((x: object) => ({ ...x, time: '15:00' }));
+    // 15:00 es la hora de comer: tampoco vale
+    const r2 = await call('POST', `/api/admin/imports/${d.id}/commit`, { rows: fixed }, adminToken);
+    const time = '16:00'; // primera hora de la tarde
+    const r3 = await call('POST', `/api/admin/imports/${d.id}/commit`, { rows: r2.body.detail.rows.map((x: object) => ({ ...x, time })) }, adminToken);
+    expect(r3.body).toMatchObject({ imported: 1, done: true });
+    const appt = await prisma.appointment.findUniqueOrThrow({ where: { id: r3.body.detail.rows[0].result.appointmentId } });
+    expect(appt.notes).toContain('llamar');
+  });
+
+  it('la ficha sin cuenta no puede entrar y se une a un cliente registrado', async () => {
+    const ficha = await prisma.user.findFirstOrThrow({ where: { name: 'Juan', email: null } });
+    expect((await call('POST', '/api/auth/login', { email: '', password: '' })).status).toBe(401);
+    const other = await prisma.user.findUniqueOrThrow({ where: { email: 'o@o.es' } });
+    const m = await call('POST', `/api/admin/users/${ficha.id}/merge`, { targetId: other.id }, adminToken);
+    expect(m.body).toEqual({ moved: 2 });
+    expect(await prisma.user.findUnique({ where: { id: ficha.id } })).toBeNull();
+    const rosa = await prisma.user.findFirstOrThrow({ where: { name: 'Rosa' } });
+    const again = await call('POST', `/api/admin/users/${other.id}/merge`, { targetId: rosa.id }, adminToken);
+    expect(again.status).toBe(400); // solo se unen fichas sin email
+  });
+
+  it('sin clave de la API la foto queda con error y se puede pasar a mano', async () => {
+    const { claudeReader, setAgendaReader } = await import('../src/services/agendaReader.js');
+    const { kickImportQueue } = await import('../src/services/agendaImport.js');
+    setAgendaReader(claudeReader);
+    const up = await call('POST', '/api/admin/imports', { image: PNG }, adminToken);
+    await kickImportQueue();
+    const d = (await call('GET', `/api/admin/imports/${up.body.id}`, undefined, adminToken)).body;
+    expect(d).toMatchObject({ status: 'ERROR', error: expect.stringContaining('ANTHROPIC_API_KEY') });
+    const list = await call('GET', '/api/admin/imports', undefined, adminToken);
+    expect(list.body.readerConfigured).toBe(false);
+    const manual = await call('POST', '/api/admin/imports/manual', {}, adminToken);
+    expect(manual.body.status).toBe('READY');
+    expect((await call('DELETE', `/api/admin/imports/${up.body.id}`, undefined, adminToken)).status).toBe(204);
   });
 });
 

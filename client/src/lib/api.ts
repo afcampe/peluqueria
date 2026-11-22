@@ -39,7 +39,24 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+/** Descarga un recurso protegido (con el token) como blob, p. ej. una imagen. */
+async function blob(path: string): Promise<Blob> {
+  const token = tokenStore.get();
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ApiError(0, 'No hay conexión con el servidor');
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, data.error ?? 'Error inesperado', data.code);
+  }
+  return res.blob();
+}
+
 export const api = {
+  blob,
   get: <T>(p: string) => request<T>('GET', p),
   post: <T>(p: string, b?: unknown) => request<T>('POST', p, b ?? {}),
   put: <T>(p: string, b: unknown) => request<T>('PUT', p, b),

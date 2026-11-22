@@ -1,6 +1,10 @@
 const TZ = 'Europe/Madrid';
 let tz = TZ;
 let currency = 'EUR';
+/** Teléfono y email de un cliente; las fichas sin cuenta no tienen email. */
+export const contactLine = (u: { phone: string | null; email: string | null }) =>
+  [u.phone, u.email].filter(Boolean).join(' · ') || 'sin teléfono ni email';
+
 export const setLocaleConfig = (t: string, c: string) => { tz = t; currency = c; };
 
 export const money = (cents: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(cents / 100);

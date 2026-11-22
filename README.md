@@ -41,6 +41,14 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
   - **Efectivo**: pide confirmación, se devuelve en mano y la cita queda pendiente de cobro (ya se puede cancelar o volver a cobrar).
   - **PayPal**: muestra los datos del pago (cuenta del pagador, id. de la transacción y pedido) y permite devolver todo o parte, anulando la cita o manteniéndola pendiente de cobro en el local.
   El ticket se conserva y queda marcado como reembolsado. Las cancelaciones masivas (cierres, bloqueos, bajas, series) se saltan estas citas y lo avisan
+- **Importar agenda** (agenda en papel): se suben fotos de las páginas, una o muchas a la vez desde el móvil o el ordenador. La aplicación lee con Claude (IA con visión) la fecha de cada página y, en cada hora, el nombre apuntado a mano. Cada página se revisa con la foto al lado: lo dudoso sale en amarillo, se puede corregir la fecha, la hora, el nombre, el cliente y el servicio (por defecto el primero de la lista), añadir o quitar filas, y luego se pulsa *Importar*.
+  - Solo se importan las citas de hoy en adelante; las tachadas tampoco.
+  - Si la hora no encaja en la rejilla de citas, el error propone las horas válidas más cercanas.
+  - Si se sube dos veces la misma página, las citas no se duplican.
+  - Los clientes que no están registrados se guardan como **fichas sin cuenta**: solo nombre, sin email ni acceso a la app, y no reciben emails. Si el nombre coincide exactamente con el de un único cliente se asigna a él; si solo se parece ("Luis" y "Luis Ortega"), se ofrece elegirlo. Las filas con el mismo nombre comparten ficha.
+  - Desde la ficha del cliente, *Unir con un cliente registrado* pasa sus citas a la cuenta real cuando se registra. También se le puede dar acceso poniéndole email y contraseña.
+  - La foto se borra al terminar de importar la página.
+  - Sin `ANTHROPIC_API_KEY`, las fotos se suben igual y las citas se pasan a mano mirando la foto.
 - **Anulaciones**: histórico por cliente de citas anuladas (por el cliente o por la peluquería) y de ausencias, filtrable por periodo y ordenable, con acceso a sus citas
 - **Usuarios**: ficha de cada cliente con todas sus citas (próximas y pasadas en colores distintos, estado de pago y método), alta como usuario normal o administrador, edición, bloqueo (temporal hasta una fecha o indefinido, con opción de cancelar sus citas), desbloqueo, baja (se conserva el historial) y reactivación
 - **Cierres**: vacaciones o festivos (días enteros o por horas). Bloquean las reservas y pueden cancelar y reembolsar las citas afectadas
@@ -64,6 +72,7 @@ Si cambias la duración de las citas o el horario, las citas ya reservadas se ma
 |---|---|---|
 | PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE` | developer.paypal.com → Apps & Credentials. Usa `sandbox` para pruebas y `live` en producción |
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Tu proveedor de correo (Gmail con contraseña de aplicación, Brevo, SES…). Sin esto, los emails solo se muestran en la consola |
+| Lectura de la agenda en papel (opcional) | `ANTHROPIC_API_KEY` | platform.claude.com → API Keys. Cada foto cuesta del orden de céntimos. Las fotos (con nombres de clientes) se envían a la API de Anthropic para leerlas; conviene mencionarlo en la política de privacidad |
 | WhatsApp API (opcional) | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Meta for Developers → WhatsApp Business. Meta solo permite texto libre si el cliente escribió en las últimas 24 h; fuera de esa ventana exige plantillas aprobadas |
 
 Los tickets se guardan en `TICKETS_DIR` (por defecto `server/storage/tickets`). En producción esa carpeta debe estar en un disco persistente y entrar en las copias de seguridad.

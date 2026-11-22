@@ -37,7 +37,7 @@ export function Profile() {
       <Alert kind="ok">{msg}</Alert>
       <Alert>{error}</Alert>
       <AvatarInput name={f.name} current={user!.avatarUrl} value={avatar} onChange={setAvatar} />
-      <label>Email<input value={user!.email} disabled /></label>
+      <label>Email<input value={user!.email ?? ''} disabled /></label>
       <label>Nombre<input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
       <label>Teléfono<input type="tel" required value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
       {user!.role === 'CLIENT' && (
