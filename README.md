@@ -29,6 +29,7 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - Registro e inicio de sesión, con foto de perfil opcional (se puede cambiar o quitar en *Mi perfil*)
 - Reserva: servicio → día y hora → forma de pago (PayPal o en el local)
 - Se puede reservar hasta 1 año vista
+- **Citas periódicas**: reservar varias de una vez cada X días (1 semana, 15 días, 4 semanas o cualquier número), hasta una fecha o un número de citas. Antes de confirmar se ven todas las fechas. Si alguna cae en día cerrado u ocupado, se propone el hueco libre más cercano, y cada fecha se puede cambiar o quitar. Se reservan todas o ninguna, se pagan en un solo pago (PayPal) o en el local, y luego se pueden cancelar una a una (con reembolso de su parte) o todas a la vez
 - Mis citas: cambiar la hora o cancelar. No se puede hacer con menos de 1 h de antelación
 - Si la cita estaba pagada por PayPal, al cancelarla se reembolsa automáticamente
 
@@ -38,7 +39,8 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - **Cierres**: vacaciones o festivos (días enteros o por horas). Bloquean las reservas y pueden cancelar y reembolsar las citas afectadas
 - **Avisos email**: envío a todos los clientes que aceptan emails, a los clientes con cita un día concreto o a clientes elegidos. Incluye plantillas, `{nombre}` personalizado e historial
 - **WhatsApp**: enlaces `wa.me` con el mensaje ya escrito para cada cliente (funciona sin configurar nada). Opcionalmente, envío automático con la API de WhatsApp Business
-- **Configuración**: duración de las citas (30 min por defecto), horario semanal por tramos (9–13 y 16–20 por defecto, de lunes a sábado), días máximos de antelación, antelación mínima para cancelar, número de sillones, formas de pago, servicios y precios
+- **Agenda**: también se pueden crear citas periódicas para un cliente y cancelar una cita junto con las siguientes de su serie
+- **Configuración**: activar o desactivar las citas periódicas, máximo de citas por serie (60 por defecto), duración de las citas (30 min por defecto), horario semanal por tramos (9–13 y 16–20 por defecto, de lunes a sábado), días máximos de antelación, antelación mínima para cancelar, número de sillones, formas de pago, servicios y precios
 
 Si cambias la duración de las citas o el horario, las citas ya reservadas se mantienen y nunca se solapan con las nuevas.
 

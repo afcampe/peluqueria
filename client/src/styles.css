@@ -182,3 +182,26 @@ td.actions { justify-content: flex-end; }
 .avatar-input p { margin: .3rem 0 0; }
 .topbar nav a.nav-user { display: inline-flex; align-items: center; gap: .4rem; }
 .user-cell { display: inline-flex; align-items: center; gap: .6rem; }
+
+/* Citas periódicas */
+.field-label { font-size: .92rem; font-weight: 500; margin: .75rem 0 .4rem; }
+.chips { display: flex; flex-wrap: wrap; gap: .4rem .6rem; align-items: center; }
+.chip { padding: .35rem .8rem; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: .9rem; cursor: pointer; }
+.chip.selected { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.chips label { margin: 0; }
+label.inline { flex-direction: row; align-items: center; gap: .4rem; margin: 0; }
+label.inline input { width: 5rem; }
+.w-auto { width: auto; }
+.series-summary { margin: 1rem 0 .5rem; }
+.warn-text { color: #a86a00; }
+@media (prefers-color-scheme: dark) { .warn-text { color: #f0b450; } }
+.occurrences { list-style: none; padding: 0; margin: 0; max-height: 360px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.occurrences li { display: grid; grid-template-columns: auto 1fr auto; gap: .75rem; align-items: center; padding: .45rem .75rem; border-bottom: 1px solid var(--border); }
+.occurrences li:last-child { border-bottom: none; }
+.occurrences label { margin: 0; }
+.occ-date { text-transform: capitalize; min-width: 8.5rem; }
+.occ-time { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .occurrences li { grid-template-columns: 1fr auto; } .occ-note { grid-column: 1 / -1; grid-row: 2; } }
+.mode-toggle { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.series-card { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.series-badge { font-size: .8rem; color: var(--primary); font-weight: 600; }

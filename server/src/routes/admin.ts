@@ -10,7 +10,8 @@ import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
-import { cancelAppointment, createAppointment, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { cancelAppointment, cancelSeries, createAppointment, createSeries, previewSeries, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
 import { getSettings, saveSettings } from '../services/settings.js';
 import { actor, h, publicUser } from './util.js';
 
@@ -67,6 +68,23 @@ adminRouter.post('/appointments', h(async (req, res) => {
     paymentMethod: z.string().default('cash'), notes: z.string().max(500).optional(),
   }).parse(req.body);
   res.status(201).json(await createAppointment(ADMIN(req), data));
+}));
+
+adminRouter.post('/appointments/series/preview', h(async (req, res) => {
+  res.json(await previewSeries(seriesPreviewSchema.parse(req.body)));
+}));
+
+adminRouter.post('/appointments/series', h(async (req, res) => {
+  const data = seriesCreateSchema.extend({ clientId: z.string(), paymentMethod: z.string().default('cash') }).parse(req.body);
+  res.status(201).json(await createSeries(ADMIN(req), data));
+}));
+
+adminRouter.post('/series/:id/cancel', h(async (req, res) => {
+  const opts = z.object({
+    fromAppointmentId: z.string().optional(), reason: z.string().max(300).optional(),
+    refund: z.boolean().default(true), notify: z.boolean().default(true),
+  }).parse(req.body ?? {});
+  res.json(await cancelSeries(ADMIN(req), req.params.id, opts));
 }));
 
 adminRouter.patch('/appointments/:id', h(async (req, res) => {

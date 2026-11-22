@@ -1,11 +1,14 @@
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { useState } from 'react';
 import { api } from '../lib/api';
-import type { Appointment } from '../lib/types';
 import { Alert } from './ui';
 
-export function PayPalCheckout({ appointmentId, clientId, currency, onPaid }: {
-  appointmentId: string; clientId: string; currency: string; onPaid: (a: Appointment) => void;
+/**
+ * Botones de PayPal. `basePath` es la ruta de la API que gestiona el pedido:
+ * `/appointments/:id` para una cita o `/appointments/series/:id` para una serie.
+ */
+export function PayPalCheckout<T>({ basePath, clientId, currency, onPaid }: {
+  basePath: string; clientId: string; currency: string; onPaid: (result: T) => void;
 }) {
   const [error, setError] = useState('');
   return (
@@ -16,12 +19,12 @@ export function PayPalCheckout({ appointmentId, clientId, currency, onPaid }: {
           style={{ layout: 'vertical', shape: 'rect', label: 'pay' }}
           createOrder={async () => {
             setError('');
-            const { orderId } = await api.post<{ orderId: string }>(`/appointments/${appointmentId}/pay/start`);
+            const { orderId } = await api.post<{ orderId: string }>(`${basePath}/pay/start`);
             return orderId;
           }}
           onApprove={async (data) => {
             try {
-              onPaid(await api.post<Appointment>(`/appointments/${appointmentId}/pay/complete`, { orderId: data.orderID }));
+              onPaid(await api.post<T>(`${basePath}/pay/complete`, { orderId: data.orderID }));
             } catch (e) {
               setError((e as Error).message);
             }

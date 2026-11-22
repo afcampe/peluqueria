@@ -27,6 +27,17 @@ model User {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
+  series       AppointmentSeries[]
+}
+
+// Citas periódicas (p. ej. cada 15 días) reservadas de una sola vez.
+model AppointmentSeries {
+  id           String        @id @default(cuid())
+  clientId     String
+  client       User          @relation(fields: [clientId], references: [id])
+  intervalDays Int
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
 }
 
 model Service {
@@ -44,6 +55,8 @@ model Appointment {
   client        User      @relation(fields: [clientId], references: [id])
   serviceId     String
   service       Service   @relation(fields: [serviceId], references: [id])
+  seriesId      String?
+  series        AppointmentSeries? @relation(fields: [seriesId], references: [id])
   startAt       DateTime
   endAt         DateTime
   // PENDING_PAYMENT | CONFIRMED | CANCELLED | COMPLETED | NO_SHOW
@@ -61,6 +74,7 @@ model Appointment {
 
   @@index([startAt])
   @@index([clientId])
+  @@index([seriesId])
 }
 
 model Payment {

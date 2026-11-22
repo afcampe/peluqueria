@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { RecurrencePlanner, type SeriesPlan } from '../../components/RecurrencePlanner';
 import { SlotPicker } from '../../components/SlotPicker';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -82,6 +83,7 @@ export function Agenda() {
                     {a.notes && <div className="muted small">📝 {a.notes}</div>}
                     {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
                     <Badge status={a.status}>{statusLabel[a.status]}</Badge>
+                    {a.series && <span className="series-badge"> 🔁 cada {a.series.intervalDays} días</span>}
                   </div>
                   <div className="actions">
                     {active && <button className="btn btn-sm" onClick={() => setModal({ kind: 'move', appt: a })}>Cambiar hora</button>}
@@ -119,8 +121,11 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
   const [client, setClient] = useState<User | null>(null);
   const [serviceId, setServiceId] = useState(config?.services[0]?.id ?? '');
   const [start, setStart] = useState<string | null>(null);
+  const [repeat, setRepeat] = useState(false);
+  const [plan, setPlan] = useState<SeriesPlan | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const service = config?.services.find((s) => s.id === serviceId);
 
   useEffect(() => {
     const t = setTimeout(() => api.get<User[]>(`/admin/users?status=ACTIVE&q=${encodeURIComponent(q)}`).then(setUsers).catch(() => {}), 250);
@@ -129,8 +134,13 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
 
   const save = async () => {
     try {
-      await api.post('/admin/appointments', { clientId: client!.id, serviceId, startAt: start, paymentMethod: 'cash', notes: notes || undefined });
-      onDone(`Cita creada para ${client!.name}`);
+      if (repeat && plan) {
+        await api.post('/admin/appointments/series', { clientId: client!.id, serviceId, intervalDays: plan.intervalDays, starts: plan.starts, paymentMethod: 'cash', notes: notes || undefined });
+        onDone(`${plan.starts.length} citas creadas para ${client!.name}`);
+      } else {
+        await api.post('/admin/appointments', { clientId: client!.id, serviceId, startAt: start, paymentMethod: 'cash', notes: notes || undefined });
+        onDone(`Cita creada para ${client!.name}`);
+      }
     } catch (e) { setError(errMsg(e)); }
   };
 
@@ -154,9 +164,15 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
             </select>
           </label>
           <SlotPicker value={start} onPick={setStart} />
+          {start && (
+            <label className="check"><input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} /> 🔁 Repetir periódicamente</label>
+          )}
+          {start && repeat && service && <RecurrencePlanner firstStart={start} priceCents={service.priceCents} onChange={setPlan} />}
           <label>Notas<input value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
           <p className="muted small">Las citas creadas desde el panel se pagan en el local.</p>
-          <button className="btn btn-primary" disabled={!start} onClick={save}>Crear cita</button>
+          <button className="btn btn-primary" disabled={!start || (repeat && !plan)} onClick={save}>
+            {repeat && plan ? `Crear ${plan.starts.length} citas` : 'Crear cita'}
+          </button>
         </>
       )}
     </Modal>
@@ -182,6 +198,7 @@ function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: ()
   const [reason, setReason] = useState('');
   const [refund, setRefund] = useState(true);
   const [notify, setNotify] = useState(true);
+  const [wholeSeries, setWholeSeries] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
@@ -191,13 +208,22 @@ function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: ()
       <label>Motivo (se incluye en el email)<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
       {paid && <label className="check"><input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} /> Reembolsar {money(paid.amountCents - paid.refundedCents)} por {methodLabel(paid.provider)}</label>}
       <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar al cliente por email</label>
+      {appt.series && (
+        <label className="check"><input type="checkbox" checked={wholeSeries} onChange={(e) => setWholeSeries(e.target.checked)} /> 🔁 Cancelar también las siguientes citas de esta serie (cada {appt.series.intervalDays} días)</label>
+      )}
       <button className="btn btn-danger" disabled={busy} onClick={async () => {
         setBusy(true);
         try {
-          const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/cancel`, { reason: reason || undefined, refund, notify });
-          onDone(`Cita cancelada${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.`);
+          const body = { reason: reason || undefined, refund, notify };
+          if (wholeSeries && appt.series) {
+            const r = await api.post<{ cancelled: number; refundedCents: number }>(`/admin/series/${appt.series.id}/cancel`, { ...body, fromAppointmentId: appt.id });
+            onDone(`${r.cancelled} cita(s) cancelada(s)${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.`);
+          } else {
+            const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/cancel`, body);
+            onDone(`Cita cancelada${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.`);
+          }
         } catch (e) { setError(errMsg(e)); setBusy(false); }
-      }}>Cancelar cita</button>
+      }}>{wholeSeries ? 'Cancelar esta y las siguientes' : 'Cancelar cita'}</button>
     </Modal>
   );
 }

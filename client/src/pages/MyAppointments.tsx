@@ -15,6 +15,7 @@ export function MyAppointments() {
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<Appointment | null>(null);
   const [cancelling, setCancelling] = useState<Appointment | null>(null);
+  const [cancellingSeries, setCancellingSeries] = useState<SeriesGroup | null>(null);
 
   const load = useCallback(() => api.get<Appointment[]>('/appointments').then(setList).catch((e) => setError(e.message)), []);
   useEffect(() => { load(); }, [load]);
@@ -24,6 +25,15 @@ export function MyAppointments() {
   const now = Date.now();
   const upcoming = (list ?? []).filter((a) => ['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status) && new Date(a.endAt).getTime() > now).reverse();
   const past = (list ?? []).filter((a) => !upcoming.includes(a));
+
+  // Series con citas próximas
+  const seriesGroups = new Map<string, SeriesGroup>();
+  upcoming.forEach((a) => {
+    if (!a.series) return;
+    const g = seriesGroups.get(a.series.id) ?? { id: a.series.id, intervalDays: a.series.intervalDays, service: a.service.name, appts: [] };
+    g.appts.push(a);
+    seriesGroups.set(a.series.id, g);
+  });
 
   const paid = (a: Appointment) => a.payments.find((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
 
@@ -38,6 +48,17 @@ export function MyAppointments() {
       {!list && <Spinner />}
       {list && upcoming.length === 0 && <p className="empty">No tienes citas próximas.</p>}
 
+      {[...seriesGroups.values()].map((g) => (
+        <section key={g.id} className="card series-card">
+          <div>
+            <span className="series-badge">🔁 Citas periódicas · cada {g.intervalDays} días</span>
+            <h3>{g.service}: {g.appts.length} citas próximas</h3>
+            <p className="muted small">Próxima: {dateTime(g.appts[0].startAt)} · Última: {dateTime(g.appts.at(-1)!.startAt)}</p>
+          </div>
+          <button className="btn btn-danger" onClick={() => setCancellingSeries(g)}>Cancelar todas</button>
+        </section>
+      ))}
+
       <div className="appt-list">
         {upcoming.map((a) => {
           const changeable = canClientChange(a.startAt, notice);
@@ -47,6 +68,7 @@ export function MyAppointments() {
                 <h3>{dateTime(a.startAt)}</h3>
                 <p>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} {paid(a) && '(pagada)'}</p>
                 <Badge status={a.status}>{statusLabel[a.status]}</Badge>
+                {a.series && <span className="series-badge"> 🔁 cada {a.series.intervalDays} días</span>}
               </div>
               <div className="actions">
                 {changeable ? (
@@ -81,6 +103,13 @@ export function MyAppointments() {
         </>
       )}
 
+      {cancellingSeries && (
+        <Modal title="Cancelar citas periódicas" onClose={() => setCancellingSeries(null)}>
+          <p>Se cancelarán las <strong>{cancellingSeries.appts.length} citas</strong> próximas de {cancellingSeries.service} (cada {cancellingSeries.intervalDays} días).</p>
+          <p className="muted small">Las que falten menos de {noticeText(notice)} no se pueden cancelar desde la app. Si pagaste online, te devolvemos el importe de cada cita cancelada.</p>
+          <CancelSeriesButton id={cancellingSeries.id} onDone={(msg) => { setCancellingSeries(null); setFlash(msg); load(); }} />
+        </Modal>
+      )}
       {editing && <RescheduleModal appt={editing} onClose={() => setEditing(null)} onDone={(msg) => { setEditing(null); setFlash(msg); load(); }} />}
       {cancelling && (
         <Modal title="Cancelar cita" onClose={() => setCancelling(null)}>
@@ -90,6 +119,25 @@ export function MyAppointments() {
         </Modal>
       )}
     </div>
+  );
+}
+
+interface SeriesGroup { id: string; intervalDays: number; service: string; appts: Appointment[] }
+
+function CancelSeriesButton({ id, onDone }: { id: string; onDone: (msg: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  return (
+    <>
+      <Alert>{error}</Alert>
+      <button className="btn btn-danger" disabled={busy} onClick={async () => {
+        setBusy(true);
+        try {
+          const r = await api.post<{ cancelled: number; skipped: number; refundedCents: number }>(`/appointments/series/${id}/cancel`);
+          onDone(`${r.cancelled} cita(s) cancelada(s).${r.refundedCents ? ` Reembolsados ${money(r.refundedCents)}.` : ''}${r.skipped ? ` ${r.skipped} no se pudieron cancelar por falta de antelación.` : ''}`);
+        } catch (e) { setError(errMsg(e)); setBusy(false); }
+      }}>{busy ? 'Cancelando…' : 'Sí, cancelar todas'}</button>
+    </>
   );
 }
 

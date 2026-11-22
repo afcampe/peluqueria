@@ -18,6 +18,7 @@ publicRouter.get('/config', h(async (_req, res) => {
     slotMinutes: s.slotMinutes,
     bookingHorizonDays: s.bookingHorizonDays,
     clientCancelMinNoticeMinutes: s.clientCancelMinNoticeMinutes,
+    recurring: { enabled: s.recurringEnabled, maxAppointments: s.recurringMaxAppointments },
     weeklySchedule: s.weeklySchedule,
     services,
     paymentMethods: enabledProviders(s).map((p) => ({ id: p.id, label: p.label, online: p.online, config: p.publicConfig() })),

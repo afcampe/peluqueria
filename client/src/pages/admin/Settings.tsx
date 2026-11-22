@@ -53,6 +53,15 @@ export function Settings() {
       </section>
 
       <section className="card">
+        <h2>Citas periódicas</h2>
+        <label className="check"><input type="checkbox" checked={s.recurringEnabled} onChange={(e) => setS({ ...s, recurringEnabled: e.target.checked })} /> Permitir a los clientes reservar varias citas de una vez (cada X días)</label>
+        <div className="row">
+          <label>Máximo de citas por serie<input type="number" min={2} max={200} value={s.recurringMaxAppointments} onChange={num('recurringMaxAppointments')} /></label>
+        </div>
+        <p className="muted small">Con 60 cabe un año entero cada semana. Desde el panel siempre puedes crear series para un cliente.</p>
+      </section>
+
+      <section className="card">
         <h2>Horario semanal</h2>
         <div className="schedule">
           {Object.entries(weekdayNames).map(([d, name]) => {

@@ -20,8 +20,13 @@ const { DateTime } = await import('luxon');
 
 // PayPal simulado
 const refunds: number[] = [];
-paypalProvider.createOrder = async () => ({ orderId: 'ORDER-1' });
-paypalProvider.captureOrder = async () => ({ captureId: 'CAP-1', amountCents: 1500, currency: 'EUR' });
+const orders = new Map<string, number>();
+paypalProvider.createOrder = async ({ amountCents }) => {
+  const orderId = `ORDER-${orders.size + 1}`;
+  orders.set(orderId, amountCents);
+  return { orderId };
+};
+paypalProvider.captureOrder = async (orderId) => ({ captureId: `CAP-${orderId}`, amountCents: orders.get(orderId)!, currency: 'EUR' });
 paypalProvider.refund = async ({ amountCents }) => { refunds.push(amountCents); return { refundId: `REF-${refunds.length}` }; };
 
 let server: Server;
@@ -116,8 +121,8 @@ describe('reservas', () => {
     const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'paypal' }, clientToken);
     expect(r.body.status).toBe('PENDING_PAYMENT');
     const order = await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
-    expect(order.body.orderId).toBe('ORDER-1');
-    const done = await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: 'ORDER-1' }, clientToken);
+    expect(order.body.orderId).toMatch(/^ORDER-/);
+    const done = await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
     expect(done.body.status).toBe('CONFIRMED');
 
     const cancel = await call('POST', `/api/appointments/${r.body.id}/cancel`, {}, clientToken);
@@ -128,8 +133,8 @@ describe('reservas', () => {
   it('admin: reembolso parcial manual', async () => {
     const start = await slotIn(6);
     const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'paypal' }, clientToken);
-    await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
-    const done = await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: 'ORDER-1' }, clientToken);
+    const order = await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
+    const done = await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
     const paymentId = done.body.payments[0].id;
     expect((await call('POST', `/api/admin/payments/${paymentId}/refund`, { amountCents: 500 }, adminToken)).status).toBe(200);
     expect((await call('POST', `/api/admin/payments/${paymentId}/refund`, { amountCents: 1500 }, adminToken)).status).toBe(400);
@@ -199,6 +204,91 @@ describe('foto de perfil', () => {
     const list = await call('GET', '/api/admin/users?q=foto', undefined, adminToken);
     expect(list.body[0].avatarUrl).toBe(added.body.avatarUrl);
     expect(list.body[0].avatar).toBeUndefined();
+  });
+});
+
+describe('citas periódicas', () => {
+  /** Lunes a las 10:00 (Madrid), al menos dentro de `weeks` semanas. */
+  const mondayAt10 = (weeks: number) => {
+    const d = DateTime.now().setZone('Europe/Madrid').plus({ weeks }).set({ weekday: 1, hour: 10, minute: 0, second: 0, millisecond: 0 });
+    return d.toUTC().toISO()!;
+  };
+
+  it('previsualiza cada 15 días y mueve las que caen en domingo', async () => {
+    const firstStart = mondayAt10(20);
+    const r = await call('POST', '/api/appointments/series/preview', { firstStart, intervalDays: 15, count: 8 }, clientToken);
+    expect(r.status).toBe(200);
+    const occ = r.body.occurrences;
+    expect(occ).toHaveLength(8);
+    expect(occ[0]).toMatchObject({ status: 'OK', start: firstStart });
+    // 15 días después de un lunes es martes; 6×15 = 90 días -> domingo (cerrado) -> se mueve
+    const sunday = occ[6];
+    expect(DateTime.fromISO(sunday.requested).setZone('Europe/Madrid').weekday).toBe(7);
+    expect(sunday.status).toBe('MOVED');
+    expect(sunday.reason).toBe('Cerrado ese día');
+    expect(DateTime.fromISO(sunday.start).setZone('Europe/Madrid').toFormat('c HH:mm')).toBe('1 10:00');
+  });
+
+  it('propone la hora libre más cercana si la pedida está ocupada', async () => {
+    const firstStart = mondayAt10(30);
+    const second = DateTime.fromISO(firstStart).plus({ days: 7 }).toUTC().toISO()!;
+    await call('POST', '/api/appointments', { serviceId, startAt: second, paymentMethod: 'cash' }, adminToken);
+    const r = await call('POST', '/api/appointments/series/preview', { firstStart, intervalDays: 7, count: 3 }, clientToken);
+    expect(r.body.occurrences[1].status).toBe('MOVED');
+    expect(r.body.occurrences[1].reason).toBe('Ocupado a esa hora');
+    const moved = DateTime.fromISO(r.body.occurrences[1].start).setZone('Europe/Madrid');
+    expect(['09:30', '10:30']).toContain(moved.toFormat('HH:mm'));
+  });
+
+  it('reserva la serie completa en efectivo y la cancela de una vez', async () => {
+    const firstStart = mondayAt10(40);
+    const preview = (await call('POST', '/api/appointments/series/preview', { firstStart, intervalDays: 14, count: 5 }, clientToken)).body;
+    const starts = preview.occurrences.map((o: { start: string }) => o.start);
+    const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 14, starts, paymentMethod: 'cash' }, clientToken);
+    expect(r.status).toBe(201);
+    expect(r.body.appointments).toHaveLength(5);
+    expect(r.body.appointments.every((a: { status: string; series: { intervalDays: number } }) => a.status === 'CONFIRMED' && a.series.intervalDays === 14)).toBe(true);
+
+    const c = await call('POST', `/api/appointments/series/${r.body.series.id}/cancel`, {}, clientToken);
+    expect(c.body).toMatchObject({ cancelled: 5, skipped: 0 });
+  });
+
+  it('si una fecha ya no está libre no se reserva ninguna', async () => {
+    const firstStart = mondayAt10(45);
+    const starts = [0, 7, 14].map((d) => DateTime.fromISO(firstStart).plus({ days: d }).toUTC().toISO()!);
+    await call('POST', '/api/appointments', { serviceId, startAt: starts[2], paymentMethod: 'cash' }, adminToken);
+    const before = await prisma.appointment.count();
+    const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 7, starts, paymentMethod: 'cash' }, clientToken);
+    expect(r.status).toBe(409);
+    expect(r.body.error).toMatch(/^Cita del /);
+    expect(await prisma.appointment.count()).toBe(before);
+  });
+
+  it('serie con PayPal: un solo pago y reembolso individual al cancelar una cita', async () => {
+    const firstStart = mondayAt10(33);
+    const starts = [0, 14, 28].map((d) => DateTime.fromISO(firstStart).plus({ days: d }).toUTC().toISO()!);
+    const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 14, starts, paymentMethod: 'paypal' }, clientToken);
+    expect(r.body).toMatchObject({ pendingPayment: true, totalCents: 4500 });
+    const order = await call('POST', `/api/appointments/series/${r.body.series.id}/pay/start`, {}, clientToken);
+    expect(order.body.amountCents).toBe(4500);
+    const done = await call('POST', `/api/appointments/series/${r.body.series.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
+    expect(done.body.appointments).toHaveLength(3);
+    expect(done.body.lostCount).toBe(0);
+
+    refunds.length = 0;
+    const one = await call('POST', `/api/appointments/${done.body.appointments[1].id}/cancel`, {}, clientToken);
+    expect(one.body.refundedCents).toBe(1500);
+    expect(refunds).toEqual([1500]);
+    // El admin cancela el resto de la serie: solo se reembolsan las 2 restantes
+    const rest = await call('POST', `/api/admin/series/${r.body.series.id}/cancel`, {}, adminToken);
+    expect(rest.body).toMatchObject({ cancelled: 2, refundedCents: 3000 });
+  });
+
+  it('respeta el máximo de citas por serie', async () => {
+    await saveSettings({ recurringMaxAppointments: 4 });
+    const r = await call('POST', '/api/appointments/series/preview', { firstStart: mondayAt10(20), intervalDays: 7, count: 10 }, clientToken);
+    expect(r.body.occurrences).toHaveLength(4);
+    await saveSettings({ recurringMaxAppointments: 60 });
   });
 });
 

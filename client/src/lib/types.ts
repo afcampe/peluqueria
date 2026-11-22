@@ -17,6 +17,7 @@ export interface Appointment {
   notes: string | null; cancelledBy: string | null; cancelReason: string | null; holdExpiresAt: string | null;
   client: { id: string; name: string; email: string; phone: string | null };
   service: Service; payments: Payment[];
+  series: { id: string; intervalDays: number } | null;
 }
 export interface Slot { start: string; end: string; available: boolean; reason?: string }
 export interface TimeRange { start: string; end: string }
@@ -25,10 +26,17 @@ export interface PublicConfig {
   shop: { name: string; phone: string; email: string; address: string };
   timezone: string; currency: string; slotMinutes: number; bookingHorizonDays: number;
   clientCancelMinNoticeMinutes: number; weeklySchedule: Record<string, TimeRange[]>;
+  recurring: { enabled: boolean; maxAppointments: number };
   services: Service[]; paymentMethods: PaymentMethod[];
 }
 export interface Settings {
   shopName: string; shopPhone: string; shopEmail: string; shopAddress: string; timezone: string; currency: string;
   slotMinutes: number; capacity: number; bookingHorizonDays: number; clientCancelMinNoticeMinutes: number;
-  paymentHoldMinutes: number; weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
+  paymentHoldMinutes: number; recurringEnabled: boolean; recurringMaxAppointments: number; weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
+}
+
+export interface Occurrence { requested: string; start: string | null; status: 'OK' | 'MOVED' | 'UNAVAILABLE'; reason?: string }
+export interface SeriesResult {
+  series: { id: string; intervalDays: number };
+  appointments: Appointment[]; totalCents: number; pendingPayment: boolean;
 }

@@ -28,6 +28,10 @@ export const settingsSchema = z.object({
   clientCancelMinNoticeMinutes: z.number().int().min(0),
   /** Minutos que se guarda el hueco mientras el cliente paga online. */
   paymentHoldMinutes: z.number().int().min(5).max(120),
+  /** Permite a los clientes reservar varias citas periódicas a la vez. */
+  recurringEnabled: z.boolean().default(true),
+  /** Máximo de citas en una misma serie periódica. */
+  recurringMaxAppointments: z.number().int().min(2).max(200).default(60),
   /** Horario semanal. Claves 1 (lunes) .. 7 (domingo), formato ISO. */
   weeklySchedule: z.record(z.enum(['1', '2', '3', '4', '5', '6', '7']), z.array(rangeSchema)),
   /** Métodos de pago activos. La clave es el id del proveedor. */
@@ -48,6 +52,8 @@ export const defaultSettings: Settings = {
   bookingHorizonDays: 365,
   clientCancelMinNoticeMinutes: 60,
   paymentHoldMinutes: 15,
+  recurringEnabled: true,
+  recurringMaxAppointments: 60,
   weeklySchedule: {
     '1': twoShifts,
     '2': twoShifts,
