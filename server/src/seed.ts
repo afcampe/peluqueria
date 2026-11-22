@@ -9,7 +9,8 @@ const password = process.env.ADMIN_PASSWORD ?? 'admin1234';
 const admin = await prisma.user.findUnique({ where: { email } });
 if (!admin) {
   await prisma.user.create({ data: { email, name: 'Armando', role: 'ADMIN', passwordHash: await bcrypt.hash(password, 10) } });
-  console.log(`Administrador creado: ${email} / ${password}  (¡cambia la contraseña!)`);
+  // La contraseña solo se muestra si es la de por defecto (no se escriben en los registros las de producción).
+  console.log(`Administrador creado: ${email}${process.env.ADMIN_PASSWORD ? '' : ` / ${password}  (¡cambia la contraseña!)`}`);
 }
 
 if ((await prisma.service.count()) === 0) {

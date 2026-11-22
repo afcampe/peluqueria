@@ -98,6 +98,28 @@ Mientras no estén las credenciales de PayPal, la opción no aparece y solo se p
 
 Las reservas, cancelaciones y reembolsos ya funcionan con cualquier proveedor que cumpla la interfaz.
 
+## Demo online en Railway
+
+Un único servicio sirve la web y la API en la misma dirección. Los datos (base de datos SQLite, PDF de los tickets y fotos de la agenda) van en un disco persistente.
+
+1. En Railway: **New Project → Deploy from GitHub repo → `afcampe/peluqueria`**. Railway detecta Node 22 y ejecuta `npm run build` y `npm start`.
+2. En el servicio, **Volumes → Add volume**, montado en `/data`.
+3. En **Variables**:
+
+   | Variable | Valor |
+   |---|---|
+   | `DATABASE_URL` | `file:/data/peluqueria.db` |
+   | `TICKETS_DIR` | `/data/tickets` |
+   | `IMPORT_DIR` | `/data/import` |
+   | `JWT_SECRET` | un texto largo y aleatorio |
+   | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | acceso del administrador (se crea en el primer arranque) |
+   | `DEMO_DATA` | `true` para crear clientes y citas de ejemplo (solo si aún no hay clientes) |
+   | `SITE_PASSWORD` | opcional: contraseña para entrar en la web mientras es un borrador (el usuario da igual). También evita que la indexen los buscadores |
+
+4. **Settings → Networking → Generate Domain** para tener la dirección pública.
+
+Cada `git push` a `main` vuelve a desplegar; los datos del disco se conservan. Sin credenciales de PayPal solo aparece el pago en el local, y sin SMTP los emails solo se ven en los registros (*Deploy Logs*). Los clientes de ejemplo entran con la contraseña `cliente1234` (o la de `DEMO_CLIENT_PASSWORD`).
+
 ## Producción
 
 1. **Base de datos**: en `server/prisma/schema.prisma` cambia `provider = "sqlite"` por `"postgresql"` y pon la URL en `DATABASE_URL`.

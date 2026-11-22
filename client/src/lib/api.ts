@@ -1,6 +1,7 @@
 import type { Owner } from './types';
 
-const BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
+// VITE_SAME_ORIGIN: la web la sirve el propio servidor, así que la API está en la misma dirección.
+const BASE = import.meta.env.VITE_SAME_ORIGIN ? '' : (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const TOKEN_KEY = 'pa_token';
 
 /** URL absoluta de un recurso servido por la API (p. ej. fotos de perfil). */

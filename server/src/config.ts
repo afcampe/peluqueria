@@ -30,6 +30,12 @@ export const config = {
   ticketsDir: path.resolve(serverRoot, process.env.TICKETS_DIR ?? 'storage/tickets'),
   /** Fotos de la agenda en papel pendientes de importar (se borran al terminar). */
   importDir: path.resolve(serverRoot, process.env.IMPORT_DIR ?? 'storage/import'),
+  /** Web compilada (client/dist) que sirve el propio servidor; así web y API van en la misma dirección. */
+  clientDist: path.resolve(serverRoot, process.env.CLIENT_DIST ?? '../client/dist'),
+  /** Contraseña para entrar en la web mientras es un borrador (vacía = acceso libre). */
+  sitePassword: process.env.SITE_PASSWORD ?? '',
+  /** Pide a los buscadores que no indexen la web (demostraciones). */
+  noindex: process.env.NOINDEX === 'true' || Boolean(process.env.SITE_PASSWORD),
   /** Lectura automática de las fotos de la agenda con Claude (opcional). */
   anthropicConfigured: Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
   whatsapp: {
