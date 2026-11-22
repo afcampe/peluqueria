@@ -92,19 +92,21 @@ export function MyAppointments() {
       {past.length > 0 && (
         <>
           <h2>Historial</h2>
-          <table className="table">
-            <thead><tr><th>Fecha</th><th>Servicio</th><th>Estado</th><th>Ticket</th></tr></thead>
-            <tbody>
-              {past.map((a) => (
-                <tr key={a.id}>
-                  <td>{dateTime(a.startAt)}</td>
-                  <td>{a.service.name}</td>
-                  <td><Badge status={a.status}>{statusLabel[a.status]}</Badge>{a.payments.some((p) => p.refundedCents > 0) && <small className="muted"> · reembolsada</small>}</td>
-                  <td>{ticketOf(a) ? <TicketButton ticket={ticketOf(a)!} /> : <span className="muted">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Fecha</th><th>Servicio</th><th>Estado</th><th>Ticket</th></tr></thead>
+              <tbody>
+                {past.map((a) => (
+                  <tr key={a.id}>
+                    <td>{dateTime(a.startAt)}</td>
+                    <td>{a.service.name}</td>
+                    <td><Badge status={a.status}>{statusLabel[a.status]}</Badge>{a.payments.some((p) => p.refundedCents > 0) && <small className="muted"> · reembolsada</small>}</td>
+                    <td>{ticketOf(a) ? <TicketButton ticket={ticketOf(a)!} /> : <span className="muted">—</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
 

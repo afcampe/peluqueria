@@ -413,6 +413,12 @@ describe('tickets', () => {
     expect(existsSync(file)).toBe(true);
     expect(readFileSync(file).equals(pdf.bytes!)).toBe(true);
 
+    // Vista previa con el mismo contenido que el PDF
+    const view = await call('GET', `/api/tickets/${t.id}`, undefined, clientToken);
+    expect(view.body).toMatchObject({ number: t.number, client: 'Cliente', totalCents: 1500, vatPercent: 21, baseCents: 1240, vatCents: 260 });
+    expect(view.body.lines).toHaveLength(1);
+    expect((await call('GET', `/api/tickets/${t.id}`, undefined, otherToken)).status).toBe(404);
+    expect((await call('GET', `/api/tickets/${t.id}`, undefined, adminToken)).status).toBe(200);
     expect((await download(t.id, otherToken)).status).toBe(404);
     expect((await download(t.id, adminToken)).status).toBe(200);
     expect((await fetch(`${base}/api/public/tickets/${t.id}/pdf?sig=falso`)).status).toBe(403);

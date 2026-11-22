@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, assetUrl } from '../lib/api';
-import type { TicketRef } from '../lib/types';
-import { errMsg } from './ui';
+import { money } from '../lib/format';
+import type { TicketRef, TicketView } from '../lib/types';
+import { Alert, Modal, Spinner, errMsg } from './ui';
 import { IconTicket } from './icons';
 
 const isNativeApp = () => !!(window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
@@ -15,19 +16,80 @@ export async function downloadTicket(id: string) {
   else window.location.href = full;
 }
 
+/** Botón "Ticket AAAA-NNNN": abre la vista previa del ticket, desde la que se descarga. */
 export function TicketButton({ ticket, small = true }: { ticket: TicketRef; small?: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className={`btn ${small ? 'btn-sm' : ''} btn-ticket`} disabled={busy} title={`Descargar ticket ${ticket.number} (PDF)`}
-        onClick={async () => {
-          setBusy(true); setError('');
-          try { await downloadTicket(ticket.id); } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
-        }}>
+      <button type="button" className={`btn ${small ? 'btn-sm' : ''} btn-ticket`} title={`Ver ticket ${ticket.number}`} onClick={() => setOpen(true)}>
         <IconTicket size={16} /> Ticket {ticket.number}
       </button>
-      {error && <span className="error-text small">{error}</span>}
+      {open && <TicketModal ticket={ticket} onClose={() => setOpen(false)} />}
     </>
+  );
+}
+
+export function TicketModal({ ticket, onClose }: { ticket: TicketRef; onClose: () => void }) {
+  const [view, setView] = useState<TicketView | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { api.get<TicketView>(`/tickets/${ticket.id}`).then(setView).catch((e) => setError(errMsg(e))); }, [ticket.id]);
+
+  const download = async () => {
+    setBusy(true); setError('');
+    try { await downloadTicket(ticket.id); } catch (e) { setError(errMsg(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Modal title={`Ticket ${ticket.number}`} onClose={onClose}>
+      <Alert>{error}</Alert>
+      {!view && !error && <Spinner />}
+      {view && <TicketPaper v={view} />}
+      <div className="ticket-actions">
+        <button type="button" className="btn btn-primary" disabled={busy || !view} onClick={download}>
+          {busy ? 'Preparando…' : 'Descargar PDF'}
+        </button>
+        <button type="button" className="btn" onClick={onClose}>Cerrar</button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Ticket con aspecto de papel (siempre claro, como el PDF). */
+function TicketPaper({ v }: { v: TicketView }) {
+  const cur = (c: number) => money(c);
+  return (
+    <article className="ticket-paper" aria-label={`Ticket ${v.number}`}>
+      <header>
+        <h3>{v.issuer.name}</h3>
+        {v.issuer.lines.map((l) => <p key={l}>{l}</p>)}
+      </header>
+      <h4>Ticket de compra</h4>
+      <dl>
+        <dt>Nº de ticket</dt><dd>{v.number}</dd>
+        <dt>Fecha</dt><dd>{v.issuedAtText}</dd>
+        <dt>Cliente</dt><dd>{v.client}</dd>
+        <dt>Forma de pago</dt><dd>{v.method}</dd>
+      </dl>
+      <table>
+        <thead><tr><th>Concepto</th><th>Importe</th></tr></thead>
+        <tbody>
+          {v.lines.map((l, i) => (
+            <tr key={i}><td>{l.concept}<small>{l.detail}</small></td><td>{cur(l.amountCents)}</td></tr>
+          ))}
+        </tbody>
+        <tfoot>
+          {v.baseCents !== null && v.vatCents !== null && (
+            <>
+              <tr><td>Base imponible</td><td>{cur(v.baseCents)}</td></tr>
+              <tr><td>IVA {String(v.vatPercent).replace('.', ',')} %</td><td>{cur(v.vatCents)}</td></tr>
+            </>
+          )}
+          <tr className="total"><td>{v.vatPercent > 0 ? 'Total (IVA incluido)' : 'Total'}</td><td>{cur(v.totalCents)}</td></tr>
+        </tfoot>
+      </table>
+      {v.reference && <p className="ref">Referencia del pago: {v.reference}</p>}
+      {v.footer && <p className="foot">{v.footer}</p>}
+    </article>
   );
 }

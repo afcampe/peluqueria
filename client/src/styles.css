@@ -110,7 +110,7 @@ img { max-width: 100%; display: block; }
   .topbar nav.open { display: flex; }
   .topbar nav a.active { box-shadow: inset 2px 0 0 var(--accent); }
 }
-@media (max-width: 380px) { .topbar .cta { display: none; } }
+@media (max-width: 430px) { .topbar .cta { display: none; } }
 
 .content { max-width: 1100px; margin: 0 auto; padding: 1.75rem 1rem 4rem; min-height: 60vh; }
 .content-full { max-width: none; padding: 0; }
@@ -493,3 +493,33 @@ label.inline input { width: 5rem; }
 .modal .agenda-item .actions { grid-column: 1 / -1; }
 .mo-unpaid.static { position: static; display: inline-grid; }
 .month-grid + .mo-legend { margin: -1rem 0 1.5rem; }
+
+/* Vista previa del ticket: papel blanco en los dos temas, como el PDF */
+.ticket-paper { background: #fff; color: #111; border: 1px solid #e3e1de; border-radius: 4px; padding: 1.5rem 1.4rem 1.25rem;
+  font-size: .88rem; line-height: 1.45; box-shadow: 0 2px 12px rgba(0, 0, 0, .12); max-height: 60vh; overflow-y: auto; }
+.ticket-paper header { text-align: center; padding-bottom: .9rem; margin-bottom: .9rem; border-bottom: 2px solid #a9813f; }
+.ticket-paper h3 { margin: 0 0 .3rem; font-family: var(--font-body); font-size: 1.2rem; font-weight: 700; text-transform: none; letter-spacing: 0; color: #111; }
+.ticket-paper header p { margin: 0; font-size: .78rem; color: #555; }
+.ticket-paper h4 { margin: 0 0 .5rem; font-family: var(--font-body); font-size: .9rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #111; }
+.ticket-paper dl { display: grid; grid-template-columns: 7.5rem 1fr; gap: .15rem .5rem; margin: 0 0 1rem; }
+.ticket-paper dt { color: #666; }
+.ticket-paper dd { margin: 0; font-weight: 600; }
+.ticket-paper table { width: 100%; border-collapse: collapse; }
+.ticket-paper th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: #666; text-align: left; padding: 0 0 .35rem; border-bottom: 1px solid #ccc; }
+.ticket-paper th:last-child, .ticket-paper td:last-child { text-align: right; white-space: nowrap; padding-left: .75rem; }
+.ticket-paper td { padding: .4rem 0; vertical-align: top; }
+.ticket-paper td small { display: block; color: #666; font-size: .75rem; }
+.ticket-paper tbody tr:last-child td { border-bottom: 1px solid #ccc; padding-bottom: .6rem; }
+.ticket-paper tfoot td { padding: .2rem 0; }
+.ticket-paper tfoot tr:first-child td { padding-top: .6rem; }
+.ticket-paper tfoot .total td { font-weight: 700; font-size: .95rem; padding-top: .4rem; }
+.ticket-paper .ref { margin: .75rem 0 0; font-size: .7rem; color: #888; word-break: break-all; }
+.ticket-paper .foot { margin: 1.25rem 0 0; text-align: center; font-style: italic; color: #444; }
+.ticket-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.modal { min-width: 0; }
+.ticket-paper { overflow-wrap: anywhere; }
+.ticket-paper dl { grid-template-columns: 7.5rem minmax(0, 1fr); }
+@media (max-width: 480px) {
+  .ticket-paper { padding: 1.1rem .9rem 1rem; font-size: .84rem; }
+  .ticket-paper dl { grid-template-columns: 6.25rem minmax(0, 1fr); }
+}

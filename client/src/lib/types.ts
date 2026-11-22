@@ -47,3 +47,10 @@ export interface SeriesResult {
   appointments: Appointment[]; totalCents: number; pendingPayment: boolean;
 }
 export interface Closure { id: string; startAt: string; endAt: string; reason: string | null }
+export interface TicketView {
+  id: string; number: string; issuedAt: string; issuedAtText: string;
+  issuer: { name: string; lines: string[] }; client: string; method: string; origin: 'SHOP' | 'ONLINE'; currency: string;
+  lines: { concept: string; detail: string; amountCents: number }[];
+  vatPercent: number; baseCents: number | null; vatCents: number | null; totalCents: number;
+  reference: string | null; footer: string;
+}

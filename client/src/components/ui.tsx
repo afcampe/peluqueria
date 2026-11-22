@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../lib/api';
 import type { Owner } from '../lib/types';
@@ -9,13 +10,18 @@ export function Alert({ kind = 'error', children }: { kind?: 'error' | 'ok' | 'i
 }
 
 export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    // Con ventanas apiladas (p. ej. ticket sobre cita), Escape cierra solo la de arriba.
+    const onKey = (e: KeyboardEvent) => {
+      const all = document.querySelectorAll('.modal-backdrop');
+      if (e.key === 'Escape' && all[all.length - 1] === ref.current) onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
+  return createPortal(
+    <div ref={ref} className="modal-backdrop" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h3>{title}</h3>
@@ -23,7 +29,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

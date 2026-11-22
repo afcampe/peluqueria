@@ -124,27 +124,84 @@ export function verifyTicketSig(ticketId: string, sig: string) {
   }
 }
 
+// ---------------------------------------------------------------- Contenido del ticket
+
+/** Contenido del ticket, ya formateado. Lo usan el PDF y la vista previa de la app. */
+export interface TicketView {
+  id: string;
+  number: string;
+  issuedAt: string;
+  issuedAtText: string;
+  issuer: { name: string; lines: string[] };
+  client: string;
+  method: string;
+  origin: TicketOrigin;
+  currency: string;
+  lines: { concept: string; detail: string; amountCents: number }[];
+  vatPercent: number;
+  baseCents: number | null;
+  vatCents: number | null;
+  totalCents: number;
+  reference: string | null;
+  footer: string;
+}
+
+export async function ticketView(ticketId: string): Promise<TicketView> {
+  const s = await getSettings();
+  const t = await prisma.ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    include: {
+      client: { select: { name: true } },
+      payments: { include: { appointment: { include: { service: true } } }, orderBy: { appointment: { startAt: 'asc' } } },
+    },
+  });
+  const when = (d: Date, f: string) => DateTime.fromJSDate(d).setZone(s.timezone).setLocale('es').toFormat(f);
+  let method = t.provider;
+  try { method = getProvider(t.provider).label; } catch { /* proveedor retirado */ }
+  const vat = s.ticketVatPercent;
+  const base = vat > 0 ? Math.round(t.totalCents / (1 + vat / 100)) : null;
+  return {
+    id: t.id,
+    number: t.number,
+    issuedAt: t.issuedAt.toISOString(),
+    issuedAtText: when(t.issuedAt, 'dd/MM/yyyy HH:mm'),
+    issuer: {
+      name: s.ticketLegalName || s.shopName,
+      lines: [
+        s.ticketLegalName && s.ticketLegalName !== s.shopName ? s.shopName : '',
+        s.ticketTaxId ? `NIF: ${s.ticketTaxId}` : '',
+        s.shopAddress,
+        [s.shopPhone, s.shopEmail].filter(Boolean).join(' · '),
+      ].filter(Boolean),
+    },
+    client: t.client.name,
+    method: method + (t.origin === 'ONLINE' ? ' (pago online)' : ''),
+    origin: t.origin as TicketOrigin,
+    currency: t.currency,
+    lines: t.payments.map((p) => ({
+      concept: p.appointment.service.name,
+      detail: `Cita del ${when(p.appointment.startAt, "cccc d 'de' LLLL yyyy, HH:mm")}`,
+      amountCents: p.amountCents,
+    })),
+    vatPercent: vat,
+    baseCents: base,
+    vatCents: base === null ? null : t.totalCents - base,
+    totalCents: t.totalCents,
+    reference: t.payments.find((p) => p.providerCaptureId)?.providerCaptureId ?? null,
+    footer: s.ticketFooter,
+  };
+}
+
 // ---------------------------------------------------------------- PDF
 
 const money = (cents: number, currency: string) =>
   new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(cents / 100).replace(/ /g, ' ');
 
 export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
-  const s = await getSettings();
-  const t = await prisma.ticket.findUniqueOrThrow({
-    where: { id: ticketId },
-    include: {
-      client: { select: { name: true, email: true, phone: true } },
-      payments: { include: { appointment: { include: { service: true } } }, orderBy: { appointment: { startAt: 'asc' } } },
-    },
-  });
-  const zone = s.timezone;
-  const when = (d: Date, f: string) => DateTime.fromJSDate(d).setZone(zone).setLocale('es').toFormat(f);
-  const cur = (c: number) => money(c, t.currency);
-  let method = t.provider;
-  try { method = getProvider(t.provider).label; } catch { /* proveedor retirado */ }
+  const v = await ticketView(ticketId);
+  const cur = (c: number) => money(c, v.currency);
 
-  const doc = new PDFDocument({ size: 'A5', margin: 36, info: { Title: `Ticket ${t.number}`, Author: s.shopName } });
+  const doc = new PDFDocument({ size: 'A5', margin: 36, info: { Title: `Ticket ${v.number}`, Author: v.issuer.name } });
   const chunks: Buffer[] = [];
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
@@ -156,15 +213,9 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
   const rule = (y = doc.y) => doc.moveTo(left, y).lineTo(left + width, y).lineWidth(0.6).strokeColor('#cccccc').stroke();
 
   // Cabecera
-  doc.font('Helvetica-Bold').fontSize(16).fillColor('#111111').text(s.ticketLegalName || s.shopName, left, doc.y, { width, align: 'center' });
+  doc.font('Helvetica-Bold').fontSize(16).fillColor('#111111').text(v.issuer.name, left, doc.y, { width, align: 'center' });
   doc.font('Helvetica').fontSize(8.5).fillColor('#444444');
-  const head = [
-    s.ticketLegalName && s.ticketLegalName !== s.shopName ? s.shopName : '',
-    s.ticketTaxId ? `NIF: ${s.ticketTaxId}` : '',
-    s.shopAddress,
-    [s.shopPhone, s.shopEmail].filter(Boolean).join(' · '),
-  ].filter(Boolean);
-  head.forEach((line) => doc.text(line, { width, align: 'center' }));
+  v.issuer.lines.forEach((line) => doc.text(line, { width, align: 'center' }));
   doc.moveDown(0.8);
   doc.moveTo(left, doc.y).lineTo(left + width, doc.y).lineWidth(1.2).strokeColor(gold).stroke();
   doc.moveDown(0.8);
@@ -178,10 +229,10 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
   };
   doc.font('Helvetica-Bold').fontSize(12).fillColor('#111111').text('TICKET DE COMPRA', left, doc.y);
   doc.moveDown(0.4);
-  meta('Nº de ticket', t.number);
-  meta('Fecha', when(t.issuedAt, "dd/MM/yyyy HH:mm"));
-  meta('Cliente', t.client.name);
-  meta('Forma de pago', method + (t.origin === 'ONLINE' ? ' (pago online)' : ''));
+  meta('Nº de ticket', v.number);
+  meta('Fecha', v.issuedAtText);
+  meta('Cliente', v.client);
+  meta('Forma de pago', v.method);
   doc.moveDown(0.6);
 
   // Líneas
@@ -203,32 +254,25 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
   doc.moveDown(0.3);
   rule();
   doc.moveDown(0.5);
-  for (const p of t.payments) {
-    const a = p.appointment;
-    row(a.service.name, `Cita del ${when(a.startAt, "cccc d 'de' LLLL yyyy, HH:mm")}`, cur(p.amountCents));
-  }
+  v.lines.forEach((l) => row(l.concept, l.detail, cur(l.amountCents)));
   rule();
   doc.moveDown(0.5);
 
   // Totales
-  const vat = s.ticketVatPercent;
-  if (vat > 0) {
-    const base = Math.round(t.totalCents / (1 + vat / 100));
-    row('Base imponible', '', cur(base));
-    row(`IVA ${String(vat).replace('.', ',')} %`, '', cur(t.totalCents - base));
+  if (v.baseCents !== null && v.vatCents !== null) {
+    row('Base imponible', '', cur(v.baseCents));
+    row(`IVA ${String(v.vatPercent).replace('.', ',')} %`, '', cur(v.vatCents));
   }
   doc.moveDown(0.2);
-  row(vat > 0 ? 'TOTAL (IVA incluido)' : 'TOTAL', '', cur(t.totalCents), true);
+  row(v.vatPercent > 0 ? 'TOTAL (IVA incluido)' : 'TOTAL', '', cur(v.totalCents), true);
 
-  const refId = t.payments.find((p) => p.providerCaptureId)?.providerCaptureId;
-  if (refId) {
+  if (v.reference) {
     doc.moveDown(0.4);
-    doc.font('Helvetica').fontSize(7.5).fillColor('#888888').text(`Referencia del pago: ${refId}`, left, doc.y, { width });
+    doc.font('Helvetica').fontSize(7.5).fillColor('#888888').text(`Referencia del pago: ${v.reference}`, left, doc.y, { width });
   }
-
-  if (s.ticketFooter) {
+  if (v.footer) {
     doc.moveDown(1.5);
-    doc.font('Helvetica-Oblique').fontSize(9).fillColor('#444444').text(s.ticketFooter, left, doc.y, { width, align: 'center' });
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor('#444444').text(v.footer, left, doc.y, { width, align: 'center' });
   }
 
   doc.end();
