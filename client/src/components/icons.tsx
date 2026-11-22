@@ -19,6 +19,9 @@ export const IconBeard = (p: P) => (
 export const IconComb = (p: P) => (
   <svg {...base(p)}><rect x="3" y="8" width="18" height="4" rx="1" /><path d="M5 12v5M8 12v5M11 12v5M14 12v5M17 12v5M20 12v3" /></svg>
 );
+export const IconCamera = (p: P) => (
+  <svg {...base(p)}><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6h1.8l1.4-2h6.6l1.4 2h1.8A2.5 2.5 0 0 1 21 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" /><circle cx="12" cy="13" r="3.6" /></svg>
+);
 export const IconCalendar = (p: P) => (
   <svg {...base(p)}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2" /></svg>
 );

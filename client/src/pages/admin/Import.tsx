@@ -6,6 +6,7 @@ import { contactLine, dateLong, dateShort, localISODate } from '../../lib/format
 import { resizeMax } from '../../lib/image';
 import { useSession } from '../../lib/session';
 import type { User } from '../../lib/types';
+import { IconCamera } from '../../components/icons';
 
 /* Importación de la agenda en papel: se fotografían las páginas, la
    aplicación lee las citas y el administrador las revisa antes de crearlas. */
@@ -48,6 +49,7 @@ export function ImportList() {
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => api.get<{ readerConfigured: boolean; items: ImportItem[] }>('/admin/imports').then(setData).catch((e) => setError(errMsg(e))), []);
   useEffect(() => { load(); }, [load]);
@@ -77,7 +79,9 @@ export function ImportList() {
       if (i % 3 === 2) load();
     }
     setUpload(null);
-    setFlash(`${files.length - failed.length} foto(s) subida(s). Se están leyendo; puedes ir revisando las que estén listas.`);
+    setFlash(files.length === 1 && !failed.length
+      ? 'Foto subida. Se está leyendo; puedes hacer la siguiente.'
+      : `${files.length - failed.length} foto(s) subida(s). Se están leyendo; puedes ir revisando las que estén listas.`);
     if (failed.length) setError(`No se pudieron subir: ${failed.join(' · ')}`);
     load();
   };
@@ -100,15 +104,20 @@ export function ImportList() {
         <h1>Importar agenda en papel</h1>
         <div className="actions">
           <button className="btn" onClick={manual}>Pasar una página a mano</button>
+          {/* En móvil y tableta abre directamente la cámara (cámara trasera); cada foto se sube al hacerla. */}
+          <button className="btn btn-camera" disabled={!!upload} onClick={() => cameraRef.current?.click()} aria-label="Hacer una foto con la cámara" title="Hacer una foto con la cámara">
+            <IconCamera size={20} /> <span>Hacer foto</span>
+          </button>
           <button className="btn btn-primary" disabled={!!upload} onClick={() => fileRef.current?.click()}>Subir fotos</button>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={onFiles} />
         </div>
       </div>
 
       <section className="card import-help">
         <ol>
           <li><strong>Fotografía las páginas</strong> de la agenda con citas de hoy en adelante: una foto por página (o por las dos páginas abiertas), recta y con buena luz.</li>
-          <li><strong>Súbelas</strong> todas de una vez. La aplicación lee la fecha de cada página y, en cada hora, el nombre apuntado.</li>
+          <li><strong>Súbelas</strong> todas de una vez con «Subir fotos», o hazlas desde aquí con el botón de la cámara (en el móvil o la tableta). La aplicación lee la fecha de cada página y, en cada hora, el nombre apuntado.</li>
           <li><strong>Revisa cada página</strong> comparando con la foto: corrige lo que esté mal (lo dudoso sale en amarillo) y pulsa <em>Importar</em>.</li>
         </ol>
         <p className="muted small">Los clientes que no estén registrados se guardan como <strong>fichas sin cuenta</strong> (solo nombre). Si más adelante se registran, únelos desde su ficha con «Unir con un cliente registrado». Las citas pasadas y las tachadas no se importan. La foto se borra al terminar de importar la página.</p>

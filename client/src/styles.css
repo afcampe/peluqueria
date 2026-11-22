@@ -599,3 +599,7 @@ label.inline input { width: 5rem; }
 @media (max-width: 480px) {
   .import-row { grid-template-columns: auto 1fr 1fr; grid-template-areas: 'inc date time' 'inc name name' 'inc client client' 'inc service service' 'inc state state'; }
 }
+
+/* Botón de cámara: solo en pantallas táctiles (móvil y tableta), donde abre la cámara. */
+.btn-camera { display: inline-flex; align-items: center; gap: .45rem; }
+@media (hover: hover) and (pointer: fine) { .btn-camera { display: none; } }
