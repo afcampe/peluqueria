@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
+import { forbidden } from '../lib/errors.js';
 import { z } from 'zod';
 import { requireAuth } from '../lib/auth.js';
 import { prisma } from '../lib/db.js';
@@ -10,6 +11,10 @@ import { actor, h } from './util.js';
 
 export const appointmentsRouter = Router();
 appointmentsRouter.use(requireAuth);
+
+/** Reservar es cosa de clientes; el admin crea citas desde la Agenda del panel. */
+const clientOnly = (req: Request, _res: Response, next: NextFunction) =>
+  req.user?.role === 'ADMIN' ? next(forbidden('Los administradores no reservan citas propias. Usa la Agenda para reservar a un cliente.')) : next();
 
 appointmentsRouter.get('/', h(async (req, res) => {
   res.json(await prisma.appointment.findMany({
@@ -27,7 +32,7 @@ const createSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-appointmentsRouter.post('/', h(async (req, res) => {
+appointmentsRouter.post('/', clientOnly, h(async (req, res) => {
   const data = createSchema.parse(req.body);
   // Un cliente siempre reserva para sí mismo.
   res.status(201).json(await createAppointment({ ...actor(req), role: 'CLIENT' }, data));
@@ -63,7 +68,7 @@ export const seriesCreateSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-appointmentsRouter.post('/series', h(async (req, res) => {
+appointmentsRouter.post('/series', clientOnly, h(async (req, res) => {
   res.status(201).json(await createSeries({ ...actor(req), role: 'CLIENT' }, seriesCreateSchema.parse(req.body)));
 }));
 

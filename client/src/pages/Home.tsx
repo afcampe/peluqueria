@@ -8,8 +8,17 @@ export function Home() {
     <div className="home">
       <section className="hero">
         <h1>{config?.shop.name ?? 'Peluquería Armando'}</h1>
-        <p>Reserva tu cita en segundos. Paga online o en el local.</p>
-        <Link to={user ? '/reservar' : '/entrar?next=/reservar'} className="btn btn-primary btn-lg">Reservar cita</Link>
+        {user?.role === 'ADMIN' ? (
+          <>
+            <p>Hola, {user.name.split(' ')[0]}. Has entrado como administrador.</p>
+            <Link to="/admin" className="btn btn-primary btn-lg">Ir al panel de administración</Link>
+          </>
+        ) : (
+          <>
+            <p>Reserva tu cita en segundos. Paga online o en el local.</p>
+            <Link to={user ? '/reservar' : '/entrar?next=/reservar'} className="btn btn-primary btn-lg">Reservar cita</Link>
+          </>
+        )}
       </section>
       {config && (
         <div className="grid-2">

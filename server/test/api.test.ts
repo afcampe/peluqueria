@@ -42,6 +42,7 @@ const call = async (method: string, path: string, body?: unknown, token?: string
 
 let adminToken = '';
 let clientToken = '';
+let otherToken = '';
 let serviceId = '';
 
 /** Primer hueco libre a partir de dentro de `days` días. */
@@ -64,6 +65,7 @@ beforeAll(async () => {
   serviceId = (await prisma.service.create({ data: { name: 'Corte', priceCents: 1500 } })).id;
   adminToken = (await call('POST', '/api/auth/login', { email: 'a@a.es', password: 'admin1234' })).body.token;
   clientToken = (await call('POST', '/api/auth/register', { name: 'Cliente', email: 'c@c.es', phone: '600111222', password: 'cliente123' })).body.token;
+  otherToken = (await call('POST', '/api/auth/register', { name: 'Otro', email: 'o@o.es', phone: '600111333', password: 'otro12345' })).body.token;
 });
 
 afterAll(async () => {
@@ -174,6 +176,28 @@ describe('usuarios y cierres', () => {
   });
 });
 
+describe('roles', () => {
+  it('un administrador no puede reservar citas propias ni recibir citas', async () => {
+    const start = await slotIn(9);
+    const own = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, adminToken);
+    expect(own.status).toBe(403);
+    const admin = await prisma.user.findUniqueOrThrow({ where: { email: 'a@a.es' } });
+    const forAdmin = await call('POST', '/api/admin/appointments', { clientId: admin.id, serviceId, startAt: start }, adminToken);
+    expect(forAdmin.status).toBe(400);
+  });
+
+  it('el alta permite crear administradores y clientes', async () => {
+    const a = await call('POST', '/api/admin/users', { name: 'Ayudante', email: 'ayu@a.es', password: 'ayudante1', role: 'ADMIN' }, adminToken);
+    expect(a.body.role).toBe('ADMIN');
+    const token = (await call('POST', '/api/auth/login', { email: 'ayu@a.es', password: 'ayudante1' })).body.token;
+    expect((await call('GET', '/api/admin/dashboard', undefined, token)).status).toBe(200);
+    const c = await call('POST', '/api/admin/users', { name: 'Normal', email: 'nor@n.es', password: 'normal123' }, adminToken);
+    expect(c.body.role).toBe('CLIENT');
+    const ctoken = (await call('POST', '/api/auth/login', { email: 'nor@n.es', password: 'normal123' })).body.token;
+    expect((await call('GET', '/api/admin/dashboard', undefined, ctoken)).status).toBe(403);
+  });
+});
+
 describe('foto de perfil', () => {
   // PNG de 1x1 píxel
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -232,7 +256,7 @@ describe('citas periódicas', () => {
   it('propone la hora libre más cercana si la pedida está ocupada', async () => {
     const firstStart = mondayAt10(30);
     const second = DateTime.fromISO(firstStart).plus({ days: 7 }).toUTC().toISO()!;
-    await call('POST', '/api/appointments', { serviceId, startAt: second, paymentMethod: 'cash' }, adminToken);
+    await call('POST', '/api/appointments', { serviceId, startAt: second, paymentMethod: 'cash' }, otherToken);
     const r = await call('POST', '/api/appointments/series/preview', { firstStart, intervalDays: 7, count: 3 }, clientToken);
     expect(r.body.occurrences[1].status).toBe('MOVED');
     expect(r.body.occurrences[1].reason).toBe('Ocupado a esa hora');
@@ -256,7 +280,7 @@ describe('citas periódicas', () => {
   it('si una fecha ya no está libre no se reserva ninguna', async () => {
     const firstStart = mondayAt10(45);
     const starts = [0, 7, 14].map((d) => DateTime.fromISO(firstStart).plus({ days: d }).toUTC().toISO()!);
-    await call('POST', '/api/appointments', { serviceId, startAt: starts[2], paymentMethod: 'cash' }, adminToken);
+    await call('POST', '/api/appointments', { serviceId, startAt: starts[2], paymentMethod: 'cash' }, otherToken);
     const before = await prisma.appointment.count();
     const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 7, starts, paymentMethod: 'cash' }, clientToken);
     expect(r.status).toBe(409);

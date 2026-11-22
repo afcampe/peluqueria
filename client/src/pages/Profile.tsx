@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { AvatarInput } from '../components/Avatar';
-import { Alert, errMsg } from '../components/ui';
+import { Alert, Badge, errMsg } from '../components/ui';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import type { User } from '../lib/types';
@@ -26,13 +26,21 @@ export function Profile() {
   return (
     <form className="card narrow" onSubmit={submit}>
       <h1>Mi perfil</h1>
+      <p className="account-type">
+        Tipo de cuenta:{' '}
+        {user!.role === 'ADMIN'
+          ? <><Badge status="admin">Administrador</Badge> <span className="muted small">Gestionas la peluquería desde el panel de administración.</span></>
+          : <Badge status="active">Cliente</Badge>}
+      </p>
       <Alert kind="ok">{msg}</Alert>
       <Alert>{error}</Alert>
       <AvatarInput name={f.name} current={user!.avatarUrl} value={avatar} onChange={setAvatar} />
       <label>Email<input value={user!.email} disabled /></label>
       <label>Nombre<input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
       <label>Teléfono<input type="tel" required value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
-      <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Recibir avisos por email</label>
+      {user!.role === 'CLIENT' && (
+        <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Recibir avisos por email</label>
+      )}
       <label>Nueva contraseña (opcional)<input type="password" minLength={8} autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></label>
       <button className="btn btn-primary">Guardar</button>
     </form>

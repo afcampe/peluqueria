@@ -19,7 +19,9 @@ export function Login() {
     setError('');
     try {
       const u = await login(email, password);
-      nav(params.get('next') ?? (u.role === 'ADMIN' ? '/admin' : '/mis-citas'));
+      const next = params.get('next');
+      if (u.role === 'ADMIN') nav(next && (next.startsWith('/admin') || next === '/perfil') ? next : '/admin');
+      else nav(next ?? '/mis-citas');
     } catch (e) {
       setError(errMsg(e));
     } finally {

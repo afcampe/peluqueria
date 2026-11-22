@@ -20,12 +20,13 @@ import { WhatsApp } from './pages/admin/WhatsApp';
 // En Electron la app se carga desde file://, donde solo funcionan rutas con #.
 const Router = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 
-function RequireAuth({ admin, children }: { admin?: boolean; children: ReactNode }) {
+function RequireAuth({ admin, client, children }: { admin?: boolean; client?: boolean; children: ReactNode }) {
   const { user, loading } = useSession();
   const loc = useLocation();
   if (loading) return <Spinner />;
   if (!user) return <Navigate to={`/entrar?next=${encodeURIComponent(loc.pathname)}`} replace />;
   if (admin && user.role !== 'ADMIN') return <Navigate to="/" replace />;
+  if (client && user.role === 'ADMIN') return <Navigate to="/admin" replace />;
   return <>{children}</>;
 }
 
@@ -41,8 +42,8 @@ export function App() {
           <Route index element={<Home />} />
           <Route path="entrar" element={<Login />} />
           <Route path="registro" element={<Register />} />
-          <Route path="reservar" element={<RequireAuth><Book /></RequireAuth>} />
-          <Route path="mis-citas" element={<RequireAuth><MyAppointments /></RequireAuth>} />
+          <Route path="reservar" element={<RequireAuth client><Book /></RequireAuth>} />
+          <Route path="mis-citas" element={<RequireAuth client><MyAppointments /></RequireAuth>} />
           <Route path="perfil" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="admin" element={<RequireAuth admin><AdminLayout /></RequireAuth>}>
             <Route index element={<Dashboard />} />

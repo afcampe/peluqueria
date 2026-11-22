@@ -12,15 +12,16 @@ export function Users() {
   const { user: me } = useSession();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [role, setRole] = useState('');
   const [list, setList] = useState<User[] | null>(null);
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
   const [modal, setModal] = useState<{ kind: 'edit' | 'block' | 'delete'; user?: User } | null>(null);
 
   const load = useCallback(() => {
-    const p = new URLSearchParams({ ...(q && { q }), ...(status && { status }) });
+    const p = new URLSearchParams({ ...(q && { q }), ...(status && { status }), ...(role && { role }) });
     api.get<User[]>(`/admin/users?${p}`).then(setList).catch((e) => setError(e.message));
-  }, [q, status]);
+  }, [q, status, role]);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [load]);
 
   const done = (m: string) => { setModal(null); setFlash(m); load(); };
@@ -36,6 +37,13 @@ export function Users() {
       </div>
       <div className="filters">
         <label className="grow">Buscar<input placeholder="Nombre, email o teléfono" value={q} onChange={(e) => setQ(e.target.value)} /></label>
+        <label>Tipo
+          <select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="">Todos</option>
+            <option value="CLIENT">Usuarios normales</option>
+            <option value="ADMIN">Administradores</option>
+          </select>
+        </label>
         <label>Estado
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Activos y bloqueados</option>
@@ -51,11 +59,12 @@ export function Users() {
       {list && (
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Nombre</th><th>Contacto</th><th>Estado</th><th /></tr></thead>
+            <thead><tr><th>Nombre</th><th>Tipo</th><th>Contacto</th><th>Estado</th><th /></tr></thead>
             <tbody>
               {list.map((u) => (
                 <tr key={u.id}>
-                  <td><span className="user-cell"><Avatar name={u.name} src={u.avatarUrl} /> <span>{u.name}{u.role === 'ADMIN' && <Badge status="admin">Admin</Badge>}</span></span></td>
+                  <td><span className="user-cell"><Avatar name={u.name} src={u.avatarUrl} /> <span>{u.name}{u.id === me?.id && <span className="muted small"> (tú)</span>}</span></span></td>
+                  <td>{u.role === 'ADMIN' ? <Badge status="admin">Administrador</Badge> : <span className="muted">Usuario normal</span>}</td>
                   <td><div>{u.email}</div><div className="muted small">{u.phone}</div></td>
                   <td>
                     <Badge status={u.status}>{statusText[u.status]}</Badge>
@@ -91,7 +100,9 @@ export function Users() {
 
 function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void; onDone: (m: string) => void }) {
   const reactivate = user?.status === 'DELETED';
+  const { user: me } = useSession();
   const [f, setF] = useState({ name: user?.name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', role: user?.role ?? 'CLIENT', password: '', acceptsEmail: user?.acceptsEmail ?? true });
+  const isMe = user?.id === me?.id;
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState('');
   const submit = async (e: FormEvent) => {
@@ -110,19 +121,28 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
     <Modal title={reactivate ? 'Reactivar usuario' : user ? 'Editar usuario' : 'Alta de usuario'} onClose={onClose}>
       <form onSubmit={submit}>
         <Alert>{error}</Alert>
+        <fieldset className="role-picker" disabled={isMe}>
+          <legend>Tipo de usuario</legend>
+          <label className={`role-option ${f.role === 'CLIENT' ? 'selected' : ''}`}>
+            <input type="radio" name="role" checked={f.role === 'CLIENT'} onChange={() => setF({ ...f, role: 'CLIENT' })} />
+            <span><strong>Usuario normal</strong><small>Reserva y gestiona sus propias citas</small></span>
+          </label>
+          <label className={`role-option ${f.role === 'ADMIN' ? 'selected' : ''}`}>
+            <input type="radio" name="role" checked={f.role === 'ADMIN'} onChange={() => setF({ ...f, role: 'ADMIN' })} />
+            <span><strong>Administrador</strong><small>Acceso completo al panel: agenda, usuarios, pagos y configuración. No reserva citas propias</small></span>
+          </label>
+          {isMe && <p className="muted small">No puedes cambiar tu propio tipo de usuario.</p>}
+        </fieldset>
         <AvatarInput name={f.name} current={user?.avatarUrl} value={avatar} onChange={setAvatar} />
         <label>Nombre<input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></label>
         <label>Email<input type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
         <label>Teléfono<input type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></label>
-        <label>Rol
-          <select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as User['role'] })}>
-            <option value="CLIENT">Cliente</option><option value="ADMIN">Administrador</option>
-          </select>
-        </label>
         <label>{user && !reactivate ? 'Nueva contraseña (opcional)' : 'Contraseña inicial'}
           <input type="password" minLength={8} required={!user || reactivate} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} />
         </label>
-        <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta avisos por email</label>
+        {f.role === 'CLIENT' && (
+          <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta avisos por email</label>
+        )}
         <button className="btn btn-primary">Guardar</button>
       </form>
     </Modal>

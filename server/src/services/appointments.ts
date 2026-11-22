@@ -110,6 +110,7 @@ export async function createAppointment(
   const appointment = await prisma.$transaction(async (tx) => {
     const client = await tx.user.findUnique({ where: { id: clientId } });
     if (!client || client.status === 'DELETED') throw notFound('Cliente no encontrado');
+    if (client.role !== 'CLIENT') throw badRequest('Las cuentas de administrador no tienen citas. Elige un cliente.');
     const service = await tx.service.findFirst({ where: { id: input.serviceId, active: true } });
     if (!service) throw badRequest('Servicio no disponible');
     const { startAt, endAt } = await assertSlotBookable(tx, settings, start);
@@ -481,6 +482,7 @@ export async function createSeries(
   const created = await prisma.$transaction(async (tx) => {
     const client = await tx.user.findUnique({ where: { id: clientId } });
     if (!client || client.status === 'DELETED') throw notFound('Cliente no encontrado');
+    if (client.role !== 'CLIENT') throw badRequest('Las cuentas de administrador no tienen citas. Elige un cliente.');
     const service = await tx.service.findFirst({ where: { id: input.serviceId, active: true } });
     if (!service) throw badRequest('Servicio no disponible');
     const series = await tx.appointmentSeries.create({ data: { clientId, intervalDays: input.intervalDays } });

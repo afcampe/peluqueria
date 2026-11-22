@@ -128,7 +128,7 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
   const service = config?.services.find((s) => s.id === serviceId);
 
   useEffect(() => {
-    const t = setTimeout(() => api.get<User[]>(`/admin/users?status=ACTIVE&q=${encodeURIComponent(q)}`).then(setUsers).catch(() => {}), 250);
+    const t = setTimeout(() => api.get<User[]>(`/admin/users?status=ACTIVE&role=CLIENT&q=${encodeURIComponent(q)}`).then(setUsers).catch(() => {}), 250);
     return () => clearTimeout(t);
   }, [q]);
 

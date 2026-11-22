@@ -17,9 +17,14 @@ export function Layout() {
         </NavLink>
         <button className="menu-toggle btn-icon" onClick={() => setOpen(!open)} aria-label="Menú" aria-expanded={open}>☰</button>
         <nav className={open ? 'open' : ''} onClick={close}>
-          <NavLink to="/reservar">Reservar</NavLink>
-          {user && <NavLink to="/mis-citas">Mis citas</NavLink>}
-          {user?.role === 'ADMIN' && <NavLink to="/admin">Administración</NavLink>}
+          {user?.role === 'ADMIN' ? (
+            <NavLink to="/admin">Administración</NavLink>
+          ) : (
+            <>
+              <NavLink to="/reservar">Reservar</NavLink>
+              {user && <NavLink to="/mis-citas">Mis citas</NavLink>}
+            </>
+          )}
           {user ? (
             <>
               <NavLink to="/perfil" className="nav-user"><Avatar name={user.name} src={user.avatarUrl} size={28} /> {user.name.split(' ')[0]}</NavLink>
