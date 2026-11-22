@@ -10,7 +10,7 @@ import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
-import { cancelAppointment, cancelSeries, createAppointment, createSeries, previewSeries, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, previewSeries, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
 import { getSettings, saveSettings } from '../services/settings.js';
 import { actor, h, publicUser } from './util.js';
@@ -41,7 +41,8 @@ adminRouter.get('/dashboard', h(async (_req, res) => {
     today,
     upcoming,
     clients,
-    onlineRevenueMonthCents: monthPayments.reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
+    onlineRevenueMonthCents: monthPayments.filter((p) => p.provider !== 'cash').reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
+    cashRevenueMonthCents: monthPayments.filter((p) => p.provider === 'cash').reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
     integrations: { email: emailConfigured(), whatsappApi: whatsappApiConfigured(), payments: allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.isConfigured() })) },
   });
 }));
@@ -71,7 +72,30 @@ adminRouter.post('/appointments', h(async (req, res) => {
 }));
 
 adminRouter.post('/appointments/series/preview', h(async (req, res) => {
-  res.json(await previewSeries(seriesPreviewSchema.parse(req.body)));
+  res.json(await previewSeries(seriesPreviewSchema.parse(req.body), true));
+}));
+
+// Disponibilidad con el nombre del cliente que ocupa cada hora.
+adminRouter.get('/availability', h(async (req, res) => {
+  const { date, excludeId } = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), excludeId: z.string().optional() }).parse(req.query);
+  res.json(await availabilityForDate(date, excludeId, true));
+}));
+
+/** Registra que una cita en efectivo se ha cobrado en el local. */
+adminRouter.post('/appointments/:id/mark-paid', h(async (req, res) => {
+  const s = await getSettings();
+  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: { payments: true } });
+  if (a.paymentMethod !== 'cash') throw badRequest('Solo se marcan como cobradas las citas que se pagan en el local');
+  if (a.status === 'CANCELLED') throw badRequest('La cita está cancelada');
+  if (!a.payments.some((p) => p.provider === 'cash' && p.status === 'COMPLETED')) {
+    await prisma.payment.create({ data: { appointmentId: a.id, provider: 'cash', amountCents: a.priceCents, currency: s.currency, status: 'COMPLETED' } });
+  }
+  res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: a.id }, include: withRelations }));
+}));
+
+adminRouter.post('/appointments/:id/unmark-paid', h(async (req, res) => {
+  await prisma.payment.deleteMany({ where: { appointmentId: req.params.id, provider: 'cash', refundedCents: 0 } });
+  res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
 }));
 
 adminRouter.post('/appointments/series', h(async (req, res) => {
@@ -136,6 +160,11 @@ const userSchema = z.object({
   acceptsEmail: z.boolean().default(true),
   avatar: avatarField,
 });
+
+adminRouter.get('/users/:id', h(async (req, res) => {
+  const u = await prisma.user.findUniqueOrThrow({ where: { id: req.params.id } });
+  res.json({ ...publicUser(u), whatsappLink: waLink(u.phone) });
+}));
 
 adminRouter.post('/users', h(async (req, res) => {
   const { password, avatar, ...data } = userSchema.parse(req.body);

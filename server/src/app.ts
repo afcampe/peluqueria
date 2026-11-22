@@ -22,7 +22,7 @@ export function createApp() {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, code: err.code });
+    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, code: err.code, ...(err.details !== undefined && { details: err.details }) });
     if (err instanceof ZodError) return res.status(400).json({ error: err.issues.map((i) => i.message).join('. '), code: 'VALIDATION' });
     if (err instanceof Prisma.PrismaClientKnownRequestError) {
       if (err.code === 'P2025') return res.status(404).json({ error: 'No encontrado' });

@@ -1,4 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { ApiError } from '../lib/api';
+import type { Owner } from '../lib/types';
 
 export function Alert({ kind = 'error', children }: { kind?: 'error' | 'ok' | 'info'; children: ReactNode }) {
   if (!children) return null;
@@ -31,3 +34,23 @@ export const Badge = ({ status, children }: { status: string; children: ReactNod
 export const Spinner = () => <div className="spinner" aria-label="Cargando" />;
 
 export const errMsg = (e: unknown) => (e instanceof Error ? e.message : 'Error inesperado');
+
+/** Enlaces a la ficha de los clientes que ocupan una hora (solo admin). */
+export const OwnerLinks = ({ owners }: { owners: Owner[] }) => (
+  <>
+    {owners.map((o, i) => (
+      <span key={o.appointmentId}>{i > 0 && ', '}<Link to={`/admin/usuarios/${o.clientId}`}>{o.clientName}</Link></span>
+    ))}
+  </>
+);
+
+/** Muestra un error. Si es una hora ocupada y el servidor indica por quién, enlaza a su ficha. */
+export function ErrorAlert({ error }: { error: unknown }) {
+  if (!error) return null;
+  const owners = error instanceof ApiError ? error.details?.bookedBy : undefined;
+  if (owners?.length) {
+    const prefix = error instanceof Error ? error.message.replace(/reservada para .*$/, 'reservada para ') : '';
+    return <Alert>{prefix}<OwnerLinks owners={owners} />.</Alert>;
+  }
+  return <Alert>{errMsg(error)}</Alert>;
+}

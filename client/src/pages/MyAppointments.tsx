@@ -5,6 +5,7 @@ import { Alert, Badge, Modal, Spinner, errMsg } from '../components/ui';
 import { api } from '../lib/api';
 import { canClientChange, dateTime, isoToLocalDate, methodLabel, money, noticeText, statusLabel } from '../lib/format';
 import { useSession } from '../lib/session';
+import { onlinePayment } from '../lib/payment';
 import type { Appointment } from '../lib/types';
 
 export function MyAppointments() {
@@ -114,7 +115,7 @@ export function MyAppointments() {
       {cancelling && (
         <Modal title="Cancelar cita" onClose={() => setCancelling(null)}>
           <p>¿Seguro que quieres cancelar la cita del <strong>{dateTime(cancelling.startAt)}</strong>?</p>
-          {paid(cancelling) && <p>Te devolveremos {money(paid(cancelling)!.amountCents - paid(cancelling)!.refundedCents)} a tu cuenta de PayPal.</p>}
+          {onlinePayment(cancelling) && <p>Te devolveremos {money(onlinePayment(cancelling)!.amountCents - onlinePayment(cancelling)!.refundedCents)} a tu cuenta de PayPal.</p>}
           <CancelButton id={cancelling.id} onDone={(msg) => { setCancelling(null); setFlash(msg); load(); }} />
         </Modal>
       )}

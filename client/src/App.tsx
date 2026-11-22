@@ -14,6 +14,7 @@ import { Closures } from './pages/admin/Closures';
 import { Dashboard } from './pages/admin/Dashboard';
 import { Messages } from './pages/admin/Messages';
 import { Settings } from './pages/admin/Settings';
+import { UserDetail } from './pages/admin/UserDetail';
 import { Users } from './pages/admin/Users';
 import { WhatsApp } from './pages/admin/WhatsApp';
 
@@ -49,6 +50,7 @@ export function App() {
             <Route index element={<Dashboard />} />
             <Route path="agenda" element={<Agenda />} />
             <Route path="usuarios" element={<Users />} />
+            <Route path="usuarios/:id" element={<UserDetail />} />
             <Route path="cierres" element={<Closures />} />
             <Route path="avisos" element={<Messages />} />
             <Route path="whatsapp" element={<WhatsApp />} />

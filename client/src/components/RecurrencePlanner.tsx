@@ -4,7 +4,7 @@ import { dateShort, isoToLocalDate, localISODate, money, time } from '../lib/for
 import { useSession } from '../lib/session';
 import type { Occurrence } from '../lib/types';
 import { SlotPicker } from './SlotPicker';
-import { Modal, Spinner } from './ui';
+import { Modal, OwnerLinks, Spinner } from './ui';
 
 export interface SeriesPlan { intervalDays: number; starts: string[] }
 
@@ -16,8 +16,8 @@ interface Row extends Occurrence { include: boolean; edited?: boolean }
  * Planificador de citas periódicas: periodicidad + fin + lista de fechas revisable.
  * Llama a onChange con las horas finales elegidas (o null si aún no hay plan válido).
  */
-export function RecurrencePlanner({ firstStart, priceCents, onChange }: {
-  firstStart: string; priceCents: number; onChange: (plan: SeriesPlan | null) => void;
+export function RecurrencePlanner({ firstStart, priceCents, onChange, admin }: {
+  firstStart: string; priceCents: number; onChange: (plan: SeriesPlan | null) => void; admin?: boolean;
 }) {
   const { config } = useSession();
   const max = config?.recurring.maxAppointments ?? 60;
@@ -38,14 +38,14 @@ export function RecurrencePlanner({ firstStart, priceCents, onChange }: {
     setRows(null);
     setError('');
     const t = setTimeout(() => {
-      api.post<{ occurrences: Occurrence[]; truncated: boolean }>('/appointments/series/preview', {
+      api.post<{ occurrences: Occurrence[]; truncated: boolean }>(`${admin ? '/admin' : ''}/appointments/series/preview`, {
         firstStart, intervalDays: interval, ...(endMode === 'until' ? { until } : { count }),
       })
         .then((r) => { setRows(r.occurrences.map((o) => ({ ...o, include: !!o.start }))); setTruncated(r.truncated); })
         .catch((e) => setError(e.message));
     }, 350);
     return () => clearTimeout(t);
-  }, [firstStart, interval, endMode, until, count]);
+  }, [firstStart, interval, endMode, until, count, admin]);
 
   const chosen = rows?.filter((r) => r.include && r.start) ?? [];
   useEffect(() => {
@@ -102,7 +102,11 @@ export function RecurrencePlanner({ firstStart, priceCents, onChange }: {
                 </label>
                 <span className="occ-note">
                   {r.edited ? <span className="muted small">elegida por ti</span>
-                    : r.status === 'MOVED' ? <span className="warn-text small">{r.reason}: pedida {dateShort(r.requested)} {time(r.requested)}</span>
+                    : r.status === 'MOVED' ? (
+                      <span className="warn-text small">
+                        {r.bookedBy?.length ? <>Reservada para <OwnerLinks owners={r.bookedBy} /></> : r.reason}: pedida {dateShort(r.requested)} {time(r.requested)}
+                      </span>
+                    )
                     : r.status === 'UNAVAILABLE' ? <span className="error-text small">{r.reason}, sin huecos cercanos</span> : null}
                 </span>
                 <button type="button" className="btn btn-sm" onClick={() => setEditing(i)}>Cambiar</button>
@@ -115,6 +119,7 @@ export function RecurrencePlanner({ firstStart, priceCents, onChange }: {
       {editing !== null && rows && (
         <Modal title={`Cambiar cita del ${dateShort(rows[editing].requested)}`} onClose={() => setEditing(null)}>
           <SlotPicker
+            admin={admin}
             value={rows[editing].start}
             initialDate={isoToLocalDate(rows[editing].start ?? rows[editing].requested)}
             onPick={(start) => { update(editing, { start, include: true, edited: true }); setEditing(null); }}

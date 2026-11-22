@@ -19,7 +19,9 @@ export interface Appointment {
   service: Service; payments: Payment[];
   series: { id: string; intervalDays: number } | null;
 }
-export interface Slot { start: string; end: string; available: boolean; reason?: string }
+/** Cliente que ocupa una hora (solo lo recibe el administrador). */
+export interface Owner { appointmentId: string; clientId: string; clientName: string }
+export interface Slot { start: string; end: string; available: boolean; reason?: string; bookedBy?: Owner[] }
 export interface TimeRange { start: string; end: string }
 export interface PaymentMethod { id: string; label: string; online: boolean; config: Record<string, string> }
 export interface PublicConfig {
@@ -35,7 +37,7 @@ export interface Settings {
   paymentHoldMinutes: number; recurringEnabled: boolean; recurringMaxAppointments: number; weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
 }
 
-export interface Occurrence { requested: string; start: string | null; status: 'OK' | 'MOVED' | 'UNAVAILABLE'; reason?: string }
+export interface Occurrence { requested: string; start: string | null; status: 'OK' | 'MOVED' | 'UNAVAILABLE'; reason?: string; bookedBy?: Owner[] }
 export interface SeriesResult {
   series: { id: string; intervalDays: number };
   appointments: Appointment[]; totalCents: number; pendingPayment: boolean;

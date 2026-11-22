@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Avatar, AvatarInput } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -63,7 +64,7 @@ export function Users() {
             <tbody>
               {list.map((u) => (
                 <tr key={u.id}>
-                  <td><span className="user-cell"><Avatar name={u.name} src={u.avatarUrl} /> <span>{u.name}{u.id === me?.id && <span className="muted small"> (tú)</span>}</span></span></td>
+                  <td><span className="user-cell"><Avatar name={u.name} src={u.avatarUrl} /> <span><Link to={`/admin/usuarios/${u.id}`}>{u.name}</Link>{u.id === me?.id && <span className="muted small"> (tú)</span>}</span></span></td>
                   <td>{u.role === 'ADMIN' ? <Badge status="admin">Administrador</Badge> : <span className="muted">Usuario normal</span>}</td>
                   <td><div>{u.email}</div><div className="muted small">{u.phone}</div></td>
                   <td>
@@ -71,6 +72,7 @@ export function Users() {
                     {u.status === 'BLOCKED' && <div className="muted small">{u.blockedUntil ? `hasta ${dateLong(u.blockedUntil)}` : 'indefinido'}{u.blockReason && ` · ${u.blockReason}`}</div>}
                   </td>
                   <td className="actions">
+                    {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}>📅 Ver citas</Link>}
                     {u.whatsappLink && <a className="btn btn-sm btn-wa" href={u.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
                     <button className="btn btn-sm" onClick={() => setModal({ kind: 'edit', user: u })}>{u.status === 'DELETED' ? 'Reactivar' : 'Editar'}</button>
                     {u.id !== me?.id && u.status === 'ACTIVE' && <button className="btn btn-sm" onClick={() => setModal({ kind: 'block', user: u })}>Bloquear</button>}

@@ -25,14 +25,23 @@ async function busyIntervals(db: Tx | typeof prisma, from: Date, to: Date, exclu
   const [appointments, closures] = await Promise.all([
     db.appointment.findMany({
       where: { AND: [occupyingWhere(now), { startAt: { lt: to }, endAt: { gt: from } }, excludeId ? { id: { not: excludeId } } : {}] },
-      select: { startAt: true, endAt: true },
+      select: { id: true, startAt: true, endAt: true, client: { select: { id: true, name: true } } },
     }),
     db.closure.findMany({ where: { startAt: { lt: to }, endAt: { gt: from } }, select: { startAt: true, endAt: true } }),
   ]);
   return { appointments, closures };
 }
 
-export async function availabilityForDate(date: string, excludeId?: string) {
+type BusyAppt = Interval & { id?: string; client?: { id: string; name: string } };
+export interface Owner { appointmentId: string; clientId: string; clientName: string }
+
+/** Clientes con cita en un intervalo (solo para el administrador). */
+const ownersAt = (appts: BusyAppt[], start: number, end: number): Owner[] =>
+  appts
+    .filter((a) => a.client && a.id && a.startAt.getTime() < end && start < a.endAt.getTime())
+    .map((a) => ({ appointmentId: a.id!, clientId: a.client!.id, clientName: a.client!.name }));
+
+export async function availabilityForDate(date: string, excludeId?: string, revealOwners = false) {
   const settings = await getSettings();
   const day = DateTime.fromISO(date, { zone: settings.timezone });
   if (!day.isValid) throw badRequest('Fecha no válida');
@@ -42,11 +51,14 @@ export async function availabilityForDate(date: string, excludeId?: string) {
     day.endOf('day').toJSDate(),
     excludeId,
   );
-  return computeSlots({ date, settings, appointments, closures });
+  const slots = computeSlots({ date, settings, appointments, closures });
+  if (!revealOwners) return slots;
+  return slots.map((s) =>
+    s.reason === 'BOOKED' ? { ...s, bookedBy: ownersAt(appointments, new Date(s.start).getTime(), new Date(s.end).getTime()) } : s);
 }
 
 /** Comprueba dentro de la transacción que el hueco sigue libre y encaja en el horario. */
-async function assertSlotBookable(tx: Tx, settings: Settings, start: Date, excludeId?: string): Promise<Interval> {
+async function assertSlotBookable(tx: Tx, settings: Settings, start: Date, excludeId?: string, revealOwner = false): Promise<Interval> {
   const date = localDate(start, settings.timezone);
   const day = DateTime.fromISO(date, { zone: settings.timezone });
   const { appointments, closures } = await busyIntervals(tx, day.startOf('day').toJSDate(), day.endOf('day').toJSDate(), excludeId);
@@ -59,6 +71,12 @@ async function assertSlotBookable(tx: Tx, settings: Settings, start: Date, exclu
       CLOSED: 'La peluquería está cerrada en esa fecha',
       BOOKED: 'Ese hueco acaba de ser reservado por otra persona',
     }[slot.reason!];
+    // El administrador ve para quién está reservada la hora; un cliente nunca ve datos de otros.
+    if (slot.reason === 'BOOKED' && revealOwner) {
+      const owners = ownersAt(appointments, new Date(slot.start).getTime(), new Date(slot.end).getTime());
+      if (owners.length)
+        throw conflict(`Esa hora ya está reservada para ${owners.map((o) => o.clientName).join(', ')}`, 'SLOT_BOOKED', { bookedBy: owners });
+    }
     throw conflict(msg, `SLOT_${slot.reason}`);
   }
   return { startAt: new Date(slot.start), endAt: new Date(slot.end) };
@@ -113,7 +131,7 @@ export async function createAppointment(
     if (client.role !== 'CLIENT') throw badRequest('Las cuentas de administrador no tienen citas. Elige un cliente.');
     const service = await tx.service.findFirst({ where: { id: input.serviceId, active: true } });
     if (!service) throw badRequest('Servicio no disponible');
-    const { startAt, endAt } = await assertSlotBookable(tx, settings, start);
+    const { startAt, endAt } = await assertSlotBookable(tx, settings, start, undefined, actor.role === 'ADMIN');
 
     return tx.appointment.create({
       data: {
@@ -164,7 +182,7 @@ export async function rescheduleAppointment(actor: Actor, id: string, input: { s
   if (Number.isNaN(start.getTime())) throw badRequest('Fecha no válida');
 
   const updated = await prisma.$transaction(async (tx) => {
-    const { startAt, endAt } = await assertSlotBookable(tx, settings, start, id);
+    const { startAt, endAt } = await assertSlotBookable(tx, settings, start, id, actor.role === 'ADMIN');
     let priceCents = current.priceCents;
     if (input.serviceId && input.serviceId !== current.serviceId) {
       const s = await tx.service.findFirst({ where: { id: input.serviceId, active: true } });
@@ -232,7 +250,7 @@ export async function cancelAppointment(
   const doRefund = actor.role === 'CLIENT' ? true : opts.refund ?? true;
   let refundedCents = 0;
   if (doRefund) {
-    for (const p of a.payments.filter((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status))) {
+    for (const p of a.payments.filter((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status) && p.providerCaptureId)) {
       const r = await refundPayment(p.id, { reason: opts.reason ?? 'Cancelación de cita', requestedBy: actor.role });
       refundedCents += r.amountCents;
     }
@@ -382,6 +400,8 @@ async function loadSeriesForActor(actor: Actor, id: string) {
 }
 
 export interface Occurrence {
+  /** Quién tiene ya la hora pedida (solo para el administrador). */
+  bookedBy?: Owner[];
   /** Hora pedida según la periodicidad. */
   requested: string;
   /** Hora propuesta (igual a la pedida o la alternativa más cercana); null si no hay hueco. */
@@ -402,7 +422,7 @@ const reasonText: Record<string, string> = {
  * hasta `until` (fecha local) o `count` citas, sin pasar del horizonte de reserva.
  * Si la hora pedida no está libre propone la más cercana ese día o en los 3 días siguientes.
  */
-export async function previewSeries(input: { firstStart: string; intervalDays: number; count?: number; until?: string }) {
+export async function previewSeries(input: { firstStart: string; intervalDays: number; count?: number; until?: string }, revealOwners = false) {
   const settings = await getSettings();
   const first = DateTime.fromISO(input.firstStart, { zone: settings.timezone });
   if (!first.isValid) throw badRequest('Fecha no válida');
@@ -424,7 +444,7 @@ export async function previewSeries(input: { firstStart: string; intervalDays: n
   const from = first.startOf('day').toJSDate();
   const to = (requested.at(-1) ?? first).plus({ days: 4 }).endOf('day').toJSDate();
   const { appointments, closures } = await busyIntervals(prisma, from, to);
-  const busy: Interval[] = [...appointments];
+  const busy: BusyAppt[] = [...appointments];
 
   const slotsFor = (day: DateTime) => computeSlots({ date: day.toISODate()!, settings, appointments: busy, closures });
   const minutesOfDay = (d: DateTime) => d.hour * 60 + d.minute;
@@ -435,6 +455,9 @@ export async function previewSeries(input: { firstStart: string; intervalDays: n
     let start: string | null = null;
     let status: Occurrence['status'] = 'UNAVAILABLE';
     let reason: string | undefined;
+    const bookedBy = revealOwners && exact?.reason === 'BOOKED'
+      ? ownersAt(busy, new Date(exact.start).getTime(), new Date(exact.end).getTime())
+      : [];
 
     if (exact?.available) {
       start = exact.start;
@@ -458,7 +481,7 @@ export async function previewSeries(input: { firstStart: string; intervalDays: n
     }
     // Reservar en memoria el hueco elegido para que dos fechas de la serie no coincidan.
     if (start) busy.push({ startAt: new Date(start), endAt: new Date(new Date(start).getTime() + settings.slotMinutes * 60_000) });
-    return { requested: req.toUTC().toISO()!, start, status, ...(reason && { reason }) };
+    return { requested: req.toUTC().toISO()!, start, status, ...(reason && { reason }), ...(bookedBy.length && { bookedBy }) };
   });
 
   return { occurrences: result, maxAppointments: max, truncated: requested.length === max && (input.count ?? Infinity) > max };
@@ -492,7 +515,7 @@ export async function createSeries(
       let slot: Interval;
       try {
         // Las citas ya creadas en esta transacción cuentan como ocupadas.
-        slot = await assertSlotBookable(tx, settings, start);
+        slot = await assertSlotBookable(tx, settings, start, undefined, actor.role === 'ADMIN');
       } catch (e) {
         (e as Error).message = `Cita del ${fmt(start, settings.timezone)}: ${(e as Error).message}`;
         throw e;

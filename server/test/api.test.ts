@@ -198,6 +198,70 @@ describe('roles', () => {
   });
 });
 
+describe('ocupación y cobros', () => {
+  it('el admin ve para quién está reservada una hora; un cliente no', async () => {
+    const start = await slotIn(10);
+    const booked = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, otherToken);
+    expect(booked.status).toBe(201);
+    const client = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+
+    // Admin intentando reservar esa hora para otro cliente
+    const byAdmin = await call('POST', '/api/admin/appointments', { clientId: client.id, serviceId, startAt: start }, adminToken);
+    expect(byAdmin.status).toBe(409);
+    expect(byAdmin.body.error).toBe('Esa hora ya está reservada para Otro');
+    expect(byAdmin.body.details.bookedBy[0]).toMatchObject({ clientName: 'Otro', appointmentId: booked.body.id });
+
+    // Cliente: mensaje genérico, sin datos de nadie
+    const byClient = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    expect(byClient.status).toBe(409);
+    expect(JSON.stringify(byClient.body)).not.toContain('Otro');
+    expect(byClient.body.details).toBeUndefined();
+
+    // Disponibilidad: la del admin dice quién; la pública no
+    const date = DateTime.fromISO(start).setZone('Europe/Madrid').toISODate();
+    const adminSlots = (await call('GET', `/api/admin/availability?date=${date}`, undefined, adminToken)).body;
+    expect(adminSlots.find((x: { start: string }) => x.start === start).bookedBy[0].clientName).toBe('Otro');
+    const publicSlots = (await call('GET', `/api/public/availability?date=${date}`)).body;
+    expect(JSON.stringify(publicSlots)).not.toContain('Otro');
+    expect((await call('GET', `/api/admin/availability?date=${date}`, undefined, clientToken)).status).toBe(403);
+  });
+
+  it('las series en el panel indican quién ocupa la hora pedida', async () => {
+    const start = await slotIn(11);
+    await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, otherToken);
+    const r = await call('POST', '/api/admin/appointments/series/preview', { firstStart: start, intervalDays: 7, count: 2 }, adminToken);
+    expect(r.body.occurrences[0].bookedBy[0].clientName).toBe('Otro');
+    const rc = await call('POST', '/api/appointments/series/preview', { firstStart: start, intervalDays: 7, count: 2 }, clientToken);
+    expect(rc.body.occurrences[0].bookedBy).toBeUndefined();
+  });
+
+  it('marcar como cobrada una cita en efectivo, deshacerlo y cancelarla sin error', async () => {
+    const start = await slotIn(12);
+    const a = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    const paid = await call('POST', `/api/admin/appointments/${a.body.id}/mark-paid`, {}, adminToken);
+    expect(paid.body.payments).toHaveLength(1);
+    expect(paid.body.payments[0]).toMatchObject({ provider: 'cash', status: 'COMPLETED', amountCents: 1500 });
+    // Idempotente
+    expect((await call('POST', `/api/admin/appointments/${a.body.id}/mark-paid`, {}, adminToken)).body.payments).toHaveLength(1);
+    const undone = await call('POST', `/api/admin/appointments/${a.body.id}/unmark-paid`, {}, adminToken);
+    expect(undone.body.payments).toHaveLength(0);
+    await call('POST', `/api/admin/appointments/${a.body.id}/mark-paid`, {}, adminToken);
+    // Cancelar una cita cobrada en efectivo no intenta reembolsar por PayPal
+    const c = await call('POST', `/api/admin/appointments/${a.body.id}/cancel`, {}, adminToken);
+    expect(c.status).toBe(200);
+    expect(c.body.refundedCents).toBe(0);
+  });
+
+  it('la ficha del cliente devuelve sus datos y todas sus citas', async () => {
+    const client = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    const u = await call('GET', `/api/admin/users/${client.id}`, undefined, adminToken);
+    expect(u.body).toMatchObject({ name: 'Cliente', whatsappLink: expect.stringContaining('wa.me/34600111222') });
+    const appts = await call('GET', `/api/admin/appointments?clientId=${client.id}`, undefined, adminToken);
+    expect(appts.body.length).toBeGreaterThan(3);
+    expect(appts.body.every((x: { client: { id: string } }) => x.client.id === client.id)).toBe(true);
+  });
+});
+
 describe('foto de perfil', () => {
   // PNG de 1x1 píxel
   const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';

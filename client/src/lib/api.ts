@@ -1,3 +1,5 @@
+import type { Owner } from './types';
+
 const BASE = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/$/, '');
 const TOKEN_KEY = 'pa_token';
 
@@ -10,7 +12,7 @@ export const tokenStore = {
 };
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string, public details?: { bookedBy?: Owner[] }) { super(message); }
 }
 
 let onUnauthorized: () => void = () => {};
@@ -32,7 +34,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 || data.code === 'USER_BLOCKED') onUnauthorized();
-    throw new ApiError(res.status, data.error ?? 'Error inesperado', data.code);
+    throw new ApiError(res.status, data.error ?? 'Error inesperado', data.code, data.details);
   }
   return data as T;
 }

@@ -34,8 +34,8 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - Si la cita estaba pagada por PayPal, al cancelarla se reembolsa automáticamente
 
 **Administración** (`/admin`). Los administradores no reservan citas propias: no ven *Reservar* ni *Mis citas* y crean las citas de los clientes desde la Agenda.
-- **Agenda**: ver citas por día o por rango, crear una cita para un cliente, cambiar la hora, cancelar en cualquier momento (con o sin reembolso, y avisando o no al cliente), reembolsos totales o parciales, marcar como realizada o como "no vino", y botón de WhatsApp
-- **Usuarios**: alta como usuario normal o administrador, edición, bloqueo (temporal hasta una fecha o indefinido, con opción de cancelar sus citas), desbloqueo, baja (se conserva el historial) y reactivación
+- **Agenda**: ver citas por día o por rango (con el estado de pago de cada una), ver en las horas ocupadas para qué cliente están (con enlace a su ficha), marcar como cobradas las citas en efectivo, crear una cita para un cliente, cambiar la hora, cancelar en cualquier momento (con o sin reembolso, y avisando o no al cliente), reembolsos totales o parciales, marcar como realizada o como "no vino", y botón de WhatsApp
+- **Usuarios**: ficha de cada cliente con todas sus citas (próximas y pasadas en colores distintos, estado de pago y método), alta como usuario normal o administrador, edición, bloqueo (temporal hasta una fecha o indefinido, con opción de cancelar sus citas), desbloqueo, baja (se conserva el historial) y reactivación
 - **Cierres**: vacaciones o festivos (días enteros o por horas). Bloquean las reservas y pueden cancelar y reembolsar las citas afectadas
 - **Avisos email**: envío a todos los clientes que aceptan emails, a los clientes con cita un día concreto o a clientes elegidos. Incluye plantillas, `{nombre}` personalizado e historial
 - **WhatsApp**: enlaces `wa.me` con el mensaje ya escrito para cada cliente (funciona sin configurar nada). Opcionalmente, envío automático con la API de WhatsApp Business

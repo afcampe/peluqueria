@@ -5,7 +5,7 @@ import { api } from '../../lib/api';
 import { money } from '../../lib/format';
 
 interface Data {
-  today: number; upcoming: number; clients: number; onlineRevenueMonthCents: number;
+  today: number; upcoming: number; clients: number; onlineRevenueMonthCents: number; cashRevenueMonthCents: number;
   integrations: { email: boolean; whatsappApi: boolean; payments: { id: string; label: string; configured: boolean }[] };
 }
 
@@ -23,6 +23,7 @@ export function Dashboard() {
         <div className="stat"><strong>{d.upcoming}</strong><span>Citas próximas</span></div>
         <Link to="/admin/usuarios" className="stat"><strong>{d.clients}</strong><span>Clientes</span></Link>
         <div className="stat"><strong>{money(d.onlineRevenueMonthCents)}</strong><span>Cobrado online este mes</span></div>
+        <div className="stat"><strong>{money(d.cashRevenueMonthCents)}</strong><span>Cobrado en el local este mes</span></div>
       </div>
       <section className="card">
         <h2>Estado de integraciones</h2>
