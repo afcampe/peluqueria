@@ -162,8 +162,12 @@ describe('usuarios y cierres', () => {
     const start = await slotIn(8);
     const a = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
     const date = DateTime.fromISO(start).setZone('Europe/Madrid').toISODate()!;
+    const day = DateTime.fromISO(date, { zone: 'Europe/Madrid' });
+    // Puede haber citas de otros tests ese mismo día: el cierre las cancela todas.
+    const sameDay = await prisma.appointment.count({ where: { status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] }, startAt: { gte: day.startOf('day').toJSDate(), lte: day.endOf('day').toJSDate() } } });
     const c = await call('POST', '/api/admin/closures', { start: date, end: date, reason: 'Festivo', cancelAppointments: true }, adminToken);
-    expect(c.body.cancelled).toBe(1);
+    expect(c.body.cancelled).toBe(sameDay);
+    expect(sameDay).toBeGreaterThanOrEqual(1);
     const slots = (await call('GET', `/api/public/availability?date=${date}`)).body;
     expect(slots.every((s: { reason?: string }) => s.reason === 'CLOSED' || s.reason === 'PAST')).toBe(true);
     expect((await prisma.appointment.findUniqueOrThrow({ where: { id: a.body.id } })).status).toBe('CANCELLED');

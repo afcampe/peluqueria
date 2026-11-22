@@ -48,9 +48,9 @@ export type Settings = z.infer<typeof settingsSchema>;
 
 export const defaultSettings: Settings = {
   shopName: 'Peluquería Armando',
-  shopPhone: '',
+  shopPhone: '627978973',
   shopEmail: '',
-  shopAddress: '',
+  shopAddress: 'Calle Matilde Conesa 10, 24400, Ponferrada',
   timezone: 'Europe/Madrid',
   currency: 'EUR',
   slotMinutes: 30,
@@ -70,7 +70,7 @@ export const defaultSettings: Settings = {
     '3': twoShifts,
     '4': twoShifts,
     '5': twoShifts,
-    '6': twoShifts,
+    '6': [], // sábado cerrado
     '7': [],
   },
   paymentMethods: { cash: { enabled: true }, paypal: { enabled: true } },
