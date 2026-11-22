@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Alert, Modal, Spinner, errMsg } from '../../components/ui';
+import { Alert, Modal, Spinner, confirmDialog, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { contactLine, dateLong, dateShort, localISODate } from '../../lib/format';
 import { resizeMax } from '../../lib/image';
@@ -262,7 +262,7 @@ export function ImportReview() {
     setBusy(false);
   };
   const discard = async () => {
-    if (!confirm('¿Descartar esta página? Se borra la foto y lo leído (las citas ya importadas se quedan en la agenda).')) return;
+    if (!(await confirmDialog({ title: 'Descartar página', message: 'Se borran la foto y lo leído. Las citas ya importadas se quedan en la agenda.', confirmLabel: 'Sí, descartar', danger: true }))) return;
     try { await api.del(`/admin/imports/${detail.id}`); navigate('/admin/importar'); } catch (e) { setError(errMsg(e)); }
   };
   const next = async () => {

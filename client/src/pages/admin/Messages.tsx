@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, errMsg } from '../../components/ui';
+import { Alert, confirmDialog, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { dateTime } from '../../lib/format';
 import { AudiencePicker, defaultAudience } from './Audience';
@@ -31,7 +31,7 @@ export function Messages() {
   }, [aud]);
 
   const send = async () => {
-    if (!confirm(`¿Enviar el email a ${count} cliente(s)?`)) return;
+    if (!(await confirmDialog({ title: 'Enviar aviso por email', message: `¿Enviar el email «${subject}» a ${count} cliente(s)?`, confirmLabel: 'Sí, enviar' }))) return;
     setBusy(true); setError(''); setFlash('');
     try {
       const r = await api.post<{ sent: number; failed: string[]; simulated: boolean }>('/admin/messages/email', { ...aud, subject, body });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, errMsg } from '../../components/ui';
+import { Alert, confirmDialog, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { AudiencePicker, defaultAudience } from './Audience';
 
@@ -21,7 +21,7 @@ export function WhatsApp() {
     try { setRows(await api.post<LinkRow[]>('/admin/whatsapp/links', { ...aud, body })); setOpened(new Set()); } catch (e) { setError(errMsg(e)); }
   };
   const sendApi = async () => {
-    if (!confirm('¿Enviar automáticamente por la API de WhatsApp?')) return;
+    if (!(await confirmDialog({ title: 'Enviar por WhatsApp', message: 'Se enviará el mensaje automáticamente por la API de WhatsApp a los clientes elegidos. ¿Continuar?', confirmLabel: 'Sí, enviar' }))) return;
     try {
       const r = await api.post<{ sent: number; failed: { name: string; error: string }[] }>('/admin/whatsapp/send', { ...aud, body });
       setFlash(`Enviados ${r.sent}.${r.failed.length ? ` Fallos: ${r.failed.map((f) => `${f.name} (${f.error})`).join('; ')}` : ''}`);

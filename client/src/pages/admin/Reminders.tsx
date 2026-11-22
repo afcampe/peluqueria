@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, errMsg } from '../../components/ui';
+import { Alert, confirmDialog, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { dateShort, time } from '../../lib/format';
 import { useSession } from '../../lib/session';
@@ -37,12 +37,24 @@ export function Reminders({ value: r, saved, channels, onChange }: {
   const set = (patch: Partial<ReminderSettings>) => onChange({ ...r, ...patch });
   const on = (x: ReminderSettings) => ({ email: x.enabled && x.email, whatsapp: x.enabled && x.whatsapp });
   /** Al apagar un canal se pide confirmación: al guardar se desactiva en todos los perfiles de cliente. */
-  const toggle = (patch: Partial<ReminderSettings>) => {
+  const toggle = async (patch: Partial<ReminderSettings>) => {
     const next = { ...r, ...patch };
     const lost = (['email', 'whatsapp'] as const).filter((k) => on(r)[k] && !on(next)[k]);
     if (lost.length) {
       const names = lost.map((k) => (k === 'email' ? 'por email' : 'por WhatsApp')).join(' y ');
-      if (!confirm(`Se desactivará el aviso ${names} en todos los perfiles de cliente y ningún cliente podrá activarlo hasta que vuelvas a activarlo aquí.\n\n¿Seguro que quieres desactivarlo?`)) return;
+      const ok = await confirmDialog({
+        title: `Desactivar el aviso ${names}`,
+        message: (
+          <>
+            <p>Se desactivará el aviso <strong>{names}</strong> en <strong>todos los perfiles de cliente</strong>, y ningún cliente podrá activarlo hasta que vuelvas a activarlo aquí.</p>
+            <p className="muted small">El cambio se aplica al pulsar «Guardar configuración».</p>
+            <p>¿Seguro que quieres desactivarlo?</p>
+          </>
+        ),
+        confirmLabel: 'Sí, desactivar',
+        danger: true,
+      });
+      if (!ok) return;
     }
     onChange(next);
   };

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { ApiError } from '../lib/api';
@@ -31,6 +31,40 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       </div>
     </div>,
     document.body,
+  );
+}
+
+// ---------------------------------------------------------------- Confirmación
+// Ventana de confirmación propia de la app (en lugar del confirm() del navegador).
+
+interface ConfirmOptions { title: string; message: ReactNode; confirmLabel?: string; cancelLabel?: string; danger?: boolean }
+type Pending = ConfirmOptions & { resolve: (ok: boolean) => void };
+let showConfirm: ((p: Pending) => void) | null = null;
+
+/** Muestra la ventana y resuelve true si se acepta, false si se cancela o se cierra. */
+export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!showConfirm) { resolve(window.confirm(typeof opts.message === 'string' ? opts.message : opts.title)); return; }
+    showConfirm({ ...opts, resolve });
+  });
+}
+
+/** Se monta una vez en la app; pinta la ventana cuando se pide una confirmación. */
+export function ConfirmHost() {
+  const [p, setP] = useState<Pending | null>(null);
+  const okRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { showConfirm = setP; return () => { showConfirm = null; }; }, []);
+  useEffect(() => { if (p) okRef.current?.focus(); }, [p]);
+  if (!p) return null;
+  const close = (ok: boolean) => { p.resolve(ok); setP(null); };
+  return (
+    <Modal title={p.title} onClose={() => close(false)}>
+      <div className="confirm-body">{p.message}</div>
+      <div className="confirm-actions">
+        <button type="button" className="btn" onClick={() => close(false)}>{p.cancelLabel ?? 'Cancelar'}</button>
+        <button type="button" ref={okRef} className={`btn ${p.danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => close(true)}>{p.confirmLabel ?? 'Aceptar'}</button>
+      </div>
+    </Modal>
   );
 }
 

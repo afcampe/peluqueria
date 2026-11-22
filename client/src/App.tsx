@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { Spinner } from './components/ui';
+import { ConfirmHost, Spinner } from './components/ui';
 import { useSession } from './lib/session';
 import { Book } from './pages/Book';
 import { Home } from './pages/Home';
@@ -64,6 +64,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      <ConfirmHost />
     </Router>
   );
 }

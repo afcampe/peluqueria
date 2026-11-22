@@ -626,3 +626,8 @@ label.inline input { width: 5rem; }
 .reminder-prefs p { margin: 0; }
 .reminder-pref.is-off { color: var(--muted); }
 .reminder-pref.is-off input { opacity: .5; }
+
+/* Ventana de confirmación propia */
+.confirm-body { display: grid; gap: .6rem; margin-bottom: 1.1rem; }
+.confirm-body p { margin: 0; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: .6rem; flex-wrap: wrap; }
