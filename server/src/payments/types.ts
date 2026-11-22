@@ -16,7 +16,7 @@ export interface PaymentProvider {
   /** Datos que el frontend necesita (p. ej. clientId público de PayPal). */
   publicConfig(): Record<string, unknown>;
   createOrder?(args: { reference: string; description: string; amountCents: number; currency: string }): Promise<{ orderId: string }>;
-  captureOrder?(orderId: string): Promise<{ captureId: string; amountCents: number; currency: string }>;
+  captureOrder?(orderId: string): Promise<{ captureId: string; amountCents: number; currency: string; payer?: { email?: string; id?: string } }>;
   refund?(args: { captureId: string; amountCents: number; currency: string; idempotencyKey: string; note?: string }): Promise<{ refundId: string }>;
 }
 

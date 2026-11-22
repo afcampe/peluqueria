@@ -1,23 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
-import { canIssueTicket, cashPayment, paymentInfo, ticketOf } from '../../lib/payment';
-import { TicketButton } from '../../components/TicketButton';
-import { CashModal } from './Agenda';
+import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
+import { TicketButtons } from '../../components/TicketButton';
+import { CashModal, CashRefundModal, OnlineRefundModal } from './Agenda';
 import type { Appointment, User } from '../../lib/types';
 import { IconRepeat, IconTicket } from '../../components/icons';
 
-type Filter = 'all' | 'future' | 'past';
+type Filter = 'all' | 'future' | 'past' | 'incidents';
 const statusText = { ACTIVE: 'Activo', BLOCKED: 'Bloqueado', DELETED: 'De baja' };
 
 export function UserDetail() {
   const { id } = useParams();
   const [user, setUser] = useState<User | null>(null);
   const [appts, setAppts] = useState<Appointment[] | null>(null);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [params] = useSearchParams();
+  const [filter, setFilter] = useState<Filter>(params.get('ver') === 'incidencias' ? 'incidents' : 'all');
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
@@ -34,7 +35,9 @@ export function UserDetail() {
   // Próximas: de la más cercana a la más lejana. Pasadas: de la más reciente a la más antigua.
   const future = appts.filter(isFuture).sort((a, b) => a.startAt.localeCompare(b.startAt));
   const past = appts.filter((a) => !isFuture(a)).sort((a, b) => b.startAt.localeCompare(a.startAt));
-  const shown = filter === 'future' ? future : filter === 'past' ? past : [...future, ...past];
+  const isIncident = (a: Appointment) => a.status === 'NO_SHOW' || a.status === 'CANCELLED';
+  const incidents = past.filter(isIncident).concat(future.filter(isIncident)).sort((a, b) => b.startAt.localeCompare(a.startAt));
+  const shown = filter === 'future' ? future : filter === 'past' ? past : filter === 'incidents' ? incidents : [...future, ...past];
 
   const active = (a: Appointment) => a.status !== 'CANCELLED';
   const paidCents = appts.reduce((sum, a) => sum + a.payments.filter((p) => p.status !== 'FAILED' && p.status !== 'CREATED').reduce((s, p) => s + p.amountCents - p.refundedCents, 0), 0);
@@ -78,7 +81,7 @@ export function UserDetail() {
           <div className="page-head">
             <h2>Citas</h2>
             <div className="chips" role="group" aria-label="Filtrar citas">
-              {([['all', `Todas (${appts.length})`], ['future', `Próximas (${future.length})`], ['past', `Pasadas (${past.length})`]] as const).map(([k, label]) => (
+              {([['all', `Todas (${appts.length})`], ['future', `Próximas (${future.length})`], ['past', `Pasadas (${past.length})`], ['incidents', `Anuladas y no vino (${incidents.length})`]] as const).map(([k, label]) => (
                 <button key={k} type="button" className={`chip ${filter === k ? 'selected' : ''}`} onClick={() => setFilter(k)}>{label}</button>
               ))}
             </div>
@@ -110,7 +113,8 @@ export function UserDetail() {
 
 function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: boolean; onChange: () => void }) {
   const [error, setError] = useState('');
-  const [charging, setCharging] = useState(false);
+  const [modal, setModal] = useState<'cash' | 'refund' | 'refundCash' | null>(null);
+  const locked = ticketedPayment(a);
   const pay = paymentInfo(a);
   const ticket = ticketOf(a);
   const cash = cashPayment(a);
@@ -138,13 +142,23 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         {error && <div className="error-text small">{error}</div>}
       </div>
       <div className="actions">
-        {canMarkPaid && <button className="btn btn-sm" onClick={() => setCharging(true)}>Marcar cobrada</button>}
+        {canMarkPaid && <button className="btn btn-sm" onClick={() => setModal('cash')}>Marcar cobrada</button>}
         {cash && !ticket && <button className="btn btn-sm" onClick={() => run('unmark-paid')}>Deshacer cobro</button>}
-        {ticket ? <TicketButton ticket={ticket} /> : canIssueTicket(a) && (
+        <TicketButtons tickets={ticketsOf(a)} />
+        {canIssueTicket(a) && (
           <button className="btn btn-sm btn-ticket" onClick={() => run('ticket')}><IconTicket size={16} /> Generar ticket</button>
         )}
+        {(locked || onlinePayment(a)) && (
+          <button className="btn btn-sm btn-refund" onClick={() => setModal(locked?.provider === 'cash' ? 'refundCash' : 'refund')}>Reembolsar</button>
+        )}
       </div>
-      {charging && <CashModal appt={a} onClose={() => setCharging(false)} onDone={() => { setCharging(false); onChange(); }} />}
+      {modal && (() => {
+        const close = () => setModal(null);
+        const done = () => { setModal(null); onChange(); };
+        if (modal === 'cash') return <CashModal appt={a} onClose={close} onDone={done} />;
+        if (modal === 'refundCash') return <CashRefundModal appt={a} onClose={close} onDone={done} />;
+        return <OnlineRefundModal appt={a} onClose={close} onDone={done} />;
+      })()}
     </article>
   );
 }

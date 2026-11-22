@@ -4,6 +4,7 @@ const links = [
   ['/admin', 'Resumen'],
   ['/admin/agenda', 'Agenda'],
   ['/admin/usuarios', 'Usuarios'],
+  ['/admin/anulaciones', 'Anulaciones'],
   ['/admin/cierres', 'Cierres'],
   ['/admin/avisos', 'Avisos email'],
   ['/admin/whatsapp', 'WhatsApp'],

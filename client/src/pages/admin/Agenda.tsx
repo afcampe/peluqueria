@@ -1,14 +1,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RecurrencePlanner, type SeriesPlan } from '../../components/RecurrencePlanner';
 import { SlotPicker } from '../../components/SlotPicker';
-import { TicketButton } from '../../components/TicketButton';
+import { TicketButtons } from '../../components/TicketButton';
 import { Link } from 'react-router-dom';
 import { Alert, Badge, ErrorAlert, Modal, Spinner, errMsg } from '../../components/ui';
-import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf } from '../../lib/payment';
+import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
 import { api } from '../../lib/api';
 import { addDays, addMonths, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, statusLabel, time, weekLabel } from '../../lib/format';
 import { useSession } from '../../lib/session';
-import type { Appointment, Closure, Payment, PublicConfig, User } from '../../lib/types';
+import type { Appointment, Closure, PublicConfig, User } from '../../lib/types';
 import { IconChevronLeft, IconChevronRight, IconRepeat, IconTicket } from '../../components/icons';
 const waUrl = (phone: string | null, text: string) => {
   if (!phone) return null;
@@ -18,7 +18,7 @@ const waUrl = (phone: string | null, text: string) => {
 };
 
 type View = 'list' | 'week' | 'month';
-type ModalState = { kind: 'new' | 'move' | 'cancel' | 'refund' | 'cash' | 'detail'; appt?: Appointment; payment?: Payment };
+type ModalState = { kind: 'new' | 'move' | 'cancel' | 'refund' | 'refundCash' | 'cash' | 'detail'; appt?: Appointment };
 const VIEW_KEY = 'pa_agenda_view';
 const readView = (): View => { try { const v = localStorage.getItem(VIEW_KEY); return v === 'week' || v === 'month' ? v : 'list'; } catch { return 'list'; } };
 
@@ -56,7 +56,7 @@ export function Agenda() {
 
   const done = (msg: string) => { setModal(null); setFlash(msg); load(true); };
   const act: CardActions = {
-    open: (kind, a, payment) => setModal({ kind, appt: a, payment }),
+    open: (kind, a) => setModal({ kind, appt: a }),
     setStatus: async (a, s) => {
       try { await api.patch(`/admin/appointments/${a.id}`, { status: s }); done(`Marcada como "${statusLabel[s]}"`); } catch (e) { setError(errMsg(e)); }
     },
@@ -161,7 +161,8 @@ export function Agenda() {
       {modal?.kind === 'new' && <NewAppointmentModal onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'move' && <MoveModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'cancel' && <CancelModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
-      {modal?.kind === 'refund' && <RefundModal payment={modal.payment!} onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'refund' && <OnlineRefundModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'refundCash' && <CashRefundModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'cash' && <CashModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
     </div>
   );
@@ -170,7 +171,7 @@ export function Agenda() {
 // ================================================================ Tarjeta de cita
 
 interface CardActions {
-  open: (kind: 'move' | 'cancel' | 'refund' | 'cash', a: Appointment, payment?: Payment) => void;
+  open: (kind: 'move' | 'cancel' | 'refund' | 'refundCash' | 'cash', a: Appointment) => void;
   setStatus: (a: Appointment, s: string) => void;
   undoCash: (a: Appointment) => void;
   issueTicket: (a: Appointment) => void;
@@ -186,9 +187,10 @@ function DayList({ day, appts, act }: { day: string; appts: Appointment[]; act: 
 }
 
 function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
-  const paid = onlinePayment(a);
   const pay = paymentInfo(a);
   const ticket = ticketOf(a);
+  const locked = ticketedPayment(a); // cobrada con ticket: se reembolsa en lugar de cancelar
+  const online = onlinePayment(a);
   const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status);
   const wa = waUrl(a.client.phone, `Hola ${a.client.name}, te escribimos de la peluquería por tu cita del ${dateShort(a.startAt)} a las ${time(a.startAt)}.`);
   return (
@@ -214,13 +216,18 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
           <button className="btn btn-sm" onClick={() => act.open('cash', a)}>Marcar cobrada</button>
         )}
         {cashPayment(a) && !ticket && <button className="btn btn-sm" onClick={() => act.undoCash(a)}>Deshacer cobro</button>}
-        {ticket ? <TicketButton ticket={ticket} /> : canIssueTicket(a) && (
+        <TicketButtons tickets={ticketsOf(a)} />
+        {canIssueTicket(a) && (
           <button className="btn btn-sm btn-ticket" onClick={() => act.issueTicket(a)}><IconTicket size={16} /> Generar ticket</button>
         )}
-        {paid && paid.refundedCents < paid.amountCents && (
-          <button className="btn btn-sm" onClick={() => act.open('refund', a, paid)}>Reembolsar</button>
+        {locked ? (
+          <button className="btn btn-sm btn-refund" onClick={() => act.open(locked.provider === 'cash' ? 'refundCash' : 'refund', a)}>Reembolsar</button>
+        ) : (
+          <>
+            {online && <button className="btn btn-sm btn-refund" onClick={() => act.open('refund', a)}>Reembolsar</button>}
+            {active && <button className="btn btn-sm btn-danger" onClick={() => act.open('cancel', a)}>Cancelar</button>}
+          </>
         )}
-        {active && <button className="btn btn-sm btn-danger" onClick={() => act.open('cancel', a)}>Cancelar</button>}
         {wa && <a className="btn btn-sm btn-wa" href={wa} target="_blank" rel="noreferrer">WhatsApp</a>}
       </div>
     </article>
@@ -490,24 +497,81 @@ function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: ()
   );
 }
 
-function RefundModal({ payment, onClose, onDone }: { payment: Payment; onClose: () => void; onDone: (m: string) => void }) {
+/** Reembolso de un pago online: muestra los datos del pago en PayPal y si se anula o no la cita. */
+export function OnlineRefundModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
+  const payment = onlinePayment(appt)!;
   const max = payment.amountCents - payment.refundedCents;
+  const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(appt.status);
   const [amount, setAmount] = useState((max / 100).toFixed(2));
+  const [cancel, setCancel] = useState(active);
+  const [notify, setNotify] = useState(true);
   const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const cents = Math.round(Number(amount.replace(',', '.')) * 100);
+  const full = cents === max;
+  const when = payment.capturedAt ? `${dateShort(payment.capturedAt)} ${time(payment.capturedAt)}` : null;
+
+  return (
+    <Modal title={`Reembolsar por ${methodLabel(payment.provider)}`} onClose={onClose}>
+      <p><strong>{appt.client.name}</strong> — {appt.service.name}, {dateShort(appt.startAt)} {time(appt.startAt)}</p>
+      <dl className="payment-data">
+        <dt>Pagado</dt><dd>{money(payment.amountCents)}{when && ` el ${when}`}</dd>
+        {payment.refundedCents > 0 && <><dt>Ya reembolsado</dt><dd>{money(payment.refundedCents)}</dd></>}
+        {payment.payerEmail && <><dt>Cuenta {methodLabel(payment.provider)}</dt><dd>{payment.payerEmail}</dd></>}
+        {payment.providerCaptureId && <><dt>Id. de la transacción</dt><dd><code>{payment.providerCaptureId}</code></dd></>}
+        {payment.providerOrderId && <><dt>Pedido</dt><dd><code>{payment.providerOrderId}</code></dd></>}
+        {payment.ticket && <><dt>Ticket</dt><dd>{payment.ticket.number}</dd></>}
+      </dl>
+      <Alert>{error}</Alert>
+      <label>Importe a devolver (máx. {money(max)})
+        <input type="number" step="0.01" min="0.01" max={max / 100} value={amount} onChange={(e) => setAmount(e.target.value)} />
+      </label>
+      {active && (
+        <fieldset className="radio-group">
+          <legend>Después del reembolso</legend>
+          <label className="check"><input type="radio" name="after" checked={cancel} disabled={!full} onChange={() => setCancel(true)} /> Anular la cita y liberar la hora</label>
+          <label className="check"><input type="radio" name="after" checked={!cancel} onChange={() => setCancel(false)} /> Mantener la cita{full ? ', pendiente de cobro en el local' : ''}</label>
+          {!full && <p className="muted small">Con un reembolso parcial la cita se mantiene.</p>}
+        </fieldset>
+      )}
+      <label>Nota para el cliente<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+      {cancel && full && active && <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar al cliente por email</label>}
+      <p className="muted small">El dinero se devuelve a la cuenta de {methodLabel(payment.provider)} con la que se pagó. El ticket se conserva y queda marcado como reembolsado.</p>
+      <button className="btn btn-refund" disabled={busy || !(cents > 0 && cents <= max)} onClick={async () => {
+        setBusy(true); setError('');
+        try {
+          const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/refund`, {
+            amountCents: cents, reason: reason || undefined, cancel: active && cancel && full, notify,
+          });
+          onDone(`Reembolsados ${money(r.refundedCents)} a ${appt.client.name}${active && cancel && full ? ' y cita anulada' : ''}.`);
+        } catch (e) { setError(errMsg(e)); setBusy(false); }
+      }}>{busy ? 'Reembolsando…' : `Reembolsar ${cents > 0 ? money(cents) : ''}${active && cancel && full ? ' y anular' : ''}`}</button>
+    </Modal>
+  );
+}
+
+/** Devolución en mano de un cobro en efectivo: la cita vuelve a quedar pendiente de cobro. */
+export function CashRefundModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
+  const p = ticketedPayment(appt) ?? cashPayment(appt)!;
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
-    <Modal title="Reembolso" onClose={onClose}>
-      <p>Pagado: {money(payment.amountCents)} · Ya reembolsado: {money(payment.refundedCents)}</p>
+    <Modal title="Reembolsar cobro en efectivo" onClose={onClose}>
+      <p>¿Seguro que quieres reembolsar <strong>{money(p.amountCents - p.refundedCents)}</strong> a <strong>{appt.client.name}</strong>?</p>
+      <p className="muted">{appt.service.name}, {dateShort(appt.startAt)} {time(appt.startAt)}{p.ticket && ` · ticket ${p.ticket.number}`}</p>
+      <p className="muted small">Entrega el dinero en mano. La cita quedará como no cobrada y pendiente de cobro, y ya se podrá cancelar. El ticket se conserva marcado como reembolsado.</p>
       <Alert>{error}</Alert>
-      <label>Importe a devolver (máx. {money(max)})<input type="number" step="0.01" min="0.01" max={max / 100} value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
-      <label>Nota para el cliente<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-      <p className="muted small">El reembolso no cancela la cita.</p>
-      <button className="btn btn-primary" onClick={async () => {
-        try {
-          await api.post(`/admin/payments/${payment.id}/refund`, { amountCents: Math.round(Number(amount) * 100), reason: reason || undefined });
-          onDone(`Reembolsados ${money(Math.round(Number(amount) * 100))}`);
-        } catch (e) { setError(errMsg(e)); }
-      }}>Reembolsar</button>
+      <div className="ticket-actions">
+        <button className="btn btn-refund" disabled={busy} onClick={async () => {
+          setBusy(true);
+          try {
+            const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/refund-cash`);
+            onDone(`Reembolsados ${money(r.refundedCents)} en efectivo a ${appt.client.name}. La cita queda pendiente de cobro.`);
+          } catch (e) { setError(errMsg(e)); setBusy(false); }
+        }}>{busy ? 'Reembolsando…' : 'Sí, reembolsar'}</button>
+        <button className="btn" onClick={onClose}>No</button>
+      </div>
     </Modal>
   );
 }

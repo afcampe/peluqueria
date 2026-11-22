@@ -11,6 +11,8 @@ export interface Payment {
   id: string; provider: string; amountCents: number; currency: string; refundedCents: number;
   status: 'CREATED' | 'COMPLETED' | 'PARTIALLY_REFUNDED' | 'REFUNDED' | 'FAILED'; refunds: Refund[];
   ticket: TicketRef | null;
+  payerEmail?: string | null; payerId?: string | null; capturedAt?: string | null;
+  providerOrderId?: string | null; providerCaptureId?: string | null;
 }
 export interface TicketRef { id: string; number: string; issuedAt: string }
 export type AppointmentStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
@@ -51,6 +53,6 @@ export interface TicketView {
   id: string; number: string; issuedAt: string; issuedAtText: string;
   issuer: { name: string; lines: string[] }; client: string; method: string; origin: 'SHOP' | 'ONLINE'; currency: string;
   lines: { concept: string; detail: string; amountCents: number }[];
-  vatPercent: number; baseCents: number | null; vatCents: number | null; totalCents: number;
+  vatPercent: number; baseCents: number | null; vatCents: number | null; totalCents: number; refundedCents: number;
   reference: string | null; footer: string;
 }

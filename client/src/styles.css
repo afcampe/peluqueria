@@ -523,3 +523,27 @@ label.inline input { width: 5rem; }
   .ticket-paper { padding: 1.1rem .9rem 1rem; font-size: .84rem; }
   .ticket-paper dl { grid-template-columns: 6.25rem minmax(0, 1fr); }
 }
+.ticket-paper tfoot .refunded td { color: #8a1c14; font-weight: 600; padding-top: .3rem; }
+
+/* Reembolsar (azul): sustituye a Cancelar en las citas cobradas con ticket */
+:root, :root[data-theme='light'] { --refund: #1f5fa8; --refund-text: #ffffff; }
+:root[data-theme='dark'] { --refund: #5b9ee6; --refund-text: #0a0a0a; }
+.btn-refund { background: var(--refund); border-color: var(--refund); color: var(--refund-text); }
+.btn-refund:hover:not(:disabled) { background: color-mix(in srgb, var(--refund) 85%, #000); border-color: color-mix(in srgb, var(--refund) 85%, #000); color: var(--refund-text); }
+.btn-ticket.is-refunded { opacity: .7; }
+.btn-ticket small { font-size: .82em; text-transform: none; letter-spacing: 0; font-weight: 500; }
+.payment-data { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .3rem .9rem; margin: 0 0 1rem; padding: .8rem 1rem;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); font-size: .88rem; }
+.payment-data dt { color: var(--muted); }
+.payment-data dd { margin: 0; overflow-wrap: anywhere; }
+.payment-data code { font-size: .82rem; }
+.radio-group { border: 1px solid var(--border); border-radius: var(--radius); padding: .5rem .9rem .3rem; margin: 0 0 1rem; }
+.radio-group legend { font-size: .85rem; color: var(--muted); padding: 0 .3rem; }
+
+/* Anulaciones y ausencias */
+.table.incidents .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table.incidents td.hot { color: var(--danger); font-weight: 700; }
+.table.incidents .who { display: flex; align-items: center; gap: .6rem; }
+.table.incidents .nowrap { white-space: nowrap; }
+.table .sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; cursor: pointer; }
+.table .sort.active { color: var(--text); }

@@ -17,12 +17,12 @@ export async function downloadTicket(id: string) {
 }
 
 /** Botón "Ticket AAAA-NNNN": abre la vista previa del ticket, desde la que se descarga. */
-export function TicketButton({ ticket, small = true }: { ticket: TicketRef; small?: boolean }) {
+export function TicketButton({ ticket, small = true, refunded = false }: { ticket: TicketRef; small?: boolean; refunded?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className={`btn ${small ? 'btn-sm' : ''} btn-ticket`} title={`Ver ticket ${ticket.number}`} onClick={() => setOpen(true)}>
-        <IconTicket size={16} /> Ticket {ticket.number}
+      <button type="button" className={`btn ${small ? 'btn-sm' : ''} btn-ticket ${refunded ? 'is-refunded' : ''}`} title={`Ver ticket ${ticket.number}${refunded ? ' (reembolsado)' : ''}`} onClick={() => setOpen(true)}>
+        <IconTicket size={16} /> Ticket {ticket.number}{refunded && <small> · reembolsado</small>}
       </button>
       {open && <TicketModal ticket={ticket} onClose={() => setOpen(false)} />}
     </>
@@ -86,10 +86,16 @@ function TicketPaper({ v }: { v: TicketView }) {
             </>
           )}
           <tr className="total"><td>{v.vatPercent > 0 ? 'Total (IVA incluido)' : 'Total'}</td><td>{cur(v.totalCents)}</td></tr>
+          {v.refundedCents > 0 && <tr className="refunded"><td>Reembolsado</td><td>-{cur(v.refundedCents)}</td></tr>}
         </tfoot>
       </table>
       {v.reference && <p className="ref">Referencia del pago: {v.reference}</p>}
       {v.footer && <p className="foot">{v.footer}</p>}
     </article>
   );
+}
+
+/** Botones de todos los tickets de una cita. */
+export function TicketButtons({ tickets }: { tickets: (TicketRef & { refunded: boolean })[] }) {
+  return <>{tickets.map((t) => <TicketButton key={t.id} ticket={t} refunded={t.refunded} />)}</>;
 }

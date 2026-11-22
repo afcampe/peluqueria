@@ -28,7 +28,7 @@ paypalProvider.createOrder = async ({ amountCents }) => {
   orders.set(orderId, amountCents);
   return { orderId };
 };
-paypalProvider.captureOrder = async (orderId) => ({ captureId: `CAP-${orderId}`, amountCents: orders.get(orderId)!, currency: 'EUR' });
+paypalProvider.captureOrder = async (orderId) => ({ captureId: `CAP-${orderId}`, amountCents: orders.get(orderId)!, currency: 'EUR', payer: { email: 'pagador@paypal.test', id: 'PAYER1' } });
 paypalProvider.refund = async ({ amountCents }) => { refunds.push(amountCents); return { refundId: `REF-${refunds.length}` }; };
 
 let server: Server;
@@ -466,6 +466,95 @@ describe('tickets', () => {
     expect(t1.number).toBe(t2.number);
     const t = await prisma.ticket.findUniqueOrThrow({ where: { id: t1.id } });
     expect(t).toMatchObject({ totalCents: 3000, origin: 'ONLINE', provider: 'paypal' });
+  });
+});
+
+describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
+  type A = { id: string; status: string; paymentMethod: string; payments: { id: string; status: string; refundedCents: number; payerEmail: string | null; ticket: { number: string } | null }[] };
+  const payOnline = async (start: string) => {
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'paypal' }, clientToken);
+    const order = await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
+    return (await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken)).body as A;
+  };
+  const payCash = async (start: string) => {
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    return (await call('POST', `/api/admin/appointments/${r.body.id}/mark-paid`, { ticket: true }, adminToken)).body as A;
+  };
+
+  it('efectivo con ticket: nadie la cancela hasta reembolsar; después queda pendiente de cobro', async () => {
+    const a = await payCash(await slotIn(50));
+    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, {}, adminToken)).body.code).toBe('PAID_WITH_TICKET');
+    expect((await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken)).body.code).toBe('PAID_WITH_TICKET');
+
+    const r = await call('POST', `/api/admin/appointments/${a.id}/refund-cash`, {}, adminToken);
+    expect(r.body.refundedCents).toBe(1500);
+    expect(r.body.appointment.status).toBe('CONFIRMED');
+    const p = r.body.appointment.payments[0];
+    expect(p).toMatchObject({ status: 'REFUNDED', refundedCents: 1500 });
+    expect(p.ticket.number).toBe(a.payments[0].ticket!.number); // el ticket se conserva
+
+    // Se puede volver a cobrar (nuevo ticket) o cancelar
+    const again = await call('POST', `/api/admin/appointments/${a.id}/mark-paid`, { ticket: true }, adminToken);
+    expect(again.body.payments).toHaveLength(2);
+    await call('POST', `/api/admin/appointments/${a.id}/refund-cash`, {}, adminToken);
+    expect((await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken)).status).toBe(200);
+  });
+
+  it('PayPal con ticket: guarda el pagador; el admin reembolsa anulando o manteniendo la cita', async () => {
+    const a = await payOnline(await slotIn(51));
+    expect(a.payments[0]).toMatchObject({ payerEmail: 'pagador@paypal.test', ticket: expect.anything() });
+    // Anular sin reembolsar no se permite
+    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, { refund: false }, adminToken)).body.code).toBe('PAID_WITH_TICKET');
+
+    // Reembolso completo manteniendo la cita: pasa a cobrarse en el local
+    refunds.length = 0;
+    const kept = await call('POST', `/api/admin/appointments/${a.id}/refund`, { cancel: false }, adminToken);
+    expect(refunds).toEqual([1500]);
+    expect(kept.body.appointment).toMatchObject({ status: 'CONFIRMED', paymentMethod: 'cash' });
+    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, {}, adminToken)).status).toBe(200);
+
+    // Reembolso anulando la cita
+    const b = await payOnline(await slotIn(52));
+    const cancelled = await call('POST', `/api/admin/appointments/${b.id}/refund`, { cancel: true }, adminToken);
+    expect(cancelled.body).toMatchObject({ refundedCents: 1500, appointment: { status: 'CANCELLED' } });
+  });
+
+  it('PayPal: el cliente reembolsa anulando con antelación; con menos de 1 h solo el admin', async () => {
+    const a = await payOnline(await slotIn(53));
+    const r = await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken);
+    expect(r.body.refundedCents).toBe(1500);
+
+    const b = await payOnline(await slotIn(54));
+    const soon = new Date(Date.now() + 30 * 60_000);
+    await prisma.appointment.update({ where: { id: b.id }, data: { startAt: soon, endAt: new Date(soon.getTime() + 30 * 60_000) } });
+    expect((await call('POST', `/api/appointments/${b.id}/cancel`, {}, clientToken)).status).toBe(403);
+    expect((await call('POST', `/api/admin/appointments/${b.id}/refund`, { cancel: true }, adminToken)).body.refundedCents).toBe(1500);
+  });
+
+  it('las cancelaciones masivas se saltan las cobradas en efectivo con ticket', async () => {
+    const first = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 46 }).set({ weekday: 3, hour: 12, minute: 0, second: 0, millisecond: 0 });
+    const starts = [0, 7, 14].map((d) => first.plus({ days: d }).toUTC().toISO()!);
+    const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 7, starts, paymentMethod: 'cash' }, clientToken);
+    await call('POST', `/api/admin/appointments/${r.body.appointments[1].id}/mark-paid`, { ticket: true }, adminToken);
+    const c = await call('POST', `/api/admin/series/${r.body.series.id}/cancel`, {}, adminToken);
+    expect(c.body).toMatchObject({ cancelled: 2, skipped: 1 });
+  });
+
+  it('histórico de anulaciones y ausencias por cliente', async () => {
+    const client = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    const past = new Date(Date.now() - 3 * 86_400_000);
+    await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: past, endAt: new Date(past.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'NO_SHOW' } });
+    const r = await call('GET', '/api/admin/reports/incidents', undefined, adminToken);
+    const row = r.body.find((x: { client: { id: string } }) => x.client.id === client.id);
+    const expected = await prisma.appointment.groupBy({ by: ['status', 'cancelledBy'], where: { clientId: client.id, NOT: { status: 'CANCELLED', cancelledBy: 'SYSTEM' } }, _count: { _all: true } });
+    const count = (f: (x: (typeof expected)[number]) => boolean) => expected.filter(f).reduce((n, x) => n + x._count._all, 0);
+    expect(row).toMatchObject({
+      noShow: count((x) => x.status === 'NO_SHOW'),
+      cancelledByClient: count((x) => x.status === 'CANCELLED' && x.cancelledBy === 'CLIENT'),
+      cancelledByShop: count((x) => x.status === 'CANCELLED' && x.cancelledBy === 'ADMIN'),
+    });
+    expect(row.noShow).toBeGreaterThan(0);
+    expect((await call('GET', '/api/admin/reports/incidents', undefined, clientToken)).status).toBe(403);
   });
 });
 

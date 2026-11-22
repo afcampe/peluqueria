@@ -58,7 +58,7 @@ export const paypalProvider: PaymentProvider = {
 
   async captureOrder(orderId) {
     type Capture = { id: string; status: string; amount: { value: string; currency_code: string } };
-    const data = await call<{ status: string; purchase_units: { payments: { captures: Capture[] } }[] }>(
+    const data = await call<{ status: string; payer?: { email_address?: string; payer_id?: string }; purchase_units: { payments: { captures: Capture[] } }[] }>(
       `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`,
       {},
     );
@@ -66,7 +66,12 @@ export const paypalProvider: PaymentProvider = {
     if (data.status !== 'COMPLETED' || !capture || capture.status !== 'COMPLETED') {
       throw new HttpError(402, 'El pago no se ha completado');
     }
-    return { captureId: capture.id, amountCents: amountToCents(capture.amount.value), currency: capture.amount.currency_code };
+    return {
+      captureId: capture.id,
+      amountCents: amountToCents(capture.amount.value),
+      currency: capture.amount.currency_code,
+      payer: { email: data.payer?.email_address, id: data.payer?.payer_id },
+    };
   },
 
   async refund({ captureId, amountCents, currency, idempotencyKey, note }) {

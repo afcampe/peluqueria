@@ -85,6 +85,10 @@ model Payment {
   provider          String
   providerOrderId   String?
   providerCaptureId String?
+  // Datos del pagador en la plataforma (PayPal), para saber a quién se reembolsa
+  payerEmail        String?
+  payerId           String?
+  capturedAt        DateTime?
   amountCents       Int
   currency          String      @default("EUR")
   // CREATED | COMPLETED | PARTIALLY_REFUNDED | REFUNDED | FAILED

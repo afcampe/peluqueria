@@ -18,14 +18,15 @@ export function Closures() {
     e.preventDefault();
     setError(''); setFlash('');
     try {
-      const r = await api.post<{ affected: number; cancelled: number }>('/admin/closures', {
+      const r = await api.post<{ affected: number; cancelled: number; skippedPaid: number }>('/admin/closures', {
         start: f.startTime ? `${f.startDate}T${f.startTime}` : f.startDate,
         end: f.endTime ? `${f.endDate}T${f.endTime}` : f.endDate,
         reason: f.reason || undefined,
         cancelAppointments: f.cancelAppointments,
       });
-      setFlash(r.cancelled
-        ? `Cierre creado. ${r.cancelled} cita(s) cancelada(s) y reembolsada(s); los clientes han sido avisados.`
+      const paidNote = r.skippedPaid ? ` ${r.skippedPaid} cita(s) cobradas en el local con ticket siguen activas: reembólsalas desde la Agenda y luego cancélalas.` : '';
+      setFlash(r.cancelled || r.skippedPaid
+        ? `Cierre creado. ${r.cancelled} cita(s) cancelada(s) y reembolsada(s); los clientes han sido avisados.${paidNote}`
         : r.affected ? `Cierre creado. Atención: hay ${r.affected} cita(s) en ese periodo que siguen activas; revísalas en la Agenda.` : 'Cierre creado.');
       setF({ ...f, reason: '' });
       load();

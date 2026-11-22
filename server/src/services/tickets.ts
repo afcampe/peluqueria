@@ -142,6 +142,8 @@ export interface TicketView {
   baseCents: number | null;
   vatCents: number | null;
   totalCents: number;
+  /** Devuelto después de emitir el ticket (reembolsos). */
+  refundedCents: number;
   reference: string | null;
   footer: string;
 }
@@ -187,6 +189,7 @@ export async function ticketView(ticketId: string): Promise<TicketView> {
     baseCents: base,
     vatCents: base === null ? null : t.totalCents - base,
     totalCents: t.totalCents,
+    refundedCents: t.payments.reduce((n, p) => n + p.refundedCents, 0),
     reference: t.payments.find((p) => p.providerCaptureId)?.providerCaptureId ?? null,
     footer: s.ticketFooter,
   };
@@ -265,6 +268,11 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
   }
   doc.moveDown(0.2);
   row(v.vatPercent > 0 ? 'TOTAL (IVA incluido)' : 'TOTAL', '', cur(v.totalCents), true);
+
+  if (v.refundedCents > 0) {
+    doc.moveDown(0.2);
+    row('Reembolsado', '', `-${cur(v.refundedCents)}`);
+  }
 
   if (v.reference) {
     doc.moveDown(0.4);

@@ -10,7 +10,7 @@ import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
-import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, previewSeries, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidWithTicket, previewSeries, refundCashPayment, refundOnlineAppointment, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
 import { getSettings, saveSettings } from '../services/settings.js';
 import { issueTicket } from '../services/tickets.js';
@@ -151,6 +151,21 @@ adminRouter.post('/appointments/:id/cancel', h(async (req, res) => {
   res.json(await cancelAppointment(ADMIN(req), req.params.id, opts));
 }));
 
+/** Reembolso de un cobro en efectivo (se devuelve en mano). La cita queda pendiente de cobro. */
+adminRouter.post('/appointments/:id/refund-cash', h(async (req, res) => {
+  const { reason } = z.object({ reason: z.string().max(255).optional() }).parse(req.body ?? {});
+  res.json(await refundCashPayment(req.params.id, { reason }));
+}));
+
+/** Reembolso de un pago online (PayPal), con o sin anular la cita. */
+adminRouter.post('/appointments/:id/refund', h(async (req, res) => {
+  const opts = z.object({
+    amountCents: z.number().int().positive().optional(), reason: z.string().max(255).optional(),
+    cancel: z.boolean().default(true), notify: z.boolean().default(true),
+  }).parse(req.body ?? {});
+  res.json(await refundOnlineAppointment(ADMIN(req), req.params.id, opts));
+}));
+
 adminRouter.post('/payments/:id/refund', h(async (req, res) => {
   const { amountCents, reason } = z.object({ amountCents: z.number().int().positive().optional(), reason: z.string().max(255).optional() }).parse(req.body ?? {});
   res.json(await refundPayment(req.params.id, { amountCents, reason, requestedBy: 'ADMIN' }));
@@ -211,8 +226,23 @@ adminRouter.patch('/users/:id', h(async (req, res) => {
 /** Cancela (con reembolso) las citas futuras de un usuario. */
 async function cancelFutureOf(req: Parameters<typeof actor>[0], userId: string, reason: string) {
   const future = await prisma.appointment.findMany({ where: { clientId: userId, status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] }, startAt: { gt: new Date() } } });
-  for (const a of future) await cancelAppointment(ADMIN(req), a.id, { reason, refund: true });
-  return future.length;
+  return cancelMany(req, future.map((a) => a.id), reason);
+}
+
+/** Cancela varias citas con reembolso. Las cobradas en efectivo con ticket se dejan (hay que reembolsarlas antes). */
+async function cancelMany(req: Parameters<typeof actor>[0], ids: string[], reason: string) {
+  let cancelled = 0;
+  let skippedPaid = 0;
+  for (const id of ids) {
+    try {
+      await cancelAppointment(ADMIN(req), id, { reason, refund: true });
+      cancelled++;
+    } catch (e) {
+      if (!isPaidWithTicket(e)) throw e;
+      skippedPaid++;
+    }
+  }
+  return { cancelled, skippedPaid };
 }
 
 adminRouter.post('/users/:id/block', h(async (req, res) => {
@@ -227,8 +257,8 @@ adminRouter.post('/users/:id/block', h(async (req, res) => {
     where: { id: req.params.id },
     data: { status: 'BLOCKED', blockedUntil: until ? localToDate(until, s.timezone, true) : null, blockReason: reason },
   });
-  const cancelled = cancelFuture ? await cancelFutureOf(req, user.id, 'Cuenta bloqueada') : 0;
-  res.json({ user: publicUser(user), cancelled });
+  const r = cancelFuture ? await cancelFutureOf(req, user.id, 'Cuenta bloqueada') : { cancelled: 0, skippedPaid: 0 };
+  res.json({ user: publicUser(user), ...r });
 }));
 
 adminRouter.post('/users/:id/unblock', h(async (req, res) => {
@@ -239,9 +269,45 @@ adminRouter.post('/users/:id/unblock', h(async (req, res) => {
 // Baja: se conserva el historial (citas y pagos) pero la cuenta deja de funcionar.
 adminRouter.delete('/users/:id', h(async (req, res) => {
   if (req.params.id === req.user!.id) throw badRequest('No puedes darte de baja a ti mismo');
-  const cancelled = await cancelFutureOf(req, req.params.id, 'Baja del cliente');
+  const r = await cancelFutureOf(req, req.params.id, 'Baja del cliente');
   const user = await prisma.user.update({ where: { id: req.params.id }, data: { status: 'DELETED', acceptsEmail: false } });
-  res.json({ user: publicUser(user), cancelled });
+  res.json({ user: publicUser(user), ...r });
+}));
+
+// ---------------------------------------------------------------- Anulaciones y ausencias
+/**
+ * Histórico por cliente de citas anuladas (por el cliente o por la peluquería) y de
+ * ausencias ("no vino"). Las citas nunca se borran; no cuentan los pagos online caducados.
+ */
+adminRouter.get('/reports/incidents', h(async (req, res) => {
+  const s = await getSettings();
+  const q = z.object({ from: z.string().optional(), to: z.string().optional() }).parse(req.query);
+  const startAt = { ...(q.from && { gte: localToDate(q.from, s.timezone) }), ...(q.to && { lte: localToDate(q.to, s.timezone, true) }) };
+  const rows = await prisma.appointment.groupBy({
+    by: ['clientId', 'status', 'cancelledBy'],
+    where: { startAt, NOT: { status: 'CANCELLED', cancelledBy: 'SYSTEM' } },
+    _count: { _all: true },
+    _max: { startAt: true },
+  });
+  type Row = { total: number; cancelledByClient: number; cancelledByShop: number; noShow: number; lastIncidentAt: Date | null };
+  const per = new Map<string, Row>();
+  for (const r of rows) {
+    const x = per.get(r.clientId) ?? { total: 0, cancelledByClient: 0, cancelledByShop: 0, noShow: 0, lastIncidentAt: null };
+    const n = r._count._all;
+    x.total += n;
+    const incident = r.status === 'NO_SHOW' || r.status === 'CANCELLED';
+    if (r.status === 'NO_SHOW') x.noShow += n;
+    if (r.status === 'CANCELLED') r.cancelledBy === 'CLIENT' ? (x.cancelledByClient += n) : (x.cancelledByShop += n);
+    if (incident && r._max.startAt && (!x.lastIncidentAt || r._max.startAt > x.lastIncidentAt)) x.lastIncidentAt = r._max.startAt;
+    per.set(r.clientId, x);
+  }
+  const ids = [...per].filter(([, x]) => x.noShow + x.cancelledByClient + x.cancelledByShop > 0).map(([id]) => id);
+  const users = await prisma.user.findMany({ where: { id: { in: ids } } });
+  res.json(
+    users
+      .map((u) => ({ client: publicUser(u), ...per.get(u.id)! }))
+      .sort((a, b) => b.noShow + b.cancelledByClient - (a.noShow + a.cancelledByClient) || b.cancelledByShop - a.cancelledByShop),
+  );
 }));
 
 // ---------------------------------------------------------------- Cierres temporales
@@ -264,11 +330,12 @@ adminRouter.post('/closures', h(async (req, res) => {
     where: { status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] }, startAt: { lt: endAt }, endAt: { gt: startAt } },
     include: { client: { select: { name: true, email: true, phone: true } } },
   });
+  let result = { cancelled: 0, skippedPaid: 0 };
   if (data.cancelAppointments) {
     const reason = data.reason ? `Cierre de la peluquería: ${data.reason}` : 'Cierre de la peluquería';
-    for (const a of affected) await cancelAppointment(ADMIN(req), a.id, { reason, refund: true });
+    result = await cancelMany(req, affected.map((a) => a.id), reason);
   }
-  res.status(201).json({ closure, affected: affected.length, cancelled: data.cancelAppointments ? affected.length : 0 });
+  res.status(201).json({ closure, affected: affected.length, ...result });
 }));
 
 adminRouter.delete('/closures/:id', h(async (req, res) => {

@@ -5,8 +5,8 @@ import { Alert, Badge, Modal, Spinner, errMsg } from '../components/ui';
 import { api } from '../lib/api';
 import { canClientChange, dateTime, isoToLocalDate, methodLabel, money, noticeText, statusLabel } from '../lib/format';
 import { useSession } from '../lib/session';
-import { onlinePayment, ticketOf } from '../lib/payment';
-import { TicketButton } from '../components/TicketButton';
+import { onlinePayment, ticketedPayment, ticketsOf } from '../lib/payment';
+import { TicketButtons } from '../components/TicketButton';
 import type { Appointment } from '../lib/types';
 import { IconRepeat } from '../components/icons';
 
@@ -38,6 +38,7 @@ export function MyAppointments() {
     seriesGroups.set(a.series.id, g);
   });
 
+  const shopPhone = config.shop.phone ? <> (<a href={`tel:${config.shop.phone}`}>{config.shop.phone}</a>)</> : null;
   const paid = (a: Appointment) => a.payments.find((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
 
   return (
@@ -72,16 +73,23 @@ export function MyAppointments() {
                 <p>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} {paid(a) && '(pagada)'}</p>
                 <Badge status={a.status}>{statusLabel[a.status]}</Badge>
                 {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
-                {ticketOf(a) && <div className="ticket-row"><TicketButton ticket={ticketOf(a)!} /></div>}
+                {ticketsOf(a).length > 0 && <div className="ticket-row"><TicketButtons tickets={ticketsOf(a)} /></div>}
               </div>
               <div className="actions">
                 {changeable ? (
                   <>
                     <button className="btn" onClick={() => setEditing(a)}>Cambiar hora</button>
-                    <button className="btn btn-danger" onClick={() => setCancelling(a)}>Cancelar</button>
+                    {/* Pagada online: se anula reembolsando. Cobrada en el local con ticket: solo la peluquería. */}
+                    {onlinePayment(a) ? (
+                      <button className="btn btn-refund" onClick={() => setCancelling(a)}>Reembolsar</button>
+                    ) : ticketedPayment(a) ? (
+                      <p className="muted small">Cobrada en el local. Para anularla, habla con la peluquería{shopPhone}.</p>
+                    ) : (
+                      <button className="btn btn-danger" onClick={() => setCancelling(a)}>Cancelar</button>
+                    )}
                   </>
                 ) : (
-                  <p className="muted small">Faltan menos de {noticeText(notice)}: para cambios llama a la peluquería{config.shop.phone && <> (<a href={`tel:${config.shop.phone}`}>{config.shop.phone}</a>)</>}.</p>
+                  <p className="muted small">Faltan menos de {noticeText(notice)}: ya no se puede cambiar, anular ni reembolsar desde la app. Llama a la peluquería{shopPhone}.</p>
                 )}
               </div>
             </article>
@@ -101,7 +109,7 @@ export function MyAppointments() {
                     <td>{dateTime(a.startAt)}</td>
                     <td>{a.service.name}</td>
                     <td><Badge status={a.status}>{statusLabel[a.status]}</Badge>{a.payments.some((p) => p.refundedCents > 0) && <small className="muted"> · reembolsada</small>}</td>
-                    <td>{ticketOf(a) ? <TicketButton ticket={ticketOf(a)!} /> : <span className="muted">—</span>}</td>
+                    <td>{ticketsOf(a).length ? <TicketButtons tickets={ticketsOf(a)} /> : <span className="muted">—</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -119,10 +127,17 @@ export function MyAppointments() {
       )}
       {editing && <RescheduleModal appt={editing} onClose={() => setEditing(null)} onDone={(msg) => { setEditing(null); setFlash(msg); load(); }} />}
       {cancelling && (
-        <Modal title="Cancelar cita" onClose={() => setCancelling(null)}>
-          <p>¿Seguro que quieres cancelar la cita del <strong>{dateTime(cancelling.startAt)}</strong>?</p>
-          {onlinePayment(cancelling) && <p>Te devolveremos {money(onlinePayment(cancelling)!.amountCents - onlinePayment(cancelling)!.refundedCents)} a tu cuenta de PayPal.</p>}
-          <CancelButton id={cancelling.id} onDone={(msg) => { setCancelling(null); setFlash(msg); load(); }} />
+        <Modal title={onlinePayment(cancelling) ? 'Reembolsar y anular la cita' : 'Cancelar cita'} onClose={() => setCancelling(null)}>
+          {onlinePayment(cancelling) ? (() => {
+            const p = onlinePayment(cancelling)!;
+            return (
+              <>
+                <p>Se anulará tu cita del <strong>{dateTime(cancelling.startAt)}</strong> y te devolveremos <strong>{money(p.amountCents - p.refundedCents)}</strong> a tu cuenta de {methodLabel(p.provider)}{p.payerEmail && <> ({p.payerEmail})</>}.</p>
+                <p className="muted small">El reembolso puede tardar unos días en aparecer.{p.ticket && ` Tu ticket ${p.ticket.number} quedará marcado como reembolsado.`}</p>
+              </>
+            );
+          })() : <p>¿Seguro que quieres cancelar la cita del <strong>{dateTime(cancelling.startAt)}</strong>?</p>}
+          <CancelButton id={cancelling.id} refund={!!onlinePayment(cancelling)} onDone={(msg) => { setCancelling(null); setFlash(msg); load(); }} />
         </Modal>
       )}
     </div>
@@ -141,26 +156,26 @@ function CancelSeriesButton({ id, onDone }: { id: string; onDone: (msg: string) 
         setBusy(true);
         try {
           const r = await api.post<{ cancelled: number; skipped: number; refundedCents: number }>(`/appointments/series/${id}/cancel`);
-          onDone(`${r.cancelled} cita(s) cancelada(s).${r.refundedCents ? ` Reembolsados ${money(r.refundedCents)}.` : ''}${r.skipped ? ` ${r.skipped} no se pudieron cancelar por falta de antelación.` : ''}`);
+          onDone(`${r.cancelled} cita(s) cancelada(s).${r.refundedCents ? ` Reembolsados ${money(r.refundedCents)}.` : ''}${r.skipped ? ` ${r.skipped} no se pudieron cancelar por falta de antelación o porque ya están cobradas en el local.` : ''}`);
         } catch (e) { setError(errMsg(e)); setBusy(false); }
       }}>{busy ? 'Cancelando…' : 'Sí, cancelar todas'}</button>
     </>
   );
 }
 
-function CancelButton({ id, onDone }: { id: string; onDone: (msg: string) => void }) {
+function CancelButton({ id, refund, onDone }: { id: string; refund: boolean; onDone: (msg: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   return (
     <>
       <Alert>{error}</Alert>
-      <button className="btn btn-danger" disabled={busy} onClick={async () => {
+      <button className={`btn ${refund ? 'btn-refund' : 'btn-danger'}`} disabled={busy} onClick={async () => {
         setBusy(true);
         try {
           const r = await api.post<{ refundedCents: number }>(`/appointments/${id}/cancel`);
           onDone(r.refundedCents ? `Cita cancelada. Se han reembolsado ${money(r.refundedCents)}.` : 'Cita cancelada.');
         } catch (e) { setError(errMsg(e)); setBusy(false); }
-      }}>{busy ? 'Cancelando…' : 'Sí, cancelar cita'}</button>
+      }}>{busy ? (refund ? 'Reembolsando…' : 'Cancelando…') : refund ? 'Sí, reembolsar y anular' : 'Sí, cancelar cita'}</button>
     </>
   );
 }

@@ -31,11 +31,17 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - Se puede reservar hasta 1 año vista
 - **Citas periódicas**: reservar varias de una vez cada X días (1 semana, 15 días, 4 semanas o cualquier número), hasta una fecha o un número de citas. Antes de confirmar se ven todas las fechas. Si alguna cae en día cerrado u ocupado, se propone el hueco libre más cercano, y cada fecha se puede cambiar o quitar. Se reservan todas o ninguna, se pagan en un solo pago (PayPal) o en el local, y luego se pueden cancelar una a una (con reembolso de su parte) o todas a la vez
 - Mis citas: cambiar la hora o cancelar. No se puede hacer con menos de 1 h de antelación
-- Si la cita estaba pagada por PayPal, al cancelarla se reembolsa automáticamente
+- Si la cita está pagada online, en lugar de *Cancelar* aparece **Reembolsar** (azul): se anula la cita y se devuelve el dinero a la cuenta de PayPal. Solo se puede hacer con al menos 1 h de antelación; después, únicamente la peluquería
+- Si la cita se cobró en el local y tiene ticket, el cliente ya no la puede anular desde la app
 - Al pagar online se genera el **ticket de compra** y la cita aparece como pagada, con un botón para descargar el PDF (también en el historial)
 
 **Administración** (`/admin`). Los administradores no reservan citas propias: no ven *Reservar* ni *Mis citas* y crean las citas de los clientes desde la Agenda.
 - **Agenda** con tres vistas: **Lista** (por día o rango), **Semana** (una columna por día y una fila por franja horaria, con las citas en su hueco; al pulsar una se abren sus opciones) y **Mes** (cada día muestra cuántas citas tiene y cuántas faltan por cobrar; al pulsar un día aparecen sus citas debajo). En todas: ver citas (con el estado de pago de cada una), ver en las horas ocupadas para qué cliente están (con enlace a su ficha), marcar como cobradas las citas en efectivo, crear una cita para un cliente, cambiar la hora, cancelar en cualquier momento (con o sin reembolso, y avisando o no al cliente), reembolsos totales o parciales, marcar como realizada o como "no vino", y botón de WhatsApp
+- **Cobradas con ticket**: no se pueden cancelar. *Cancelar* se sustituye por **Reembolsar** (azul):
+  - **Efectivo**: pide confirmación, se devuelve en mano y la cita queda pendiente de cobro (ya se puede cancelar o volver a cobrar).
+  - **PayPal**: muestra los datos del pago (cuenta del pagador, id. de la transacción y pedido) y permite devolver todo o parte, anulando la cita o manteniéndola pendiente de cobro en el local.
+  El ticket se conserva y queda marcado como reembolsado. Las cancelaciones masivas (cierres, bloqueos, bajas, series) se saltan estas citas y lo avisan
+- **Anulaciones**: histórico por cliente de citas anuladas (por el cliente o por la peluquería) y de ausencias, filtrable por periodo y ordenable, con acceso a sus citas
 - **Usuarios**: ficha de cada cliente con todas sus citas (próximas y pasadas en colores distintos, estado de pago y método), alta como usuario normal o administrador, edición, bloqueo (temporal hasta una fecha o indefinido, con opción de cancelar sus citas), desbloqueo, baja (se conserva el historial) y reactivación
 - **Cierres**: vacaciones o festivos (días enteros o por horas). Bloquean las reservas y pueden cancelar y reembolsar las citas afectadas
 - **Avisos email**: envío a todos los clientes que aceptan emails, a los clientes con cita un día concreto o a clientes elegidos. Incluye plantillas, `{nombre}` personalizado e historial

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { DateTime } from 'luxon';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
-import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
+import { HttpError, badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { sendEmailSafe } from '../notifications/email.js';
 import { getProvider } from '../payments/registry.js';
 import { centsToAmount } from '../payments/types.js';
@@ -234,6 +234,72 @@ export async function refundPayment(paymentId: string, opts: { amountCents?: num
   return refund;
 }
 
+/**
+ * Devuelve en mano un cobro en efectivo. El pago queda como reembolsado (se conserva,
+ * igual que su ticket) y la cita vuelve a estar pendiente de cobro; ya se puede anular.
+ */
+export async function refundCashPayment(appointmentId: string, opts: { reason?: string } = {}) {
+  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: { payments: true } });
+  const p = a.payments.find((x) => x.provider === 'cash' && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(x.status));
+  if (!p) throw badRequest('Esta cita no tiene un cobro en efectivo que reembolsar');
+  const amount = p.amountCents - p.refundedCents;
+  await prisma.$transaction([
+    prisma.refund.create({ data: { paymentId: p.id, amountCents: amount, reason: opts.reason ?? 'Reembolso en efectivo', requestedBy: 'ADMIN' } }),
+    prisma.payment.update({ where: { id: p.id }, data: { status: 'REFUNDED', refundedCents: p.amountCents } }),
+  ]);
+  return { appointment: await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: withRelations }), refundedCents: amount };
+}
+
+/**
+ * Reembolso de un pago online desde el panel. Con `cancel` se anula también la cita
+ * (reembolso completo). Si no, y se devuelve todo, la cita sigue en pie pendiente de cobro en el local.
+ */
+export async function refundOnlineAppointment(
+  actor: Actor,
+  appointmentId: string,
+  opts: { amountCents?: number; reason?: string; cancel: boolean; notify?: boolean },
+) {
+  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: { payments: true } });
+  const p = a.payments.find((x) => x.providerCaptureId && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(x.status));
+  if (!p) throw badRequest('Esta cita no tiene un pago online que reembolsar');
+  const remaining = p.amountCents - p.refundedCents;
+  if (opts.cancel) {
+    if (opts.amountCents !== undefined && opts.amountCents !== remaining) throw badRequest('Para anular la cita el reembolso debe ser completo');
+    const r = await cancelAppointment(actor, appointmentId, { reason: opts.reason, refund: true, notify: opts.notify });
+    return { appointment: r.appointment, refundedCents: r.refundedCents };
+  }
+  const refund = await refundPayment(p.id, { amountCents: opts.amountCents, reason: opts.reason, requestedBy: 'ADMIN' });
+  if (refund.amountCents === remaining && ['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status)) {
+    // Devuelto entero sin anular: la cita se cobrará en el local.
+    await prisma.appointment.update({ where: { id: appointmentId }, data: { paymentMethod: 'cash' } });
+  }
+  return { appointment: await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: withRelations }), refundedCents: refund.amountCents };
+}
+
+/** Pago cobrado (sin devolver del todo) que ya tiene ticket emitido. */
+export const ticketedPayment = (a: { payments: { status: string; ticketId: string | null; provider: string; providerCaptureId: string | null }[] }) =>
+  a.payments.find((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status) && p.ticketId) ?? null;
+
+/**
+ * Una cita cobrada con ticket no se cancela sin más:
+ * - en efectivo, primero hay que reembolsar el cobro (queda pendiente de cobro y ya se puede anular);
+ * - online, solo se anula reembolsando el pago a la vez.
+ */
+function assertCancellable(a: Parameters<typeof ticketedPayment>[0], role: Actor['role'] | 'SYSTEM', refund: boolean) {
+  const p = ticketedPayment(a);
+  if (!p) return;
+  const online = !!p.providerCaptureId;
+  if (!online) {
+    throw conflict(
+      role === 'CLIENT'
+        ? 'Esta cita ya está cobrada en el local y tiene ticket. Para anularla, habla con la peluquería.'
+        : 'La cita está cobrada y tiene ticket: primero reembolsa el cobro y después podrás cancelarla.',
+      'PAID_WITH_TICKET',
+    );
+  }
+  if (!refund) throw conflict('Una cita pagada online con ticket solo se puede anular reembolsando el pago.', 'PAID_WITH_TICKET');
+}
+
 export async function cancelAppointment(
   actor: Actor | { id: null; role: 'SYSTEM' },
   id: string,
@@ -249,6 +315,7 @@ export async function cancelAppointment(
 
   // El cliente siempre recibe reembolso completo; admin/sistema deciden (por defecto sí).
   const doRefund = actor.role === 'CLIENT' ? true : opts.refund ?? true;
+  assertCancellable(a, actor.role, doRefund);
   let refundedCents = 0;
   if (doRefund) {
     for (const p of a.payments.filter((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status) && p.providerCaptureId)) {
@@ -339,7 +406,10 @@ async function completeOrder(actor: Actor, orderId: string) {
       await prisma.payment.updateMany({ where: { providerOrderId: orderId }, data: { status: 'FAILED' } });
       throw badRequest('El importe cobrado no coincide');
     }
-    await prisma.payment.updateMany({ where: { providerOrderId: orderId }, data: { status: 'COMPLETED', providerCaptureId: capture.captureId } });
+    await prisma.payment.updateMany({
+      where: { providerOrderId: orderId },
+      data: { status: 'COMPLETED', providerCaptureId: capture.captureId, payerEmail: capture.payer?.email ?? null, payerId: capture.payer?.id ?? null, capturedAt: new Date() },
+    });
   }
 
   const confirmed: string[] = [];
@@ -587,7 +657,13 @@ export async function cancelSeries(actor: Actor, seriesId: string, opts: { fromA
       skipped++;
       continue;
     }
-    const r = await cancelAppointment(actor, a.id, { reason: opts.reason, refund: opts.refund, notify: false });
+    let r;
+    try {
+      r = await cancelAppointment(actor, a.id, { reason: opts.reason, refund: opts.refund, notify: false });
+    } catch (e) {
+      if (isPaidWithTicket(e)) { skipped++; continue; } // cobrada con ticket: se deja como está
+      throw e;
+    }
     refundedCents += r.refundedCents;
     if (a.status === 'CONFIRMED') cancelled.push(a.startAt);
   }
@@ -603,5 +679,7 @@ export async function cancelSeries(actor: Actor, seriesId: string, opts: { fromA
   }
   return { cancelled: appts.length - skipped, skipped, refundedCents };
 }
+
+export const isPaidWithTicket = (e: unknown) => e instanceof HttpError && e.code === 'PAID_WITH_TICKET';
 
 export { withRelations };

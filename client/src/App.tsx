@@ -10,6 +10,7 @@ import { MyAppointments } from './pages/MyAppointments';
 import { Profile } from './pages/Profile';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { Agenda } from './pages/admin/Agenda';
+import { Incidents } from './pages/admin/Incidents';
 import { Closures } from './pages/admin/Closures';
 import { Dashboard } from './pages/admin/Dashboard';
 import { Messages } from './pages/admin/Messages';
@@ -51,6 +52,7 @@ export function App() {
             <Route path="agenda" element={<Agenda />} />
             <Route path="usuarios" element={<Users />} />
             <Route path="usuarios/:id" element={<UserDetail />} />
+            <Route path="anulaciones" element={<Incidents />} />
             <Route path="cierres" element={<Closures />} />
             <Route path="avisos" element={<Messages />} />
             <Route path="whatsapp" element={<WhatsApp />} />
