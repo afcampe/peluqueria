@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -8,8 +8,10 @@ process.env.DATABASE_URL = 'file:./test.db';
 process.env.NODE_ENV = 'test';
 process.env.PAYPAL_CLIENT_ID = 'test';
 process.env.PAYPAL_CLIENT_SECRET = 'test';
+process.env.TICKETS_DIR = 'storage/test-tickets';
 // Base de datos desechable solo para tests
 rmSync('prisma/test.db', { force: true });
+rmSync('storage/test-tickets', { recursive: true, force: true });
 execSync('npx prisma db push --skip-generate', { stdio: 'ignore', env: process.env });
 
 const { createApp } = await import('../src/app.js');
@@ -377,6 +379,87 @@ describe('citas periódicas', () => {
     const r = await call('POST', '/api/appointments/series/preview', { firstStart: mondayAt10(20), intervalDays: 7, count: 10 }, clientToken);
     expect(r.body.occurrences).toHaveLength(4);
     await saveSettings({ recurringMaxAppointments: 60 });
+  });
+});
+
+describe('tickets', () => {
+  const year = DateTime.now().setZone('Europe/Madrid').year;
+  const month = String(DateTime.now().setZone('Europe/Madrid').month).padStart(2, '0');
+  const seqOf = (n: string) => Number(n.split('-')[1]);
+  const ticketOf = (a: { payments: { ticket: { id: string; number: string } | null }[] }) => a.payments.find((p) => p.ticket)?.ticket ?? null;
+  const download = async (ticketId: string, token: string) => {
+    const link = await call('GET', `/api/tickets/${ticketId}/link`, undefined, token);
+    if (link.status !== 200) return { status: link.status, bytes: null };
+    const res = await fetch(base + link.body.url);
+    return { status: res.status, bytes: Buffer.from(await res.arrayBuffer()), type: res.headers.get('content-type'), disposition: res.headers.get('content-disposition') };
+  };
+
+  it('pago online: la cita queda pagada con ticket descargable solo por su dueño', async () => {
+    const start = await slotIn(40);
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'paypal' }, clientToken);
+    const order = await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
+    const done = await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
+    expect(done.body.status).toBe('CONFIRMED');
+    const t = ticketOf(done.body)!;
+    expect(t.number).toMatch(new RegExp(`^${year}-\\d{4}$`));
+
+    const pdf = await download(t.id, clientToken);
+    expect(pdf.status).toBe(200);
+    expect(pdf.type).toContain('application/pdf');
+    expect(pdf.disposition).toContain(`ticket-${t.number}.pdf`);
+    expect(pdf.bytes!.subarray(0, 4).toString()).toBe('%PDF');
+    // Guardado en carpeta año/mes, no en la base de datos
+    const file = `storage/test-tickets/${year}/${month}/${t.number}.pdf`;
+    expect(existsSync(file)).toBe(true);
+    expect(readFileSync(file).equals(pdf.bytes!)).toBe(true);
+
+    expect((await download(t.id, otherToken)).status).toBe(404);
+    expect((await download(t.id, adminToken)).status).toBe(200);
+    expect((await fetch(`${base}/api/public/tickets/${t.id}/pdf?sig=falso`)).status).toBe(403);
+    // Un enlace de ticket no sirve como sesión
+    const link = await call('GET', `/api/tickets/${t.id}/link`, undefined, clientToken);
+    const sig = new URL(base + link.body.url).searchParams.get('sig')!;
+    expect((await call('GET', '/api/auth/me', undefined, sig)).status).toBe(401);
+  });
+
+  it('efectivo: el admin cobra y emite ticket; la numeración es consecutiva y común', async () => {
+    const before = await call('GET', '/api/appointments', undefined, clientToken);
+    const lastOnline = Math.max(...before.body.flatMap((a: { payments: { ticket: { number: string } | null }[] }) => a.payments.map((p) => (p.ticket ? seqOf(p.ticket.number) : 0))));
+
+    const a1 = await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(41), paymentMethod: 'cash' }, clientToken);
+    const a2 = await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(41, 1), paymentMethod: 'cash' }, clientToken);
+    const paid1 = await call('POST', `/api/admin/appointments/${a1.body.id}/mark-paid`, { ticket: true }, adminToken);
+    expect(seqOf(ticketOf(paid1.body)!.number)).toBe(lastOnline + 1);
+
+    // Cobrada sin ticket y ticket después
+    const paid2 = await call('POST', `/api/admin/appointments/${a2.body.id}/mark-paid`, {}, adminToken);
+    expect(ticketOf(paid2.body)).toBeNull();
+    const t2 = await call('POST', `/api/admin/appointments/${a2.body.id}/ticket`, {}, adminToken);
+    expect(seqOf(ticketOf(t2.body)!.number)).toBe(lastOnline + 2);
+    expect((await call('POST', `/api/admin/appointments/${a2.body.id}/ticket`, {}, adminToken)).status).toBe(409);
+
+    // Con ticket ya no se puede deshacer el cobro
+    expect((await call('POST', `/api/admin/appointments/${a2.body.id}/unmark-paid`, {}, adminToken)).status).toBe(409);
+    // El cliente ve el ticket en sus citas y lo puede descargar
+    expect((await download(ticketOf(t2.body)!.id, clientToken)).status).toBe(200);
+  });
+
+  it('no se emite ticket de una cita sin cobrar ni lo puede pedir un cliente', async () => {
+    const a = await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(42), paymentMethod: 'cash' }, clientToken);
+    expect((await call('POST', `/api/admin/appointments/${a.body.id}/ticket`, {}, adminToken)).status).toBe(400);
+    expect((await call('POST', `/api/admin/appointments/${a.body.id}/ticket`, {}, clientToken)).status).toBe(403);
+  });
+
+  it('una serie pagada online genera un único ticket con todas las citas', async () => {
+    const first = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 44 }).set({ weekday: 2, hour: 11, minute: 0, second: 0, millisecond: 0 });
+    const starts = [0, 7].map((d) => first.plus({ days: d }).toUTC().toISO()!);
+    const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 7, starts, paymentMethod: 'paypal' }, clientToken);
+    const order = await call('POST', `/api/appointments/series/${r.body.series.id}/pay/start`, {}, clientToken);
+    const done = await call('POST', `/api/appointments/series/${r.body.series.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
+    const [t1, t2] = done.body.appointments.map(ticketOf);
+    expect(t1.number).toBe(t2.number);
+    const t = await prisma.ticket.findUniqueOrThrow({ where: { id: t1.id } });
+    expect(t).toMatchObject({ totalCents: 3000, origin: 'ONLINE', provider: 'paypal' });
   });
 });
 

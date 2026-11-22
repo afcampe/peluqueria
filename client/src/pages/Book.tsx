@@ -82,7 +82,7 @@ export function Book() {
           clientId={pm.config.clientId}
           currency={config.currency}
           onPaid={(r) => nav('/mis-citas', {
-            state: { flash: r.lostCount ? `Pago completado. ${r.lostCount} cita(s) ya no estaban libres y te hemos devuelto su importe.` : 'Pago completado y citas confirmadas.' },
+            state: { flash: r.lostCount ? `Pago completado. ${r.lostCount} cita(s) ya no estaban libres y te hemos devuelto su importe. Tu ticket está disponible en cada cita.` : 'Pago completado y citas confirmadas. Ya puedes descargar tu ticket de compra.' },
           })}
         />
         <button className="btn" onClick={abandon}>Cancelar y volver</button>

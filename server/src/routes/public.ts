@@ -4,6 +4,8 @@ import { prisma } from '../lib/db.js';
 import { enabledProviders } from '../payments/registry.js';
 import { availabilityForDate } from '../services/appointments.js';
 import { getSettings } from '../services/settings.js';
+import { ensureTicketFile, verifyTicketSig } from '../services/tickets.js';
+import { forbidden, notFound } from '../lib/errors.js';
 import { h } from './util.js';
 
 export const publicRouter = Router();
@@ -44,4 +46,15 @@ publicRouter.get('/avatars/:id', h(async (req, res) => {
 publicRouter.get('/availability', h(async (req, res) => {
   const { date, excludeId } = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), excludeId: z.string().optional() }).parse(req.query);
   res.json(await availabilityForDate(date, excludeId));
+}));
+
+// PDF de un ticket con enlace firmado y temporal (ver /api/tickets/:id/link).
+publicRouter.get('/tickets/:id/pdf', h(async (req, res) => {
+  const sig = typeof req.query.sig === 'string' ? req.query.sig : '';
+  if (!verifyTicketSig(req.params.id, sig)) throw forbidden('El enlace de descarga no es válido o ha caducado');
+  const t = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+  if (!t) throw notFound('Ticket no encontrado');
+  const file = await ensureTicketFile(t);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.download(file, `ticket-${t.number}.pdf`);
 }));

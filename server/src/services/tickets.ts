@@ -1,0 +1,236 @@
+import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import jwt from 'jsonwebtoken';
+import { DateTime } from 'luxon';
+import PDFDocument from 'pdfkit';
+import { Prisma, type Ticket } from '@prisma/client';
+import { config } from '../config.js';
+import { prisma } from '../lib/db.js';
+import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { getProvider } from '../payments/registry.js';
+import { getSettings } from './settings.js';
+
+export type TicketOrigin = 'SHOP' | 'ONLINE';
+
+/** Estados de pago que admiten ticket: cobrado y sin devoluciones. */
+const TICKETABLE = ['COMPLETED'];
+
+const pad = (n: number) => String(n).padStart(4, '0');
+export const ticketNumber = (year: number, seq: number) => `${year}-${pad(seq)}`;
+
+/** Ruta absoluta del PDF de un ticket. */
+export const ticketFile = (t: Pick<Ticket, 'filePath'>) => path.join(config.ticketsDir, t.filePath);
+
+/**
+ * Emite un ticket para uno o varios pagos del mismo cliente (varios = una serie
+ * pagada de una vez). La numeración es AAAA-NNNN, consecutiva y común a todos los
+ * métodos de pago; se reinicia cada año. El PDF se guarda en TICKETS_DIR/AAAA/MM/.
+ */
+export async function issueTicket(paymentIds: string[], origin: TicketOrigin): Promise<Ticket> {
+  const ids = [...new Set(paymentIds)];
+  if (!ids.length) throw badRequest('No hay pagos para el ticket');
+  const settings = await getSettings();
+  const payments = await prisma.payment.findMany({ where: { id: { in: ids } }, include: { appointment: true } });
+  if (payments.length !== ids.length) throw notFound('Pago no encontrado');
+  if (payments.some((p) => p.ticketId)) throw conflict('Este cobro ya tiene ticket', 'TICKET_EXISTS');
+  if (payments.some((p) => !TICKETABLE.includes(p.status))) throw badRequest('Solo se emite ticket de citas cobradas');
+  const clientIds = new Set(payments.map((p) => p.appointment.clientId));
+  if (clientIds.size !== 1) throw badRequest('Un ticket solo puede ser de un cliente');
+  const providers = new Set(payments.map((p) => p.provider));
+  if (providers.size !== 1) throw badRequest('Un ticket solo puede tener una forma de pago');
+
+  let ticket: Ticket | null = null;
+  for (let attempt = 0; !ticket; attempt++) {
+    try {
+      ticket = await prisma.$transaction(async (tx) => {
+        const now = DateTime.now().setZone(settings.timezone);
+        const last = await tx.ticket.findFirst({ where: { year: now.year }, orderBy: { seq: 'desc' }, select: { seq: true } });
+        const seq = (last?.seq ?? 0) + 1;
+        const number = ticketNumber(now.year, seq);
+        const t = await tx.ticket.create({
+          data: {
+            number, year: now.year, seq, issuedAt: now.toJSDate(),
+            clientId: [...clientIds][0], provider: [...providers][0], origin,
+            totalCents: payments.reduce((s, p) => s + p.amountCents, 0),
+            currency: payments[0].currency,
+            filePath: `${now.year}/${String(now.month).padStart(2, '0')}/${number}.pdf`,
+          },
+        });
+        // Evita dos tickets para el mismo cobro si se pulsa dos veces a la vez.
+        const linked = await tx.payment.updateMany({ where: { id: { in: ids }, ticketId: null }, data: { ticketId: t.id } });
+        if (linked.count !== ids.length) throw conflict('Este cobro ya tiene ticket', 'TICKET_EXISTS');
+        return t;
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      // Número ya usado por otro ticket emitido a la vez: se reintenta con el siguiente.
+      const retryable = e instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2034'].includes(e.code);
+      if (!retryable || attempt >= 5) throw e;
+    }
+  }
+
+  try {
+    await writeTicketFile(ticket.id);
+  } catch (e) {
+    // El ticket ya tiene número; si falla el disco, el PDF se regenera al descargarlo.
+    console.error(`No se pudo guardar el PDF del ticket ${ticket.number}:`, e);
+  }
+  return ticket;
+}
+
+/** Emite ticket para los pagos online completados de estas citas que aún no lo tengan. */
+export async function issueOnlineTicket(orderId: string, appointmentIds: string[]) {
+  const pending = await prisma.payment.findMany({
+    where: { providerOrderId: orderId, appointmentId: { in: appointmentIds }, status: { in: TICKETABLE }, ticketId: null },
+    select: { id: true },
+  });
+  if (!pending.length) return null;
+  return issueTicket(pending.map((p) => p.id), 'ONLINE');
+}
+
+/** Guarda el PDF en disco (año/mes). */
+export async function writeTicketFile(ticketId: string) {
+  const t = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId } });
+  const file = ticketFile(t);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, await renderTicketPdf(ticketId));
+  return file;
+}
+
+/** Devuelve la ruta del PDF, regenerándolo si falta en disco. */
+export async function ensureTicketFile(t: Ticket) {
+  const file = ticketFile(t);
+  if (!existsSync(file)) await writeTicketFile(t.id);
+  return file;
+}
+
+// ---------------------------------------------------------------- Enlaces de descarga
+
+// Secreto distinto al de sesión: un enlace de ticket nunca sirve para iniciar sesión.
+const linkSecret = () => `${config.jwtSecret}:tickets`;
+
+/** URL temporal (10 min) para descargar el PDF sin cabecera de autorización. */
+export function ticketDownloadPath(ticketId: string) {
+  const sig = jwt.sign({ tid: ticketId }, linkSecret(), { expiresIn: '10m' });
+  return `/api/public/tickets/${ticketId}/pdf?sig=${encodeURIComponent(sig)}`;
+}
+
+export function verifyTicketSig(ticketId: string, sig: string) {
+  try {
+    const p = jwt.verify(sig, linkSecret()) as { tid?: string };
+    return p.tid === ticketId;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------- PDF
+
+const money = (cents: number, currency: string) =>
+  new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(cents / 100).replace(/ /g, ' ');
+
+export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
+  const s = await getSettings();
+  const t = await prisma.ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    include: {
+      client: { select: { name: true, email: true, phone: true } },
+      payments: { include: { appointment: { include: { service: true } } }, orderBy: { appointment: { startAt: 'asc' } } },
+    },
+  });
+  const zone = s.timezone;
+  const when = (d: Date, f: string) => DateTime.fromJSDate(d).setZone(zone).setLocale('es').toFormat(f);
+  const cur = (c: number) => money(c, t.currency);
+  let method = t.provider;
+  try { method = getProvider(t.provider).label; } catch { /* proveedor retirado */ }
+
+  const doc = new PDFDocument({ size: 'A5', margin: 36, info: { Title: `Ticket ${t.number}`, Author: s.shopName } });
+  const chunks: Buffer[] = [];
+  doc.on('data', (c: Buffer) => chunks.push(c));
+  const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
+
+  const left = doc.page.margins.left;
+  const width = doc.page.width - left - doc.page.margins.right;
+  const bottom = () => doc.page.height - doc.page.margins.bottom;
+  const gold = '#a9813f';
+  const rule = (y = doc.y) => doc.moveTo(left, y).lineTo(left + width, y).lineWidth(0.6).strokeColor('#cccccc').stroke();
+
+  // Cabecera
+  doc.font('Helvetica-Bold').fontSize(16).fillColor('#111111').text(s.ticketLegalName || s.shopName, left, doc.y, { width, align: 'center' });
+  doc.font('Helvetica').fontSize(8.5).fillColor('#444444');
+  const head = [
+    s.ticketLegalName && s.ticketLegalName !== s.shopName ? s.shopName : '',
+    s.ticketTaxId ? `NIF: ${s.ticketTaxId}` : '',
+    s.shopAddress,
+    [s.shopPhone, s.shopEmail].filter(Boolean).join(' · '),
+  ].filter(Boolean);
+  head.forEach((line) => doc.text(line, { width, align: 'center' }));
+  doc.moveDown(0.8);
+  doc.moveTo(left, doc.y).lineTo(left + width, doc.y).lineWidth(1.2).strokeColor(gold).stroke();
+  doc.moveDown(0.8);
+
+  // Datos del ticket
+  const meta = (label: string, value: string) => {
+    const y = doc.y;
+    doc.font('Helvetica').fontSize(9).fillColor('#666666').text(label, left, y, { width: 90 });
+    doc.font('Helvetica-Bold').fillColor('#111111').text(value, left + 90, y, { width: width - 90 });
+    doc.moveDown(0.25);
+  };
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#111111').text('TICKET DE COMPRA', left, doc.y);
+  doc.moveDown(0.4);
+  meta('Nº de ticket', t.number);
+  meta('Fecha', when(t.issuedAt, "dd/MM/yyyy HH:mm"));
+  meta('Cliente', t.client.name);
+  meta('Forma de pago', method + (t.origin === 'ONLINE' ? ' (pago online)' : ''));
+  doc.moveDown(0.6);
+
+  // Líneas
+  const amountW = 80;
+  const row = (concept: string, detail: string, amount: string, bold = false) => {
+    if (doc.y > bottom() - 60) doc.addPage();
+    const y = doc.y;
+    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5).fillColor('#111111').text(concept, left, y, { width: width - amountW - 8 });
+    if (detail) doc.font('Helvetica').fontSize(8).fillColor('#666666').text(detail, left, doc.y, { width: width - amountW - 8 });
+    const endY = doc.y;
+    doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9.5).fillColor('#111111').text(amount, left + width - amountW, y, { width: amountW, align: 'right' });
+    doc.y = Math.max(endY, doc.y) + 4;
+    doc.x = left;
+  };
+  doc.font('Helvetica-Bold').fontSize(8).fillColor('#666666');
+  const hy = doc.y;
+  doc.text('CONCEPTO', left, hy);
+  doc.text('IMPORTE', left + width - amountW, hy, { width: amountW, align: 'right' });
+  doc.moveDown(0.3);
+  rule();
+  doc.moveDown(0.5);
+  for (const p of t.payments) {
+    const a = p.appointment;
+    row(a.service.name, `Cita del ${when(a.startAt, "cccc d 'de' LLLL yyyy, HH:mm")}`, cur(p.amountCents));
+  }
+  rule();
+  doc.moveDown(0.5);
+
+  // Totales
+  const vat = s.ticketVatPercent;
+  if (vat > 0) {
+    const base = Math.round(t.totalCents / (1 + vat / 100));
+    row('Base imponible', '', cur(base));
+    row(`IVA ${String(vat).replace('.', ',')} %`, '', cur(t.totalCents - base));
+  }
+  doc.moveDown(0.2);
+  row(vat > 0 ? 'TOTAL (IVA incluido)' : 'TOTAL', '', cur(t.totalCents), true);
+
+  const refId = t.payments.find((p) => p.providerCaptureId)?.providerCaptureId;
+  if (refId) {
+    doc.moveDown(0.4);
+    doc.font('Helvetica').fontSize(7.5).fillColor('#888888').text(`Referencia del pago: ${refId}`, left, doc.y, { width });
+  }
+
+  if (s.ticketFooter) {
+    doc.moveDown(1.5);
+    doc.font('Helvetica-Oblique').fontSize(9).fillColor('#444444').text(s.ticketFooter, left, doc.y, { width, align: 'center' });
+  }
+
+  doc.end();
+  return done;
+}

@@ -20,3 +20,9 @@ export const onlinePayment = (a: Appointment) =>
   a.payments.find((p) => p.provider !== 'cash' && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
 
 export const cashPayment = (a: Appointment) => a.payments.find((p) => p.provider === 'cash' && p.status === 'COMPLETED');
+
+/** Ticket de compra de la cita, si se ha emitido. */
+export const ticketOf = (a: Appointment) => a.payments.find((p) => p.ticket)?.ticket ?? null;
+
+/** Pago cobrado (sin devoluciones) que aún no tiene ticket. */
+export const canIssueTicket = (a: Appointment) => !ticketOf(a) && a.payments.some((p) => p.status === 'COMPLETED');

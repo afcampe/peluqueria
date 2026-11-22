@@ -108,6 +108,18 @@ export function Settings() {
         </div>
       </section>
 
+      <section className="card">
+        <h2>Tickets de compra</h2>
+        <p className="muted small">Se emiten automáticamente en los pagos online y, si lo eliges, al cobrar en el local. Numeración consecutiva por año (p. ej. 2026-0001), común a todas las formas de pago.</p>
+        <div className="row">
+          <label>Razón social (si es distinta del nombre)<input value={s.ticketLegalName} onChange={str('ticketLegalName')} /></label>
+          <label>NIF/CIF<input value={s.ticketTaxId} onChange={str('ticketTaxId')} /></label>
+          <label>IVA incluido en los precios (%)<input type="number" min={0} max={100} step={0.5} value={s.ticketVatPercent} onChange={num('ticketVatPercent')} /></label>
+          <label>Texto al pie<input maxLength={300} value={s.ticketFooter} onChange={str('ticketFooter')} /></label>
+        </div>
+        <p className="muted small">El ticket también muestra el nombre, la dirección, el teléfono y el email de la peluquería. Los cambios afectan a los tickets que se emitan a partir de ahora.</p>
+      </section>
+
       <div className="sticky-save"><button className="btn btn-primary btn-lg" onClick={save}>Guardar configuración</button></div>
 
       <Services onChange={reloadConfig} />

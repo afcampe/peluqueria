@@ -32,15 +32,17 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - **Citas periódicas**: reservar varias de una vez cada X días (1 semana, 15 días, 4 semanas o cualquier número), hasta una fecha o un número de citas. Antes de confirmar se ven todas las fechas. Si alguna cae en día cerrado u ocupado, se propone el hueco libre más cercano, y cada fecha se puede cambiar o quitar. Se reservan todas o ninguna, se pagan en un solo pago (PayPal) o en el local, y luego se pueden cancelar una a una (con reembolso de su parte) o todas a la vez
 - Mis citas: cambiar la hora o cancelar. No se puede hacer con menos de 1 h de antelación
 - Si la cita estaba pagada por PayPal, al cancelarla se reembolsa automáticamente
+- Al pagar online se genera el **ticket de compra** y la cita aparece como pagada, con un botón para descargar el PDF (también en el historial)
 
 **Administración** (`/admin`). Los administradores no reservan citas propias: no ven *Reservar* ni *Mis citas* y crean las citas de los clientes desde la Agenda.
-- **Agenda**: ver citas por día o por rango (con el estado de pago de cada una), ver en las horas ocupadas para qué cliente están (con enlace a su ficha), marcar como cobradas las citas en efectivo, crear una cita para un cliente, cambiar la hora, cancelar en cualquier momento (con o sin reembolso, y avisando o no al cliente), reembolsos totales o parciales, marcar como realizada o como "no vino", y botón de WhatsApp
+- **Agenda** con tres vistas: **Lista** (por día o rango), **Semana** (una columna por día y una fila por franja horaria, con las citas en su hueco; al pulsar una se abren sus opciones) y **Mes** (cada día muestra cuántas citas tiene y cuántas faltan por cobrar; al pulsar un día aparecen sus citas debajo). En todas: ver citas (con el estado de pago de cada una), ver en las horas ocupadas para qué cliente están (con enlace a su ficha), marcar como cobradas las citas en efectivo, crear una cita para un cliente, cambiar la hora, cancelar en cualquier momento (con o sin reembolso, y avisando o no al cliente), reembolsos totales o parciales, marcar como realizada o como "no vino", y botón de WhatsApp
 - **Usuarios**: ficha de cada cliente con todas sus citas (próximas y pasadas en colores distintos, estado de pago y método), alta como usuario normal o administrador, edición, bloqueo (temporal hasta una fecha o indefinido, con opción de cancelar sus citas), desbloqueo, baja (se conserva el historial) y reactivación
 - **Cierres**: vacaciones o festivos (días enteros o por horas). Bloquean las reservas y pueden cancelar y reembolsar las citas afectadas
 - **Avisos email**: envío a todos los clientes que aceptan emails, a los clientes con cita un día concreto o a clientes elegidos. Incluye plantillas, `{nombre}` personalizado e historial
 - **WhatsApp**: enlaces `wa.me` con el mensaje ya escrito para cada cliente (funciona sin configurar nada). Opcionalmente, envío automático con la API de WhatsApp Business
 - **Agenda**: también se pueden crear citas periódicas para un cliente y cancelar una cita junto con las siguientes de su serie
-- **Configuración**: activar o desactivar las citas periódicas, máximo de citas por serie (60 por defecto), duración de las citas (30 min por defecto), horario semanal por tramos (9–13 y 16–20 por defecto, de lunes a sábado), días máximos de antelación, antelación mínima para cancelar, número de sillones, formas de pago, servicios y precios
+- **Tickets de compra**: al marcar como cobrada una cita en efectivo se puede generar su ticket en el momento, o más tarde con *Generar ticket*. Los pagos online lo generan solos (una serie pagada de una vez lleva un único ticket con todas las citas). Numeración `AAAA-NNNN` consecutiva y común a todas las formas de pago, que empieza en 0001 cada año. Una vez emitido, el cobro ya no se puede deshacer. Los PDF se guardan en disco en `server/storage/tickets/AAAA/MM/` (no en la base de datos); si faltara alguno se regenera al descargarlo
+- **Configuración**: datos fiscales del ticket (razón social, NIF, IVA incluido y texto al pie), activar o desactivar las citas periódicas, máximo de citas por serie (60 por defecto), duración de las citas (30 min por defecto), horario semanal por tramos (9–13 y 16–20 por defecto, de lunes a sábado), días máximos de antelación, antelación mínima para cancelar, número de sillones, formas de pago, servicios y precios
 
 Si cambias la duración de las citas o el horario, las citas ya reservadas se mantienen y nunca se solapan con las nuevas.
 
@@ -57,6 +59,8 @@ Si cambias la duración de las citas o el horario, las citas ya reservadas se ma
 | PayPal | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_MODE` | developer.paypal.com → Apps & Credentials. Usa `sandbox` para pruebas y `live` en producción |
 | Email | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Tu proveedor de correo (Gmail con contraseña de aplicación, Brevo, SES…). Sin esto, los emails solo se muestran en la consola |
 | WhatsApp API (opcional) | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | Meta for Developers → WhatsApp Business. Meta solo permite texto libre si el cliente escribió en las últimas 24 h; fuera de esa ventana exige plantillas aprobadas |
+
+Los tickets se guardan en `TICKETS_DIR` (por defecto `server/storage/tickets`). En producción esa carpeta debe estar en un disco persistente y entrar en las copias de seguridad.
 
 Mientras no estén las credenciales de PayPal, la opción no aparece y solo se puede pagar en el local.
 

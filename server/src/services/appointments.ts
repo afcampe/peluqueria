@@ -8,6 +8,7 @@ import { getProvider } from '../payments/registry.js';
 import { centsToAmount } from '../payments/types.js';
 import { computeSlots, localDate, type Interval } from './availability.js';
 import { getSettings, type Settings } from './settings.js';
+import { issueOnlineTicket } from './tickets.js';
 
 export type Actor = { id: string; role: 'CLIENT' | 'ADMIN' };
 type Tx = Prisma.TransactionClient;
@@ -99,7 +100,7 @@ const fmt = (d: Date, tz: string) =>
 const withRelations = {
   client: { select: { id: true, name: true, email: true, phone: true } },
   service: true,
-  payments: { include: { refunds: true } },
+  payments: { include: { refunds: true, ticket: { select: { id: true, number: true, issuedAt: true } } } },
   series: { select: { id: true, intervalDays: true } },
 } as const;
 
@@ -368,6 +369,13 @@ async function completeOrder(actor: Actor, orderId: string) {
       lostRefundCents += (await refundPayment(p.id, { requestedBy: 'SYSTEM', reason: 'El hueco ya no estaba disponible' })).amountCents;
     }
     await prisma.appointment.update({ where: { id }, data: { status: 'CANCELLED', cancelledBy: 'SYSTEM', cancelReason: 'El hueco ya no estaba disponible al completar el pago' } });
+  }
+
+  // Ticket de compra automático para lo que se ha cobrado online.
+  try {
+    await issueOnlineTicket(orderId, confirmed);
+  } catch (e) {
+    console.error(`No se pudo emitir el ticket del pedido ${orderId}:`, e); // el admin puede emitirlo después
   }
 
   const appointments = await prisma.appointment.findMany({ where: { id: { in: confirmed } }, include: withRelations, orderBy: { startAt: 'asc' } });

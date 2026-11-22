@@ -13,6 +13,7 @@ import { allProviders } from '../payments/registry.js';
 import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, previewSeries, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
 import { getSettings, saveSettings } from '../services/settings.js';
+import { issueTicket } from '../services/tickets.js';
 import { actor, h, publicUser } from './util.js';
 
 export const adminRouter = Router();
@@ -60,7 +61,7 @@ adminRouter.get('/appointments', h(async (req, res) => {
       ...(q.to && { lte: localToDate(q.to, s.timezone, true) }),
     },
   };
-  res.json(await prisma.appointment.findMany({ where, include: withRelations, orderBy: { startAt: 'asc' }, take: 500 }));
+  res.json(await prisma.appointment.findMany({ where, include: withRelations, orderBy: { startAt: 'asc' }, take: 3000 }));
 }));
 
 adminRouter.post('/appointments', h(async (req, res) => {
@@ -81,21 +82,40 @@ adminRouter.get('/availability', h(async (req, res) => {
   res.json(await availabilityForDate(date, excludeId, true));
 }));
 
-/** Registra que una cita en efectivo se ha cobrado en el local. */
+/** Registra que una cita en efectivo se ha cobrado en el local (y, si se pide, emite su ticket). */
 adminRouter.post('/appointments/:id/mark-paid', h(async (req, res) => {
+  const { ticket } = z.object({ ticket: z.boolean().default(false) }).parse(req.body ?? {});
   const s = await getSettings();
   const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: { payments: true } });
   if (a.paymentMethod !== 'cash') throw badRequest('Solo se marcan como cobradas las citas que se pagan en el local');
   if (a.status === 'CANCELLED') throw badRequest('La cita está cancelada');
-  if (!a.payments.some((p) => p.provider === 'cash' && p.status === 'COMPLETED')) {
-    await prisma.payment.create({ data: { appointmentId: a.id, provider: 'cash', amountCents: a.priceCents, currency: s.currency, status: 'COMPLETED' } });
+  let cash = a.payments.find((p) => p.provider === 'cash' && p.status === 'COMPLETED');
+  if (!cash) {
+    cash = await prisma.payment.create({ data: { appointmentId: a.id, provider: 'cash', amountCents: a.priceCents, currency: s.currency, status: 'COMPLETED' } });
   }
+  if (ticket && !cash.ticketId) await issueTicket([cash.id], 'SHOP');
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: a.id }, include: withRelations }));
 }));
 
 adminRouter.post('/appointments/:id/unmark-paid', h(async (req, res) => {
+  const ticketed = await prisma.payment.findFirst({ where: { appointmentId: req.params.id, provider: 'cash', ticketId: { not: null } }, include: { ticket: true } });
+  if (ticketed) throw conflict(`El cobro ya tiene el ticket ${ticketed.ticket!.number} y no se puede deshacer (la numeración debe ser consecutiva).`, 'TICKET_EXISTS');
   await prisma.payment.deleteMany({ where: { appointmentId: req.params.id, provider: 'cash', refundedCents: 0 } });
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
+}));
+
+/** Emite el ticket de una cita ya cobrada (en el local u online) que aún no lo tenga. */
+adminRouter.post('/appointments/:id/ticket', h(async (req, res) => {
+  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: { payments: true } });
+  const paid = a.payments.find((p) => p.status === 'COMPLETED');
+  if (!paid) throw badRequest('La cita no está cobrada. Márcala como cobrada antes de emitir el ticket.');
+  if (paid.ticketId) throw conflict('Esta cita ya tiene ticket', 'TICKET_EXISTS');
+  // Si el cobro online cubría varias citas (serie), el ticket las incluye todas.
+  const group = paid.providerOrderId
+    ? await prisma.payment.findMany({ where: { providerOrderId: paid.providerOrderId, status: 'COMPLETED', ticketId: null }, select: { id: true } })
+    : [paid];
+  await issueTicket(group.map((p) => p.id), paid.provider === 'cash' ? 'SHOP' : 'ONLINE');
+  res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: a.id }, include: withRelations }));
 }));
 
 adminRouter.post('/appointments/series', h(async (req, res) => {

@@ -10,7 +10,9 @@ export interface Refund { id: string; amountCents: number; reason: string | null
 export interface Payment {
   id: string; provider: string; amountCents: number; currency: string; refundedCents: number;
   status: 'CREATED' | 'COMPLETED' | 'PARTIALLY_REFUNDED' | 'REFUNDED' | 'FAILED'; refunds: Refund[];
+  ticket: TicketRef | null;
 }
+export interface TicketRef { id: string; number: string; issuedAt: string }
 export type AppointmentStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
 export interface Appointment {
   id: string; startAt: string; endAt: string; status: AppointmentStatus; paymentMethod: string; priceCents: number;
@@ -34,7 +36,9 @@ export interface PublicConfig {
 export interface Settings {
   shopName: string; shopPhone: string; shopEmail: string; shopAddress: string; timezone: string; currency: string;
   slotMinutes: number; capacity: number; bookingHorizonDays: number; clientCancelMinNoticeMinutes: number;
-  paymentHoldMinutes: number; recurringEnabled: boolean; recurringMaxAppointments: number; weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
+  paymentHoldMinutes: number; recurringEnabled: boolean; recurringMaxAppointments: number;
+  ticketLegalName: string; ticketTaxId: string; ticketVatPercent: number; ticketFooter: string;
+  weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
 }
 
 export interface Occurrence { requested: string; start: string | null; status: 'OK' | 'MOVED' | 'UNAVAILABLE'; reason?: string; bookedBy?: Owner[] }
@@ -42,3 +46,4 @@ export interface SeriesResult {
   series: { id: string; intervalDays: number };
   appointments: Appointment[]; totalCents: number; pendingPayment: boolean;
 }
+export interface Closure { id: string; startAt: string; endAt: string; reason: string | null }

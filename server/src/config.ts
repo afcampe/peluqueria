@@ -1,4 +1,8 @@
 import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const required = (name: string, fallback?: string) => {
   const v = process.env[name] ?? fallback;
@@ -22,6 +26,8 @@ export const config = {
     pass: process.env.SMTP_PASS ?? '',
     from: process.env.MAIL_FROM ?? 'Peluquería Armando <no-reply@example.com>',
   },
+  /** Carpeta de los PDF de tickets (subcarpetas año/mes). */
+  ticketsDir: path.resolve(serverRoot, process.env.TICKETS_DIR ?? 'storage/tickets'),
   whatsapp: {
     token: process.env.WHATSAPP_TOKEN ?? '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? '',

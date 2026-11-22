@@ -31,3 +31,21 @@ export const weekdayNames: Record<string, string> = { '1': 'Lunes', '2': 'Martes
 
 export const canClientChange = (startAt: string, minNotice: number) => new Date(startAt).getTime() - Date.now() >= minNotice * 60_000;
 export const noticeText = (min: number) => (min % 60 === 0 ? `${min / 60} h` : `${min} min`);
+
+// ---- Fechas de calendario "YYYY-MM-DD" (aritmética sin zona horaria)
+const fromYMD = (d: string) => new Date(`${d}T12:00:00Z`);
+const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+export const addDays = (d: string, n: number) => { const x = fromYMD(d); x.setUTCDate(x.getUTCDate() + n); return toYMD(x); };
+export const addMonths = (d: string, n: number) => { const x = fromYMD(`${d.slice(0, 7)}-01`); x.setUTCMonth(x.getUTCMonth() + n); return toYMD(x); };
+/** 1 = lunes … 7 = domingo */
+export const isoWeekday = (d: string) => fromYMD(d).getUTCDay() || 7;
+export const startOfWeek = (d: string) => addDays(d, 1 - isoWeekday(d));
+export const startOfMonth = (d: string) => `${d.slice(0, 7)}-01`;
+export const monthLabel = (d: string) =>
+  capitalize(new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(fromYMD(d)));
+export const weekLabel = (start: string) => {
+  const end = addDays(start, 6);
+  const f = (d: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('es-ES', { timeZone: 'UTC', ...o }).format(fromYMD(d));
+  const sameMonth = start.slice(0, 7) === end.slice(0, 7);
+  return `${f(start, sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' })} – ${f(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+};

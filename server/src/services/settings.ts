@@ -34,6 +34,12 @@ export const settingsSchema = z.object({
   recurringMaxAppointments: z.number().int().min(2).max(200).default(60),
   /** Horario semanal. Claves 1 (lunes) .. 7 (domingo), formato ISO. */
   weeklySchedule: z.record(z.enum(['1', '2', '3', '4', '5', '6', '7']), z.array(rangeSchema)),
+  /** Datos fiscales que aparecen en los tickets. */
+  ticketLegalName: z.string().default(''),
+  ticketTaxId: z.string().default(''),
+  /** IVA incluido en los precios (%). 0 = no se desglosa. */
+  ticketVatPercent: z.number().min(0).max(100).default(21),
+  ticketFooter: z.string().max(300).default('Gracias por su visita'),
   /** Métodos de pago activos. La clave es el id del proveedor. */
   paymentMethods: z.record(z.string(), z.object({ enabled: z.boolean() })),
 });
@@ -54,6 +60,10 @@ export const defaultSettings: Settings = {
   paymentHoldMinutes: 15,
   recurringEnabled: true,
   recurringMaxAppointments: 60,
+  ticketLegalName: '',
+  ticketTaxId: '',
+  ticketVatPercent: 21,
+  ticketFooter: 'Gracias por su visita',
   weeklySchedule: {
     '1': twoShifts,
     '2': twoShifts,

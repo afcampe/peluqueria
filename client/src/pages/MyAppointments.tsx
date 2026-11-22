@@ -5,7 +5,8 @@ import { Alert, Badge, Modal, Spinner, errMsg } from '../components/ui';
 import { api } from '../lib/api';
 import { canClientChange, dateTime, isoToLocalDate, methodLabel, money, noticeText, statusLabel } from '../lib/format';
 import { useSession } from '../lib/session';
-import { onlinePayment } from '../lib/payment';
+import { onlinePayment, ticketOf } from '../lib/payment';
+import { TicketButton } from '../components/TicketButton';
 import type { Appointment } from '../lib/types';
 import { IconRepeat } from '../components/icons';
 
@@ -71,6 +72,7 @@ export function MyAppointments() {
                 <p>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} {paid(a) && '(pagada)'}</p>
                 <Badge status={a.status}>{statusLabel[a.status]}</Badge>
                 {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
+                {ticketOf(a) && <div className="ticket-row"><TicketButton ticket={ticketOf(a)!} /></div>}
               </div>
               <div className="actions">
                 {changeable ? (
@@ -91,13 +93,14 @@ export function MyAppointments() {
         <>
           <h2>Historial</h2>
           <table className="table">
-            <thead><tr><th>Fecha</th><th>Servicio</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Servicio</th><th>Estado</th><th>Ticket</th></tr></thead>
             <tbody>
               {past.map((a) => (
                 <tr key={a.id}>
                   <td>{dateTime(a.startAt)}</td>
                   <td>{a.service.name}</td>
                   <td><Badge status={a.status}>{statusLabel[a.status]}</Badge>{a.payments.some((p) => p.refundedCents > 0) && <small className="muted"> · reembolsada</small>}</td>
+                  <td>{ticketOf(a) ? <TicketButton ticket={ticketOf(a)!} /> : <span className="muted">—</span>}</td>
                 </tr>
               ))}
             </tbody>

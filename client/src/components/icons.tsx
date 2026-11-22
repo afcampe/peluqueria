@@ -61,3 +61,12 @@ export const Logo = ({ size = 34 }: { size?: number }) => (
     </g>
   </svg>
 );
+export const IconTicket = (p: P) => (
+  <svg {...base(p)}><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
+);
+export const IconChevronLeft = (p: P) => (
+  <svg {...base(p)}><path d="m15 18-6-6 6-6" /></svg>
+);
+export const IconChevronRight = (p: P) => (
+  <svg {...base(p)}><path d="m9 18 6-6-6-6" /></svg>
+);

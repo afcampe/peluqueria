@@ -8,6 +8,7 @@ import { adminRouter } from './routes/admin.js';
 import { appointmentsRouter } from './routes/appointments.js';
 import { authRouter } from './routes/auth.js';
 import { publicRouter } from './routes/public.js';
+import { ticketsRouter } from './routes/tickets.js';
 
 export function createApp() {
   const app = express();
@@ -18,6 +19,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/public', publicRouter);
   app.use('/api/appointments', appointmentsRouter);
+  app.use('/api/tickets', ticketsRouter);
   app.use('/api/admin', adminRouter);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

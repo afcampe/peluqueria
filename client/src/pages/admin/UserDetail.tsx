@@ -4,9 +4,11 @@ import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
-import { cashPayment, paymentInfo } from '../../lib/payment';
+import { canIssueTicket, cashPayment, paymentInfo, ticketOf } from '../../lib/payment';
+import { TicketButton } from '../../components/TicketButton';
+import { CashModal } from './Agenda';
 import type { Appointment, User } from '../../lib/types';
-import { IconRepeat } from '../../components/icons';
+import { IconRepeat, IconTicket } from '../../components/icons';
 
 type Filter = 'all' | 'future' | 'past';
 const statusText = { ACTIVE: 'Activo', BLOCKED: 'Bloqueado', DELETED: 'De baja' };
@@ -108,14 +110,14 @@ export function UserDetail() {
 
 function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: boolean; onChange: () => void }) {
   const [error, setError] = useState('');
+  const [charging, setCharging] = useState(false);
   const pay = paymentInfo(a);
-  const canMarkPaid = a.paymentMethod === 'cash' && a.status !== 'CANCELLED' && a.status !== 'PENDING_PAYMENT';
-  const toggleCash = async () => {
+  const ticket = ticketOf(a);
+  const cash = cashPayment(a);
+  const canMarkPaid = a.paymentMethod === 'cash' && a.status !== 'CANCELLED' && a.status !== 'PENDING_PAYMENT' && !cash;
+  const run = async (path: string) => {
     setError('');
-    try {
-      await api.post(`/admin/appointments/${a.id}/${cashPayment(a) ? 'unmark-paid' : 'mark-paid'}`);
-      onChange();
-    } catch (e) { setError(errMsg(e)); }
+    try { await api.post(`/admin/appointments/${a.id}/${path}`); onChange(); } catch (e) { setError(errMsg(e)); }
   };
 
   return (
@@ -135,11 +137,14 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
         {error && <div className="error-text small">{error}</div>}
       </div>
-      {canMarkPaid && (
-        <button className="btn btn-sm" onClick={toggleCash}>
-          {cashPayment(a) ? 'Deshacer cobro' : 'Marcar cobrada'}
-        </button>
-      )}
+      <div className="actions">
+        {canMarkPaid && <button className="btn btn-sm" onClick={() => setCharging(true)}>Marcar cobrada</button>}
+        {cash && !ticket && <button className="btn btn-sm" onClick={() => run('unmark-paid')}>Deshacer cobro</button>}
+        {ticket ? <TicketButton ticket={ticket} /> : canIssueTicket(a) && (
+          <button className="btn btn-sm btn-ticket" onClick={() => run('ticket')}><IconTicket size={16} /> Generar ticket</button>
+        )}
+      </div>
+      {charging && <CashModal appt={a} onClose={() => setCharging(false)} onDone={() => { setCharging(false); onChange(); }} />}
     </article>
   );
 }
