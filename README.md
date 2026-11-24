@@ -118,7 +118,7 @@ Un único servicio sirve la web y la API en la misma dirección. Los datos (base
 
 4. **Settings → Networking → Generate Domain** para tener la dirección pública.
 
-Cada `git push` a `main` vuelve a desplegar; los datos del disco se conservan. Sin credenciales de PayPal solo aparece el pago en el local, y sin SMTP los emails solo se ven en los registros (*Deploy Logs*). Los clientes de ejemplo entran con la contraseña `cliente1234` (o la de `DEMO_CLIENT_PASSWORD`).
+Cada `git push` a `main` vuelve a desplegar (los despliegues automáticos tienen que estar activados en **Settings → Source**); los datos del disco se conservan. Sin credenciales de PayPal solo aparece el pago en el local, y sin SMTP los emails solo se ven en los registros (*Deploy Logs*). Los clientes de ejemplo entran con la contraseña `cliente1234` (o la de `DEMO_CLIENT_PASSWORD`).
 
 ## Producción
 
