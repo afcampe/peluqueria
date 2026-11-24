@@ -409,10 +409,11 @@ label.inline input { width: 5rem; }
 .history-tags .badge { margin-left: 0; }
 .history-divider { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: .75rem 0 .25rem; }
 @media (max-width: 640px) { .history-item { grid-template-columns: 1fr; gap: .4rem; } }
-.pay { font-size: .78rem; font-weight: 600; padding: .12rem .5rem; border-radius: 99px; }
-.pay-paid { background: var(--ok-bg); color: var(--ok-text); }
+.pay { display: inline-block; max-width: 100%; font-size: .78rem; font-weight: 600; padding: .12rem .5rem; border-radius: 99px; }
+/* Verde y rojo vivos, algo más oscuros que los puntos para que el texto blanco se lea. */
+.pay-paid { background: #00812a; color: #fff; }
 .pay-partial, .pay-refunded { background: var(--info-bg); color: var(--info-text); }
-.pay-unpaid { background: var(--warn-bg); color: var(--warn-text); }
+.pay-unpaid { background: #d80f1d; color: #fff; }
 .pay-none { color: var(--muted); font-weight: 400; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
@@ -453,7 +454,7 @@ label.inline input { width: 5rem; }
 .swatch-closed { border: 1px solid var(--border); }
 
 .cal-appt { position: relative; display: block; width: 100%; text-align: left; font: inherit; font-size: .78rem; line-height: 1.25; cursor: pointer;
-  padding: .3rem 1rem .3rem .45rem; border: 1px solid var(--border); border-left: 3px solid var(--future); border-radius: 4px;
+  padding: .3rem 1.4rem .3rem .45rem; border: 1px solid var(--border); border-left: 3px solid var(--future); border-radius: 4px;
   background: var(--future-bg); color: var(--text); }
 .cal-appt:hover { border-color: var(--text); }
 .cal-appt strong, .cal-appt span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -462,12 +463,12 @@ label.inline input { width: 5rem; }
 .cal-appt.st-COMPLETED, .cal-appt.st-NO_SHOW { border-left-color: var(--past); background: var(--past-bg); }
 .cal-appt.st-PENDING_PAYMENT { border-left-style: dashed; }
 .cal-appt.st-CANCELLED { opacity: .55; text-decoration: line-through; }
-.pay-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn-text); }
+.pay-dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: #ff1f2d; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); flex: none; }
 .cal-appt .pay-dot { position: absolute; top: .4rem; right: .35rem; }
-.cal-appt.pay-paid .pay-dot, .pay-dot.pay-paid { background: var(--ok-text); }
+.cal-appt.pay-paid .pay-dot, .pay-dot.pay-paid { background: #00b83a; }
 .cal-appt.pay-partial .pay-dot, .cal-appt.pay-refunded .pay-dot { background: var(--info-text); }
 .cal-appt.pay-none .pay-dot { display: none; }
-.pay-dot.pay-unpaid { background: var(--warn-text); }
+.pay-dot.pay-unpaid { background: #ff1f2d; }
 .legend.small { margin: .6rem 0 0; flex-wrap: wrap; gap: .5rem 1.25rem; }
 
 /* Mes: cuadrícula de 6 semanas; cada día abre su lista de citas */
@@ -486,7 +487,7 @@ label.inline input { width: 5rem; }
 .mo-list li.st-COMPLETED, .mo-list li.st-NO_SHOW { color: var(--muted); }
 .mo-list li.st-CANCELLED { text-decoration: line-through; color: var(--muted); }
 .mo-unpaid { position: absolute; top: .4rem; right: .4rem; min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 99px;
-  font-size: .68rem; font-weight: 700; display: grid; place-items: center; background: var(--warn-bg); color: var(--warn-text); }
+  font-size: .68rem; font-weight: 700; display: grid; place-items: center; background: #d80f1d; color: #fff; }
 @media (max-width: 640px) {
   .mo-day { min-height: 3.6rem; padding: .25rem; align-items: center; }
   .mo-num { align-self: center; }
