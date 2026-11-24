@@ -32,16 +32,18 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - Se puede reservar hasta 1 año vista
 - **Citas periódicas**: reservar varias de una vez cada X días (1 semana, 15 días, 4 semanas o cualquier número), hasta una fecha o un número de citas. Antes de confirmar se ven todas las fechas. Si alguna cae en día cerrado u ocupado, se propone el hueco libre más cercano, y cada fecha se puede cambiar o quitar. Se reservan todas o ninguna, se pagan en un solo pago (PayPal) o en el local, y luego se pueden cancelar una a una (con reembolso de su parte) o todas a la vez
 - Mis citas: cambiar la hora o cancelar. No se puede hacer con menos de 1 h de antelación
-- Si la cita está pagada online, en lugar de *Cancelar* aparece **Reembolsar** (azul): se anula la cita y se devuelve el dinero a la cuenta de PayPal. Solo se puede hacer con al menos 1 h de antelación; después, únicamente la peluquería
-- Si la cita se cobró en el local y tiene ticket, el cliente ya no la puede anular desde la app
+- Si la cita está pagada online, al pulsar *Cancelar* se avisa de que el dinero se devuelve automáticamente a su cuenta de PayPal. Solo con al menos 1 h de antelación; después, únicamente la peluquería
+- Si la cita ya se cobró en el local, el cliente no la puede cancelar desde la app
 - Al pagar online se genera el **ticket de compra** y la cita aparece como pagada, con un botón para descargar el PDF (también en el historial)
 
 **Administración** (`/admin`). Los administradores no reservan citas propias: no ven *Reservar* ni *Mis citas* y crean las citas de los clientes desde la Agenda.
 - **Agenda** con tres vistas: **Lista** (por día o rango), **Semana** (una columna por día y una fila por franja horaria, con las citas en su hueco; al pulsar una se abren sus opciones) y **Mes** (cada día muestra cuántas citas tiene y cuántas faltan por cobrar; al pulsar un día aparecen sus citas debajo). En todas: ver citas (con el estado de pago de cada una), ver en las horas ocupadas para qué cliente están (con enlace a su ficha), marcar como cobradas las citas en efectivo, crear una cita para un cliente, cambiar la hora, cancelar en cualquier momento (con o sin reembolso, y avisando o no al cliente), reembolsos totales o parciales, apuntar que el cliente "no vino" y corregirlo con "sí vino" (las confirmadas se ven como realizadas al pasar su hora), y botón de WhatsApp
-- **Cobradas con ticket**: no se pueden cancelar. *Cancelar* se sustituye por **Reembolsar** (azul):
-  - **Efectivo**: pide confirmación, se devuelve en mano y la cita queda pendiente de cobro (ya se puede cancelar o volver a cobrar).
-  - **PayPal**: muestra los datos del pago (cuenta del pagador, id. de la transacción y pedido) y permite devolver todo o parte, anulando la cita o manteniéndola pendiente de cobro en el local.
-  El ticket se conserva y queda marcado como reembolsado. Las cancelaciones masivas (cierres, bloqueos, bajas, series) se saltan estas citas y lo avisan
+- **Cancelar una cita pagada** (solo antes de que termine):
+  - **PayPal**: el administrador elige devolver todo (por defecto), otra cantidad o nada. El dinero se devuelve antes de cancelar: si PayPal falla, la cita no se cancela.
+  - **Cobrada en el local**: solo la cancela el administrador, indicando si devuelve el dinero en mano. Las cancelaciones masivas (cierres, bloqueos, bajas, series) se saltan estas citas y lo avisan.
+  - **Ticket rectificativo**: cada devolución de un cobro con ticket emite uno automáticamente (serie `RAAAA-NNNN`, consecutiva por año, importes en negativo, con el ticket que corrige y el motivo). El ticket original no se modifica. Si fallara la emisión se reintenta cada minuto.
+  - **Corregir cobro** (solo administrador, solo pagos por PayPal de citas que no han terminado): devuelve todo o parte sin cancelar, con motivo. Si se devuelve todo, la cita queda pendiente de cobro en el local.
+- **Realizadas**: no se cancelan ni se reembolsan, y el cobro en el local no se puede deshacer. En las marcadas como *No vino* y pagadas por PayPal, el administrador puede devolver todo o parte con *Reembolsar*
 - **Importar agenda** (agenda en papel): se suben fotos de las páginas, una o muchas a la vez desde el móvil o el ordenador. La aplicación lee con Claude (IA con visión) la fecha de cada página y, en cada hora, el nombre apuntado a mano. Cada página se revisa con la foto al lado: lo dudoso sale en amarillo, se puede corregir la fecha, la hora, el nombre, el cliente y el servicio (por defecto el primero de la lista), añadir o quitar filas, y luego se pulsa *Importar*.
   - Solo se importan las citas de hoy en adelante; las tachadas tampoco.
   - Si la hora no encaja en la rejilla de citas, el error propone las horas válidas más cercanas.
@@ -56,7 +58,7 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - **Avisos email**: envío a todos los clientes que aceptan emails, a los clientes con cita un día concreto o a clientes elegidos. Incluye plantillas, `{nombre}` personalizado e historial
 - **WhatsApp**: enlaces `wa.me` con el mensaje ya escrito para cada cliente (funciona sin configurar nada). Opcionalmente, envío automático con la API de WhatsApp Business
 - **Agenda**: también se pueden crear citas periódicas para un cliente y cancelar una cita junto con las siguientes de su serie
-- **Tickets de compra**: al marcar como cobrada una cita en efectivo se puede generar su ticket en el momento, o más tarde con *Generar ticket*. Los pagos online lo generan solos (una serie pagada de una vez lleva un único ticket con todas las citas). Numeración `AAAA-NNNN` consecutiva y común a todas las formas de pago, que empieza en 0001 cada año. Una vez emitido, el cobro ya no se puede deshacer. Los PDF se guardan en disco en `server/storage/tickets/AAAA/MM/` (no en la base de datos); si faltara alguno se regenera al descargarlo
+- **Tickets de compra**: al marcar como cobrada una cita en efectivo se puede generar su ticket en el momento, o más tarde con *Generar ticket*. Los pagos online lo generan solos (una serie pagada de una vez lleva un único ticket con todas las citas). Numeración `AAAA-NNNN` consecutiva y común a todas las formas de pago, que empieza en 0001 cada año. El cobro no se puede deshacer. Los PDF se guardan en disco en `server/storage/tickets/AAAA/MM/` (no en la base de datos); si faltara alguno se regenera al descargarlo
 - **Recordatorios de citas** (en Configuración): avisos automáticos antes de cada cita confirmada.
   - Canal: email, WhatsApp o los dos.
   - Antelación: hasta 3 avisos (por ejemplo 1 día y 2 h antes).

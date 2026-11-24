@@ -138,17 +138,35 @@ describe('reservas', () => {
     expect(refunds).toEqual([1500]);
   });
 
-  it('admin: reembolso parcial manual', async () => {
-    const start = await slotIn(6);
-    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'paypal' }, clientToken);
+  it('admin: al cancelar puede devolver una parte o nada', async () => {
+    const pay = async (d: number) => {
+      const r = await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(d), paymentMethod: 'paypal' }, clientToken);
+      const order = await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
+      return (await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken)).body.id as string;
+    };
+    const a = await pay(6);
+    expect((await call('POST', `/api/admin/appointments/${a}/cancel`, { refundCents: 2000 }, adminToken)).status).toBe(400);
+    const c = await call('POST', `/api/admin/appointments/${a}/cancel`, { refundCents: 500 }, adminToken);
+    expect(c.body).toMatchObject({ refundedCents: 500, appointment: { status: 'CANCELLED', payments: [{ status: 'PARTIALLY_REFUNDED', refundedCents: 500 }] } });
+    refunds.length = 0;
+    const b = await pay(6);
+    expect((await call('POST', `/api/admin/appointments/${b}/cancel`, { refund: false }, adminToken)).body).toMatchObject({ refundedCents: 0, appointment: { status: 'CANCELLED', payments: [{ status: 'COMPLETED' }] } });
+    expect(refunds).toEqual([]);
+  });
+
+  it('si PayPal no devuelve el dinero, la cita no se cancela', async () => {
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(7), paymentMethod: 'paypal' }, clientToken);
     const order = await call('POST', `/api/appointments/${r.body.id}/pay/start`, {}, clientToken);
-    const done = await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
-    const paymentId = done.body.payments[0].id;
-    expect((await call('POST', `/api/admin/payments/${paymentId}/refund`, { amountCents: 500 }, adminToken)).status).toBe(200);
-    expect((await call('POST', `/api/admin/payments/${paymentId}/refund`, { amountCents: 1500 }, adminToken)).status).toBe(400);
-    const p = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
-    expect(p.status).toBe('PARTIALLY_REFUNDED');
-    expect(p.refundedCents).toBe(500);
+    await call('POST', `/api/appointments/${r.body.id}/pay/complete`, { orderId: order.body.orderId }, clientToken);
+    const ok = paypalProvider.refund;
+    paypalProvider.refund = async () => { throw new Error('PayPal caído'); };
+    for (const [u, t] of [['/api/appointments', clientToken], ['/api/admin/appointments', adminToken]] as const) {
+      const c = await call('POST', `${u}/${r.body.id}/cancel`, {}, t);
+      expect([c.status, c.body.code]).toEqual([502, 'REFUND_FAILED']);
+    }
+    paypalProvider.refund = ok;
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: r.body.id } })).toMatchObject({ status: 'CONFIRMED' });
+    expect((await call('POST', `/api/appointments/${r.body.id}/cancel`, {}, clientToken)).body.refundedCents).toBe(1500);
   });
 });
 
@@ -245,7 +263,7 @@ describe('ocupación y cobros', () => {
     expect(rc.body.occurrences[0].bookedBy).toBeUndefined();
   });
 
-  it('marcar como cobrada una cita en efectivo, deshacerlo y cancelarla sin error', async () => {
+  it('marcar como cobrada una cita en efectivo es definitivo; al cancelarla se devuelve en mano', async () => {
     const start = await slotIn(12);
     const a = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
     const paid = await call('POST', `/api/admin/appointments/${a.body.id}/mark-paid`, {}, adminToken);
@@ -253,13 +271,12 @@ describe('ocupación y cobros', () => {
     expect(paid.body.payments[0]).toMatchObject({ provider: 'cash', status: 'COMPLETED', amountCents: 1500 });
     // Idempotente
     expect((await call('POST', `/api/admin/appointments/${a.body.id}/mark-paid`, {}, adminToken)).body.payments).toHaveLength(1);
-    const undone = await call('POST', `/api/admin/appointments/${a.body.id}/unmark-paid`, {}, adminToken);
-    expect(undone.body.payments).toHaveLength(0);
-    await call('POST', `/api/admin/appointments/${a.body.id}/mark-paid`, {}, adminToken);
+    // Aunque no tenga ticket, el cliente ya no la cancela desde la app
+    expect((await call('POST', `/api/appointments/${a.body.id}/cancel`, {}, clientToken)).body.code).toBe('PAID_IN_SHOP');
     // Cancelar una cita cobrada en efectivo no intenta reembolsar por PayPal
     const c = await call('POST', `/api/admin/appointments/${a.body.id}/cancel`, {}, adminToken);
     expect(c.status).toBe(200);
-    expect(c.body.refundedCents).toBe(0);
+    expect(c.body).toMatchObject({ refundedCents: 0, cashRefundedCents: 1500 });
   });
 
   it('la ficha del cliente devuelve sus datos y todas sus citas', async () => {
@@ -452,8 +469,6 @@ describe('tickets', () => {
     expect(seqOf(ticketOf(t2.body)!.number)).toBe(lastOnline + 2);
     expect((await call('POST', `/api/admin/appointments/${a2.body.id}/ticket`, {}, adminToken)).status).toBe(409);
 
-    // Con ticket ya no se puede deshacer el cobro
-    expect((await call('POST', `/api/admin/appointments/${a2.body.id}/unmark-paid`, {}, adminToken)).status).toBe(409);
     // El cliente ve el ticket en sus citas y lo puede descargar
     expect((await download(ticketOf(t2.body)!.id, clientToken)).status).toBe(200);
   });
@@ -477,7 +492,7 @@ describe('tickets', () => {
   });
 });
 
-describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
+describe('cancelar citas pagadas', () => {
   type A = { id: string; status: string; paymentMethod: string; payments: { id: string; status: string; refundedCents: number; payerEmail: string | null; ticket: { number: string } | null }[] };
   const payOnline = async (start: string) => {
     const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'paypal' }, clientToken);
@@ -489,57 +504,111 @@ describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
     return (await call('POST', `/api/admin/appointments/${r.body.id}/mark-paid`, { ticket: true }, adminToken)).body as A;
   };
 
-  it('efectivo con ticket: nadie la cancela hasta reembolsar; después queda pendiente de cobro', async () => {
+  it('cobrada en el local: el cliente no la cancela; el admin sí, devolviendo en mano o no', async () => {
     const a = await payCash(await slotIn(50));
-    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, {}, adminToken)).body.code).toBe('PAID_WITH_TICKET');
-    expect((await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken)).body.code).toBe('PAID_WITH_TICKET');
-
-    const r = await call('POST', `/api/admin/appointments/${a.id}/refund-cash`, {}, adminToken);
-    expect(r.body.refundedCents).toBe(1500);
-    expect(r.body.appointment.status).toBe('CONFIRMED');
-    const p = r.body.appointment.payments[0];
-    expect(p).toMatchObject({ status: 'REFUNDED', refundedCents: 1500 });
-    expect(p.ticket.number).toBe(a.payments[0].ticket!.number); // el ticket se conserva
-
-    // Se puede volver a cobrar (nuevo ticket) o cancelar
-    const again = await call('POST', `/api/admin/appointments/${a.id}/mark-paid`, { ticket: true }, adminToken);
-    expect(again.body.payments).toHaveLength(2);
-    await call('POST', `/api/admin/appointments/${a.id}/refund-cash`, {}, adminToken);
-    expect((await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken)).status).toBe(200);
+    expect((await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken)).body.code).toBe('PAID_IN_SHOP');
+    const r = await call('POST', `/api/admin/appointments/${a.id}/cancel`, {}, adminToken);
+    expect(r.body).toMatchObject({ cashRefundedCents: 1500, appointment: { status: 'CANCELLED' } });
+    expect(r.body.appointment.payments[0]).toMatchObject({ status: 'REFUNDED', refundedCents: 1500, ticket: { number: a.payments[0].ticket!.number } }); // el ticket se conserva
+    const b = await payCash(await slotIn(50));
+    const kept = await call('POST', `/api/admin/appointments/${b.id}/cancel`, { refund: false }, adminToken);
+    expect(kept.body).toMatchObject({ cashRefundedCents: 0, appointment: { payments: [{ status: 'COMPLETED' }] } });
   });
 
-  it('PayPal con ticket: guarda el pagador; el admin reembolsa anulando o manteniendo la cita', async () => {
+  it('realizada: ni se cancela ni se reembolsa; con «No vino» el admin puede devolver el pago online', async () => {
     const a = await payOnline(await slotIn(51));
     expect(a.payments[0]).toMatchObject({ payerEmail: 'pagador@paypal.test', ticket: expect.anything() });
-    // Anular sin reembolsar no se permite
-    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, { refund: false }, adminToken)).body.code).toBe('PAID_WITH_TICKET');
-
-    // Reembolso completo manteniendo la cita: pasa a cobrarse en el local
+    const past = new Date(Date.now() - 3 * 3_600_000);
+    await prisma.appointment.update({ where: { id: a.id }, data: { startAt: past, endAt: new Date(past.getTime() + 1_800_000) } });
+    const refund = (amountCents?: number) => call('POST', `/api/admin/appointments/${a.id}/refund`, { amountCents }, adminToken);
+    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, {}, adminToken)).status).toBe(400);
+    expect((await refund()).status).toBe(400);
+    await call('PATCH', `/api/admin/appointments/${a.id}`, { status: 'NO_SHOW' }, adminToken);
     refunds.length = 0;
-    const kept = await call('POST', `/api/admin/appointments/${a.id}/refund`, { cancel: false }, adminToken);
-    expect(refunds).toEqual([1500]);
-    expect(kept.body.appointment).toMatchObject({ status: 'CONFIRMED', paymentMethod: 'cash' });
-    expect((await call('POST', `/api/admin/appointments/${a.id}/cancel`, {}, adminToken)).status).toBe(200);
-
-    // Reembolso anulando la cita
-    const b = await payOnline(await slotIn(52));
-    const cancelled = await call('POST', `/api/admin/appointments/${b.id}/refund`, { cancel: true }, adminToken);
-    expect(cancelled.body).toMatchObject({ refundedCents: 1500, appointment: { status: 'CANCELLED' } });
+    expect((await refund(500)).body.refundedCents).toBe(500);
+    expect((await refund(1500)).status).toBe(400);
+    expect((await refund()).body.refundedCents).toBe(1000);
+    expect(refunds).toEqual([500, 1000]);
+    // Si al final vino, se cobra en el local
+    expect((await call('PATCH', `/api/admin/appointments/${a.id}`, { status: 'CONFIRMED' }, adminToken)).body.paymentMethod).toBe('cash');
+    expect((await call('POST', `/api/admin/appointments/${a.id}/mark-paid`, {}, adminToken)).status).toBe(200);
   });
 
-  it('PayPal: el cliente reembolsa anulando con antelación; con menos de 1 h solo el admin', async () => {
+  it('cada devolución con ticket emite un rectificativo con serie propia y sin tocar el original', async () => {
+    const year = DateTime.now().setZone('Europe/Madrid').year;
+    type Full = { paymentMethod: string; status: string; payments: { status: string; ticket: { id: string; number: string } | null; refunds: { amountCents: number; rectification: { id: string; number: string } | null }[] }[] };
+    const a = await payOnline(await slotIn(56));
+    const url = `/api/admin/appointments/${a.id}/refund`;
+    // Corregir cobro: exige motivo y no cancela
+    expect((await call('POST', url, { amountCents: 500 }, adminToken)).status).toBe(400);
+    expect((await call('POST', url, { amountCents: 500, reason: 'x' }, clientToken)).status).toBe(403);
+    const part = (await call('POST', url, { amountCents: 500, reason: 'Importe equivocado' }, adminToken)).body.appointment as Full;
+    expect(part).toMatchObject({ status: 'CONFIRMED', paymentMethod: 'paypal' });
+    const full = (await call('POST', url, { reason: 'Cobro duplicado' }, adminToken)).body.appointment as Full;
+    expect(full).toMatchObject({ status: 'CONFIRMED', paymentMethod: 'cash' });
+    const rects = full.payments[0].refunds.map((r) => r.rectification!);
+    expect(rects).toHaveLength(2);
+    const seqs = rects.map((r) => Number(r.number.split('-')[1])).sort((x, y) => x - y);
+    expect(rects[0].number).toMatch(new RegExp(`^R${year}-\\d{4}$`));
+    expect(seqs[1]).toBe(seqs[0] + 1);
+
+    const first = full.payments[0].refunds.find((r) => r.amountCents === 500)!.rectification!;
+    const v = (await call('GET', `/api/tickets/${first.id}`, undefined, clientToken)).body;
+    expect(v).toMatchObject({ number: first.number, totalCents: -500, rectifies: { number: full.payments[0].ticket!.number, reason: 'Importe equivocado' } });
+    expect(v.baseCents + v.vatCents).toBe(-500);
+    const orig = (await call('GET', `/api/tickets/${full.payments[0].ticket!.id}`, undefined, clientToken)).body;
+    expect(orig).toMatchObject({ totalCents: 1500, refundedCents: 1500, rectifies: null });
+    expect(orig.rectifications).toHaveLength(2);
+    // PDF descargable por su dueño y por nadie más
+    expect((await call('GET', `/api/tickets/${first.id}`, undefined, otherToken)).status).toBe(404);
+    const link = await call('GET', `/api/tickets/${first.id}/link`, undefined, clientToken);
+    const pdf = await fetch(base + link.body.url);
+    expect(pdf.headers.get('content-disposition')).toContain(`rectificativo-${first.number}.pdf`);
+    expect(Buffer.from(await pdf.arrayBuffer()).subarray(0, 4).toString()).toBe('%PDF');
+
+    // Efectivo con ticket: rectificativo al cancelar devolviendo; sin devolución o sin ticket, no
+    const c = await payCash(await slotIn(57));
+    const cc = (await call('POST', `/api/admin/appointments/${c.id}/cancel`, {}, adminToken)).body.appointment as Full;
+    expect(cc.payments[0].refunds[0].rectification!.number).toMatch(/^R/);
+    const n = await prisma.rectification.count();
+    const d = await payCash(await slotIn(57));
+    await call('POST', `/api/admin/appointments/${d.id}/cancel`, { refund: false }, adminToken);
+    const e = await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(57), paymentMethod: 'cash' }, clientToken);
+    await call('POST', `/api/admin/appointments/${e.body.id}/mark-paid`, {}, adminToken);
+    await call('POST', `/api/admin/appointments/${e.body.id}/cancel`, {}, adminToken);
+    expect(await prisma.rectification.count()).toBe(n);
+
+    // El IVA es el del ticket al emitirse, aunque cambie en Configuración; los antiguos lo fijan al arrancar
+    const { fillMissingVat } = await import('../src/services/tickets.js');
+    await prisma.ticket.update({ where: { id: full.payments[0].ticket!.id }, data: { vatPercent: null } });
+    expect(await fillMissingVat()).toBe(1);
+    await saveSettings({ ticketVatPercent: 10 });
+    expect((await call('GET', `/api/tickets/${full.payments[0].ticket!.id}`, undefined, clientToken)).body).toMatchObject({ vatPercent: 21, baseCents: 1240 });
+    expect((await call('GET', `/api/tickets/${first.id}`, undefined, clientToken)).body).toMatchObject({ vatPercent: 21, vatCents: -87 });
+    const nuevo = await payCash(await slotIn(58));
+    expect((await call('GET', `/api/tickets/${(nuevo as unknown as Full).payments[0].ticket!.id}`, undefined, clientToken)).body.vatPercent).toBe(10);
+    await saveSettings({ ticketVatPercent: 21 });
+
+    // Los que falten se emiten después, una sola vez
+    const { issueMissingRectifications } = await import('../src/services/tickets.js');
+    await prisma.rectification.delete({ where: { number: cc.payments[0].refunds[0].rectification!.number } });
+    expect(await issueMissingRectifications()).toBe(1);
+    expect(await issueMissingRectifications()).toBe(0);
+  });
+
+  it('PayPal: el cliente cancela y se le devuelve todo; con menos de 1 h solo el admin', async () => {
     const a = await payOnline(await slotIn(53));
-    const r = await call('POST', `/api/appointments/${a.id}/cancel`, {}, clientToken);
-    expect(r.body.refundedCents).toBe(1500);
+    const r = await call('POST', `/api/appointments/${a.id}/cancel`, { refund: false, refundCents: 1 }, clientToken);
+    expect(r.body).toMatchObject({ refundedCents: 1500, appointment: { status: 'CANCELLED' } });
 
     const b = await payOnline(await slotIn(54));
     const soon = new Date(Date.now() + 30 * 60_000);
     await prisma.appointment.update({ where: { id: b.id }, data: { startAt: soon, endAt: new Date(soon.getTime() + 30 * 60_000) } });
     expect((await call('POST', `/api/appointments/${b.id}/cancel`, {}, clientToken)).status).toBe(403);
-    expect((await call('POST', `/api/admin/appointments/${b.id}/refund`, { cancel: true }, adminToken)).body.refundedCents).toBe(1500);
+    expect((await call('POST', `/api/admin/appointments/${b.id}/cancel`, {}, adminToken)).body.refundedCents).toBe(1500);
   });
 
-  it('las cancelaciones masivas se saltan las cobradas en efectivo con ticket', async () => {
+  it('las cancelaciones masivas se saltan las cobradas en el local', async () => {
     const first = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 46 }).set({ weekday: 3, hour: 12, minute: 0, second: 0, millisecond: 0 });
     const starts = [0, 7, 14].map((d) => first.plus({ days: d }).toUTC().toISO()!);
     const r = await call('POST', '/api/appointments/series', { serviceId, intervalDays: 7, starts, paymentMethod: 'cash' }, clientToken);
@@ -582,18 +651,15 @@ describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
       expect(back.body.payments).toMatchObject([{ status: 'COMPLETED', amountCents: 1500 }]);
       expect([await noShows(), await listed('COMPLETED')]).toEqual([n, true]);
     }
-    // Cobrada en el local: vino. Al deshacer el cobro ya se puede marcar.
+    // Como ausencia no se puede cobrar; al corregirla, sí. Una vez cobrada en el local, vino.
     const c = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: past, endAt: new Date(past.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED' } });
     const noShow = () => call('PATCH', `/api/admin/appointments/${c.id}`, { status: 'NO_SHOW' }, adminToken);
-    await call('POST', `/api/admin/appointments/${c.id}/mark-paid`, {}, adminToken);
-    expect((await noShow()).status).toBe(400);
-    await call('POST', `/api/admin/appointments/${c.id}/unmark-paid`, {}, adminToken);
     expect((await noShow()).status).toBe(200);
-    // Como ausencia no se puede cobrar; al corregirla, sí.
     const pay = () => call('POST', `/api/admin/appointments/${c.id}/mark-paid`, {}, adminToken);
     expect((await pay()).status).toBe(400);
     await call('PATCH', `/api/admin/appointments/${c.id}`, { status: 'CONFIRMED' }, adminToken);
     expect((await pay()).status).toBe(200);
+    expect((await noShow()).status).toBe(400);
     // Una cita futura no se puede marcar como ausencia
     const fut = new Date(Date.now() + 400 * 86_400_000);
     const f = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: fut, endAt: new Date(fut.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED' } });

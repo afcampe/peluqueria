@@ -17,7 +17,7 @@
     <div class="title">
       <div class="eyebrow">Panel de administración</div>
       <h1>Manual del administrador</h1>
-      <p class="lead">Guía completa del panel: agenda diaria, semanal y mensual, citas y series, cobros y tickets, reembolsos, clientes, importación de la agenda en papel, anulaciones, cierres, avisos y recordatorios por email y WhatsApp, y configuración del negocio.</p>
+      <p class="lead">Guía completa del panel: agenda diaria, semanal y mensual, citas y series, cobros y tickets, cancelaciones con devolución, clientes, importación de la agenda en papel, anulaciones, cierres, avisos y recordatorios por email y WhatsApp, y configuración del negocio.</p>
       <div class="meta">
         <div><strong>Para</strong>Dueño y personal de la peluquería</div>
         <div><strong>Acceso</strong>Cuenta de tipo Administrador</div>
@@ -38,8 +38,8 @@
       <ol><li>Vista Lista</li><li>Vista Semana</li><li>Vista Mes</li><li>La tarjeta de una cita</li></ol></li>
     <li><a href="#gestion">Gestionar citas</a>
       <ol><li>Nueva cita</li><li>Citas periódicas</li><li>Cambiar la hora</li><li>No vino / Sí vino</li><li>Cancelar</li><li>WhatsApp y recordatorio por email</li></ol></li>
-    <li><a href="#cobros">Cobros, tickets y reembolsos</a>
-      <ol><li>Cobrar en efectivo</li><li>Generar ticket</li><li>Ver un ticket</li><li>Reembolsar efectivo</li><li>Reembolsar PayPal</li></ol></li>
+    <li><a href="#cobros">Cobros, tickets y devoluciones</a>
+      <ol><li>Cobrar en efectivo</li><li>Generar ticket</li><li>Ver un ticket</li><li>Devoluciones</li><li>Corregir cobro</li><li>Tickets rectificativos</li></ol></li>
     <li><a href="#usuarios">Usuarios</a>
       <ol><li>Lista</li><li>Alta</li><li>Editar</li><li>Bloquear</li><li>Baja y reactivación</li><li>Ficha del cliente</li></ol></li>
     <li><a href="#importar">Importar la agenda en papel</a>
@@ -75,7 +75,7 @@
     <thead><tr><th>Pestaña</th><th>Para qué sirve</th></tr></thead>
     <tbody>
       <tr><td>Resumen</td><td>Cifras del día y del mes y estado de las integraciones (email, WhatsApp, pagos).</td></tr>
-      <tr><td>Agenda</td><td>Ver las citas en lista, por semana o por mes. Crear, mover, cobrar, emitir tickets, reembolsar y cancelar.</td></tr>
+      <tr><td>Agenda</td><td>Ver las citas en lista, por semana o por mes. Crear, mover, cobrar, emitir tickets y cancelar (con devolución si está pagada).</td></tr>
       <tr><td>Usuarios</td><td>Alta, edición, bloqueo, baja y reactivación de clientes y administradores. Ficha con el historial de cada cliente.</td></tr>
       <tr><td>Importar agenda</td><td>Pasar a la app las citas de la agenda en papel a partir de fotos.</td></tr>
       <tr><td>Anulaciones</td><td>Histórico por cliente de citas anuladas y ausencias.</td></tr>
@@ -91,7 +91,7 @@
     <li>Las citas duran <strong>30 minutos</strong> y el horario es de <strong>9:00 a 13:00 y de 16:00 a 20:00</strong>, de lunes a viernes (sábado y domingo, cerrado). Ambas cosas se cambian en Configuración.</li>
     <li>Los clientes pueden reservar hasta <strong>1 año vista</strong> y cambiar o anular hasta <strong>1 hora antes</strong>. El administrador puede hacerlo <strong>en cualquier momento</strong>.</li>
     <li>Las citas se pagan <strong>online con PayPal</strong> al reservar o <strong>en el local</strong> (efectivo). Las que crea el administrador se pagan en el local.</li>
-    <li>Una cita <strong>cobrada con ticket no se cancela</strong>: primero se <strong>reembolsa</strong> (ver capítulo 5).</li>
+    <li>Al <strong>cancelar</strong> una cita pagada se devuelve el dinero si corresponde. Las citas <strong>ya realizadas</strong> no se cancelan ni se reembolsan, y lo cobrado en el local es definitivo (ver capítulo 5).</li>
     <li>Una cita confirmada pasa sola a <strong>Realizada</strong> cuando termina su hora. Solo hay que marcar las que el cliente <strong>no vino</strong>.</li>
     <li>Las citas <strong>nunca se borran</strong>: las anuladas se conservan para el historial y las estadísticas.</li>
   </ul>
@@ -136,7 +136,7 @@
     <li>El día de hoy aparece resaltado en la cabecera, con el número de citas de cada día.</li>
   </ul>
   <figure class="tall"><img src="capturas/a-agenda-semana.jpg" alt=""><figcaption><b>Figura 3.3</b> · Vista Semana</figcaption></figure>
-  <p><strong>Pulsa una cita</strong> para abrir una ventana con todos sus datos y botones (cambiar hora, cobrar, ticket, reembolsar, cancelar, WhatsApp, email).</p>
+  <p><strong>Pulsa una cita</strong> para abrir una ventana con todos sus datos y botones (cambiar hora, cobrar, ticket, cancelar, WhatsApp, email).</p>
   <figure class="sm"><img src="capturas/a-semana-detalle.jpg" alt=""><figcaption><b>Figura 3.4</b> · Ventana de una cita abierta desde la vista Semana</figcaption></figure>
   <div class="tip"><p>En el móvil la semana no cabe en la pantalla: desliza la tabla hacia los lados. La columna de las horas se queda fija.</p></div>
 
@@ -152,19 +152,21 @@
     <thead><tr><th>Situación</th><th>Botones principales</th></tr></thead>
     <tbody>
       <tr><td>Próxima, pendiente de cobro en el local</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref">Marcar cobrada</span> <span class="btn-ref red">Cancelar</span></td></tr>
-      <tr><td>Cobrada en efectivo, sin ticket</td><td><span class="btn-ref">Deshacer cobro</span> <span class="btn-ref">▤ Generar ticket</span> <span class="btn-ref red">Cancelar</span> (Cancelar, solo si aún no ha terminado)</td></tr>
-      <tr><td>Cobrada con ticket (efectivo o PayPal)</td><td><span class="btn-ref">▤ Ticket 2026-…</span> <span class="btn-ref blue">Reembolsar</span> (sin Cancelar)</td></tr>
+      <tr><td>Cobrada en el local, sin ticket</td><td><span class="btn-ref">▤ Generar ticket</span> <span class="btn-ref red">Cancelar</span> (Cancelar, solo si aún no ha terminado)</td></tr>
+      <tr><td>Próxima, cobrada en el local con ticket</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref">▤ Ticket 2026-…</span> <span class="btn-ref red">Cancelar</span></td></tr>
+      <tr><td>Próxima, pagada con PayPal</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref">▤ Ticket 2026-…</span> <span class="btn-ref">Corregir cobro</span> <span class="btn-ref red">Cancelar</span></td></tr>
+      <tr><td>Realizada y pagada</td><td><span class="btn-ref">▤ Ticket 2026-…</span> (sin Cancelar ni devolución)</td></tr>
       <tr><td>Ha llegado su hora y no está cobrada en el local</td><td><span class="btn-ref">No vino</span></td></tr>
-      <tr><td>Marcada como «No vino»</td><td><span class="btn-ref">Sí vino</span> (sin Marcar cobrada)</td></tr>
-      <tr><td>Ya terminada</td><td>Sin Cambiar hora ni Cancelar</td></tr>
+      <tr><td>Marcada como «No vino»</td><td><span class="btn-ref">Sí vino</span> (sin Marcar cobrada) y <span class="btn-ref blue">Reembolsar</span> si se pagó con PayPal</td></tr>
+      <tr><td>Ya terminada</td><td>Sin Cambiar hora, Cancelar ni Corregir cobro</td></tr>
       <tr><td>Siempre</td><td><span class="btn-ref green">WhatsApp</span> (si el cliente tiene teléfono) y <span class="btn-ref">Email</span> (activo si el cliente tiene email y la cita está confirmada y no ha empezado)</td></tr>
     </tbody>
   </table>
   <div class="pair">
     <figure><img src="capturas/a-cita-pendiente.jpg" alt=""><figcaption><b>Figura 3.7</b> · Pendiente de cobro</figcaption></figure>
-    <figure><img src="capturas/a-cita-cobrada.jpg" alt=""><figcaption><b>Figura 3.8</b> · Cobrada en efectivo con ticket</figcaption></figure>
+    <figure><img src="capturas/a-cita-cobrada.jpg" alt=""><figcaption><b>Figura 3.8</b> · Cobrada en el local con ticket</figcaption></figure>
   </div>
-  <figure><img src="capturas/a-cita-paypal.jpg" alt=""><figcaption><b>Figura 3.9</b> · Pagada con PayPal: ticket y botón azul Reembolsar en lugar de Cancelar</figcaption></figure>
+  <figure><img src="capturas/a-cita-paypal.jpg" alt=""><figcaption><b>Figura 3.9</b> · Pagada con PayPal: ticket, Corregir cobro y Cancelar</figcaption></figure>
 </section>
 
 <!-- ============================================================ 4 -->
@@ -219,7 +221,7 @@
     <tbody>
       <tr><td>Pendiente de cobro</td><td>Sí.</td></tr>
       <tr><td>Pagada con PayPal</td><td>Sí: pudo pagar al reservar y no venir.</td></tr>
-      <tr><td>Cobrada en el local</td><td>No: si pagó allí, vino. Si la cobraste por error, usa antes <span class="btn-ref">Deshacer cobro</span> o, si tiene ticket, <span class="btn-ref blue">Reembolsar</span>.</td></tr>
+      <tr><td>Cobrada en el local</td><td>No: si pagó allí, vino.</td></tr>
     </tbody>
   </table>
   <div class="note"><p>Una cita marcada como «No vino» no se puede cobrar en el local ni cuenta como pendiente de cobro. Para cobrarla, pulsa antes <span class="btn-ref">Sí vino</span>.</p></div>
@@ -228,13 +230,18 @@
   <ol class="steps">
     <li>Pulsa <span class="btn-ref red">Cancelar</span> en la cita.</li>
     <li>Escribe el <strong>motivo</strong> (se incluye en el email al cliente).</li>
-    <li>Si la cita estaba pagada online sin ticket, marca <span class="ui">Reembolsar</span> para devolver el importe.</li>
+    <li>Si está <strong>pagada con PayPal</strong>, elige <span class="ui">Devolver todo</span> (viene marcado), <span class="ui">Devolver otra cantidad</span> o <span class="ui">No devolver nada</span>. Si está <strong>cobrada en el local</strong>, deja marcado <span class="ui">Devolver X € en mano</span> si vas a devolver el dinero.</li>
     <li>Deja marcado <span class="ui">Avisar al cliente por email</span> si quieres que se le notifique.</li>
     <li>Si la cita es de una serie, puedes marcar <span class="ui">Cancelar también las siguientes citas de esta serie</span>.</li>
-    <li>Pulsa <span class="btn-ref red">Cancelar cita</span>.</li>
+    <li>Pulsa <span class="btn-ref red">Cancelar cita</span> (o <span class="btn-ref red">Cancelar y devolver X €</span>).</li>
   </ol>
   <figure class="sm"><img src="capturas/a-modal-cancelar.jpg" alt=""><figcaption><b>Figura 4.6</b> · Cancelar una cita</figcaption></figure>
-  <div class="warn"><p><strong>Las citas cobradas con ticket no tienen botón Cancelar.</strong> Primero hay que reembolsar el cobro con el botón azul <span class="btn-ref blue">Reembolsar</span> (capítulo 5). En efectivo, después del reembolso la cita vuelve a estar pendiente de cobro y ya se puede cancelar.</p></div>
+  <figure class="sm"><img src="capturas/a-modal-cancelar-paypal.jpg" alt=""><figcaption><b>Figura 4.7</b> · Cancelar una cita pagada con PayPal</figcaption></figure>
+  <ul>
+    <li>El dinero de PayPal se devuelve <strong>antes</strong> de cancelar: si PayPal falla, la cita no se cancela y la app te lo dice.</li>
+    <li>Si tenía ticket, la devolución genera su <strong>ticket rectificativo</strong> (capítulo 5).</li>
+    <li>Una cita que ya ha terminado no se puede cancelar.</li>
+  </ul>
 
   <h3>Escribir al cliente por WhatsApp</h3>
   <p>El botón <span class="btn-ref green">WhatsApp</span> de cada cita abre una conversación con el cliente con un mensaje ya escrito sobre su cita. Solo tienes que revisarlo y enviarlo.</p>
@@ -246,7 +253,7 @@
     <li>Revisa el destinatario, el asunto y el texto (se cambian en Configuración → Recordatorios de citas).</li>
     <li>Pulsa <span class="btn-ref dark">Enviar email</span>.</li>
   </ol>
-  <figure class="sm"><img src="capturas/a-modal-email.jpg" alt=""><figcaption><b>Figura 4.7</b> · Recordatorio por email antes de enviarlo</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-email.jpg" alt=""><figcaption><b>Figura 4.8</b> · Recordatorio por email antes de enviarlo</figcaption></figure>
   <ul>
     <li>El botón aparece desactivado si el cliente no tiene email o la cita no está confirmada o ya ha empezado.</li>
     <li>Puedes enviarlo más de una vez y aunque el cliente no reciba los automáticos. No los sustituye ni los anula.</li>
@@ -257,7 +264,7 @@
 
 <!-- ============================================================ 5 -->
 <section class="chapter" id="cobros">
-  <h2><span class="n">05</span>Cobros, tickets y reembolsos</h2>
+  <h2><span class="n">05</span>Cobros, tickets y devoluciones</h2>
   <p class="intro">Cada cobro puede tener su ticket de compra. Los tickets tienen una numeración única y consecutiva, común a los pagos online y a los del local.</p>
 
   <h3>Cómo funcionan los tickets</h3>
@@ -265,7 +272,7 @@
     <li><strong>Numeración:</strong> año-número de 4 cifras, por ejemplo <strong>2026-0001</strong>, <strong>2026-0002</strong>… Empieza en 0001 cada año y es la misma serie para PayPal y efectivo.</li>
     <li><strong>Pagos online:</strong> el ticket se genera solo al completar el pago. Una serie pagada de una vez lleva un único ticket con todas sus citas.</li>
     <li><strong>Pagos en el local:</strong> lo generas tú al cobrar, o más tarde.</li>
-    <li><strong>Datos fiscales:</strong> el ticket muestra el nombre o razón social, el NIF, la dirección, el desglose de IVA y el texto al pie que pongas en Configuración → Tickets de compra.</li>
+    <li><strong>Datos fiscales:</strong> el ticket muestra el nombre o razón social, el NIF, la dirección, el desglose de IVA y el texto al pie que pongas en Configuración → Tickets de compra. El IVA se guarda en cada ticket: si lo cambias más adelante, los ya emitidos no varían.</li>
     <li><strong>Archivo:</strong> los PDF se guardan en el servidor, en carpetas por año y mes. Cliente y administrador pueden verlos y descargarlos desde la app.</li>
   </ul>
 
@@ -278,7 +285,7 @@
   </ol>
   <figure class="sm"><img src="capturas/a-modal-cobrar.jpg" alt=""><figcaption><b>Figura 5.1</b> · Cobrar en el local con ticket</figcaption></figure>
   <p>La cita pasa a <strong>Cobrada en el local</strong> y, si generaste ticket, aparece su botón <span class="btn-ref">▤ Ticket 2026-…</span>. El cliente también lo verá en sus citas.</p>
-  <div class="tip"><p><strong>¿Te has equivocado?</strong> Si la cobraste <em>sin</em> ticket, tienes el botón <span class="btn-ref">Deshacer cobro</span>. Si ya tiene ticket, el cobro no se puede deshacer (para no romper la numeración): usa <span class="btn-ref blue">Reembolsar</span>.</p></div>
+  <div class="warn"><p><strong>El cobro es definitivo.</strong> Una vez marcada como cobrada no se puede deshacer, así que comprueba que es la cita correcta antes de confirmar.</p></div>
 
   <h3>Generar el ticket más tarde</h3>
   <p>Si una cita está cobrada pero no tiene ticket, aparece el botón <span class="btn-ref">▤ Generar ticket</span>. Al pulsarlo se emite con el siguiente número disponible. También sirve para pagos online cuyo ticket no se hubiera podido generar.</p>
@@ -292,32 +299,47 @@
   </ol>
   <figure class="xs"><img src="capturas/a-modal-ticket.jpg" alt=""><figcaption><b>Figura 5.3</b> · Vista previa del ticket</figcaption></figure>
 
-  <h3>Reembolsar un cobro en efectivo</h3>
-  <p>En una cita cobrada en efectivo con ticket, el botón <span class="btn-ref red">Cancelar</span> se sustituye por <span class="btn-ref blue">Reembolsar</span>.</p>
+  <h3>Cuándo se devuelve dinero</h3>
+  <table>
+    <thead><tr><th>Cita</th><th>Qué se puede hacer</th></tr></thead>
+    <tbody>
+      <tr><td>Próxima, pagada con PayPal</td><td>El cliente la cancela hasta 1 hora antes y se le devuelve todo. Tú puedes cancelarla hasta que termine, devolviendo todo, una parte o nada.</td></tr>
+      <tr><td>Próxima, cobrada en el local</td><td>Solo la cancelas tú, y devuelves el dinero en mano si corresponde. El cliente tiene que llamar.</td></tr>
+      <tr><td>Realizada</td><td>No se cancela ni se reembolsa.</td></tr>
+      <tr><td>«No vino», pagada con PayPal</td><td>No se devuelve nada, salvo que tú pulses <span class="btn-ref blue">Reembolsar</span>.</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><p>Las devoluciones de PayPal se hacen solas desde la app y el dinero vuelve a la misma cuenta o tarjeta con la que pagó el cliente. Por eso la app guarda los datos de cada pago de PayPal.</p></div>
+
+  <h3>Reembolsar a un cliente que no vino</h3>
+  <p>Es decisión tuya. En una cita marcada como «No vino» y pagada con PayPal:</p>
   <ol class="steps">
     <li>Pulsa <span class="btn-ref blue">Reembolsar</span>.</li>
-    <li>La app pregunta: «¿Seguro que quieres reembolsar X € a …?».</li>
-    <li>Devuelve el dinero en mano al cliente y pulsa <span class="btn-ref blue">Sí, reembolsar</span>.</li>
+    <li>Revisa los datos del pago e indica el <strong>importe a devolver</strong> (todo o una parte).</li>
+    <li>Escribe, si quieres, una nota y pulsa <span class="btn-ref blue">Reembolsar X €</span>. El cliente recibe un email.</li>
   </ol>
-  <p>La cita queda como <strong>no cobrada y pendiente de cobro</strong> («Pendiente de cobro en el local · reembolsados X €»). A partir de ahí vuelven a aparecer <span class="btn-ref">Marcar cobrada</span> y <span class="btn-ref red">Cancelar</span>, para que el cliente o tú podáis anularla, o volver a cobrarla con un ticket nuevo. El ticket original se conserva marcado como <strong>reembolsado</strong>.</p>
-  <figure class="sm"><img src="capturas/a-modal-reembolso-efectivo.jpg" alt=""><figcaption><b>Figura 5.4</b> · Confirmar el reembolso en efectivo</figcaption></figure>
+  <figure class="sm tall"><img src="capturas/a-modal-reembolso-paypal.jpg" alt=""><figcaption><b>Figura 5.4</b> · Reembolsar el pago de PayPal de una ausencia</figcaption></figure>
+  <p>Si después pulsas <span class="btn-ref">Sí vino</span> y ya se había devuelto todo, la cita queda pendiente de cobro en el local.</p>
 
-  <h3>Reembolsar un pago de PayPal</h3>
+  <h3>Corregir un cobro de PayPal</h3>
+  <p>Para errores del pago online (un cobro duplicado, un importe equivocado…) en citas que <strong>aún no han terminado</strong>. La cita <strong>no se cancela</strong>.</p>
   <ol class="steps">
-    <li>Pulsa <span class="btn-ref blue">Reembolsar</span> en la cita pagada con PayPal.</li>
-    <li>Revisa los <strong>datos del pago</strong>: importe y fecha, cuenta de PayPal del cliente, identificador de la transacción, pedido y ticket.</li>
-    <li>Indica el <strong>importe a devolver</strong>: por defecto, todo; puedes poner menos para un reembolso parcial.</li>
-    <li>Elige qué pasa <strong>después del reembolso</strong>:
-      <ul>
-        <li><strong>Anular la cita y liberar la hora</strong> (solo con reembolso completo).</li>
-        <li><strong>Mantener la cita, pendiente de cobro en el local</strong>: el cliente sigue teniendo su cita y la pagará en la peluquería.</li>
-      </ul></li>
-    <li>Escribe, si quieres, una <strong>nota para el cliente</strong> y decide si avisarle por email.</li>
-    <li>Pulsa <span class="btn-ref blue">Reembolsar X € y anular</span> (o <span class="btn-ref blue">Reembolsar X €</span>).</li>
+    <li>Pulsa <span class="btn-ref">Corregir cobro</span> en la cita.</li>
+    <li>Indica el importe a devolver y el <strong>motivo</strong> (obligatorio; lo verá el cliente).</li>
+    <li>Pulsa <span class="btn-ref blue">Devolver X €</span>. El cliente recibe un email.</li>
   </ol>
-  <figure class="sm tall"><img src="capturas/a-modal-reembolso-paypal.jpg" alt=""><figcaption><b>Figura 5.5</b> · Reembolso de un pago de PayPal</figcaption></figure>
-  <div class="note"><p>El reembolso de PayPal se hace automáticamente desde la app, sin entrar en PayPal, y el dinero vuelve a la misma cuenta o tarjeta con la que pagó el cliente. Por eso la app guarda los datos de cada pago de PayPal.</p></div>
-  <div class="warn"><p><strong>Plazo para el cliente.</strong> El cliente puede reembolsar y anular él mismo una cita pagada con PayPal hasta 1 hora antes. Con menos tiempo, ni él puede anularla ni reembolsarla: queda en manos del administrador, que puede hacerlo en cualquier momento desde aquí.</p></div>
+  <figure class="sm tall"><img src="capturas/a-modal-corregir.jpg" alt=""><figcaption><b>Figura 5.5</b> · Corregir un cobro de PayPal</figcaption></figure>
+  <p>Si devuelves todo, la cita queda pendiente de cobro en el local. En los cobros en el local no existe esta opción.</p>
+
+  <h3>Tickets rectificativos</h3>
+  <p>Cada vez que se devuelve dinero de un cobro con ticket, la app emite sola un <strong>ticket rectificativo</strong>. El ticket original se conserva.</p>
+  <ul>
+    <li><strong>Numeración propia:</strong> <strong>R2026-0001</strong>, R2026-0002… consecutiva y por año, aparte de la de los tickets.</li>
+    <li><strong>Contenido:</strong> el ticket que corrige y su fecha, el motivo, y el importe devuelto con su base e IVA en negativo.</li>
+    <li><strong>Dónde está:</strong> junto al ticket, en la Agenda, en la ficha del cliente y en las citas del propio cliente. Se ve y se descarga en PDF igual.</li>
+    <li>Si la cita no tenía ticket o no se devuelve nada, no se emite.</li>
+  </ul>
+  <figure class="xs"><img src="capturas/a-modal-rectificativo.jpg" alt=""><figcaption><b>Figura 5.6</b> · Ticket rectificativo</figcaption></figure>
 </section>
 
 <!-- ============================================================ 6 -->
@@ -361,7 +383,7 @@
   <h3>Baja y reactivación</h3>
   <p><span class="btn-ref red">Baja</span> desactiva la cuenta y cancela sus citas futuras (con reembolso de las pagadas online). El historial de citas y pagos <strong>se conserva</strong>. Para recuperar la cuenta, filtra por <em>De baja</em> y pulsa <span class="btn-ref">Reactivar</span>.</p>
   <figure class="sm"><img src="capturas/a-modal-baja.jpg" alt=""><figcaption><b>Figura 6.4</b> · Confirmar la baja</figcaption></figure>
-  <div class="note"><p>Al bloquear con cancelación, dar de baja o crear un cierre, las citas <strong>cobradas en efectivo con ticket</strong> no se cancelan automáticamente: la app te avisa de cuántas quedan para que las reembolses y canceles a mano.</p></div>
+  <div class="note"><p>Al bloquear con cancelación, dar de baja, crear un cierre o cancelar una serie, las citas <strong>cobradas en el local</strong> no se cancelan automáticamente: la app te avisa de cuántas quedan para que las canceles una a una.</p></div>
 
   <h3>Ficha del cliente</h3>
   <p>Pulsa <span class="btn-ref">Ver citas</span> en la lista, o el nombre del cliente en cualquier cita, para abrir su ficha:</p>
@@ -369,7 +391,7 @@
     <li><strong>Cabecera:</strong> foto, nombre, email, teléfono, tipo y estado, los recordatorios que recibe, y los botones de WhatsApp y Email.</li>
     <li><strong>Cifras:</strong> citas próximas, pasadas, canceladas, ausencias («No vino»), total pagado y pendiente de cobro.</li>
     <li><strong>Citas:</strong> todas, con filtros <em>Todas, Próximas, Pasadas</em> y <em>Anuladas y no vino</em>. Las próximas aparecen en <span style="color:#2f6fb3;font-weight:600">azul</span> y las pasadas en <span style="color:#9a948f;font-weight:600">gris</span>. Cada una indica si está pagada y con qué método.</li>
-    <li>Desde cada cita puedes cobrar, generar o ver el ticket, reembolsar y apuntar o corregir si el cliente vino, igual que en la Agenda.</li>
+    <li>Desde cada cita puedes cobrar, generar o ver los tickets, corregir un cobro de PayPal y apuntar o corregir si el cliente vino, igual que en la Agenda.</li>
   </ul>
   <figure><img src="capturas/a-ficha.jpg" alt=""><figcaption><b>Figura 6.5</b> · Ficha de un cliente</figcaption></figure>
 </section>
@@ -581,13 +603,15 @@
     <thead><tr><th>Tema</th><th>Regla</th></tr></thead>
     <tbody>
       <tr><td>Antelación del cliente</td><td>Reserva hasta 1 año vista. Cambia o anula hasta 1 hora antes. El administrador, siempre.</td></tr>
-      <tr><td>Pago online</td><td>Queda pagada y con ticket al momento. El cliente la reembolsa y anula él mismo con al menos 1 hora de antelación.</td></tr>
-      <tr><td>Pago en el local</td><td>Se cobra con «Marcar cobrada»; el ticket es opcional en ese momento.</td></tr>
-      <tr><td>Cobrada con ticket</td><td>No se cancela: «Reembolsar» (azul). Efectivo → vuelve a pendiente de cobro. PayPal → anular o mantener.</td></tr>
+      <tr><td>Pago online</td><td>Queda pagada y con ticket al momento. El cliente la cancela con al menos 1 hora de antelación y se le devuelve todo automáticamente.</td></tr>
+      <tr><td>Pago en el local</td><td>Se cobra con «Marcar cobrada»; el ticket es opcional en ese momento. El cobro es definitivo.</td></tr>
+      <tr><td>Cancelar una cita pagada</td><td>Solo antes de que termine. PayPal: devolver todo, una parte o nada. En el local: devolver en mano, y solo la cancelas tú.</td></tr>
+      <tr><td>Realizada y pagada</td><td>No se cancela ni se reembolsa.</td></tr>
       <tr><td>Realizada</td><td>Automático al terminar la hora. Desde entonces no se mueve ni se cancela.</td></tr>
       <tr><td>No vino / Sí vino</td><td>Desde que llega la hora. No si está cobrada en el local; con PayPal, sí. «Sí vino» lo corrige.</td></tr>
       <tr><td>Recordatorios</td><td>Automáticos según Configuración y el perfil del cliente. A mano, con «Email» o «WhatsApp».</td></tr>
-      <tr><td>Deshacer un cobro</td><td>Solo si no tiene ticket. Con ticket, se reembolsa.</td></tr>
+      <tr><td>Corregir cobro</td><td>Solo pagos de PayPal de citas que no han terminado. No cancela la cita.</td></tr>
+      <tr><td>Tickets rectificativos</td><td>Automáticos al devolver un cobro con ticket. Serie RAAAA-NNNN.</td></tr>
       <tr><td>Numeración de tickets</td><td>AAAA-NNNN, consecutiva, común a todas las formas de pago, empieza cada año.</td></tr>
       <tr><td>Historial</td><td>Las citas y los tickets nunca se borran.</td></tr>
     </tbody>
@@ -598,17 +622,17 @@
     <dt>Un cliente ha olvidado su contraseña.</dt>
     <dd>En Usuarios, pulsa <span class="btn-ref">Editar</span> en su cuenta, escribe una contraseña nueva y comunícasela. Él podrá cambiarla en su perfil.</dd>
     <dt>Un cliente quiere anular una cita que pagó en el local.</dt>
-    <dd>Pulsa <span class="btn-ref blue">Reembolsar</span>, devuélvele el dinero en mano y después pulsa <span class="btn-ref red">Cancelar</span>.</dd>
+    <dd>Si la cita aún no ha terminado, pulsa <span class="btn-ref red">Cancelar</span> y deja marcado «Devolver en mano».</dd>
     <dt>Un cliente llama 20 minutos antes para anular una cita pagada con PayPal.</dt>
-    <dd>Él ya no puede hacerlo desde la app. Pulsa <span class="btn-ref blue">Reembolsar</span>, elige el importe (todo o parte, según tu política) y si anulas la cita o la mantienes.</dd>
-    <dt>He marcado como cobrada una cita por error.</dt>
-    <dd>Si no generaste ticket, pulsa <span class="btn-ref">Deshacer cobro</span>. Si ya tiene ticket, usa <span class="btn-ref blue">Reembolsar</span>.</dd>
+    <dd>Él ya no puede hacerlo desde la app. Pulsa <span class="btn-ref red">Cancelar</span> y elige devolver todo, una parte o nada, según tu política.</dd>
+    <dt>A un cliente se le ha cobrado mal por PayPal.</dt>
+    <dd>Pulsa <span class="btn-ref">Corregir cobro</span> en la cita, si aún no ha terminado, y devuelve la diferencia con el motivo.</dd>
     <dt>Un cliente no se presenta.</dt>
     <dd>Cuando llegue la hora, pulsa <span class="btn-ref">No vino</span>. Si se repite, revisa la pestaña Anulaciones y, si lo consideras, bloquéalo temporalmente.</dd>
     <dt>He marcado «No vino» por error.</dt>
     <dd>Pulsa <span class="btn-ref">Sí vino</span> en la Agenda o en la ficha del cliente. La ausencia desaparece del histórico.</dd>
     <dt>No me aparece el botón «No vino».</dt>
-    <dd>Puede que aún no haya llegado la hora o que la cita esté cobrada en el local. En ese caso, deshaz el cobro o reembólsalo antes.</dd>
+    <dd>Puede que aún no haya llegado la hora o que la cita esté cobrada en el local, y entonces se da por hecho que vino.</dd>
     <dt>Un cliente dice que no le llegan los recordatorios.</dt>
     <dd>Comprueba en Configuración que el canal está activado, que lo tiene marcado en su perfil y qué dice la lista de últimos avisos.</dd>
     <dt>Me voy de vacaciones.</dt>

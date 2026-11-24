@@ -124,12 +124,34 @@ model Ticket {
   provider   String // cash, paypal...
   origin     String // SHOP (emitido en la peluquería) | ONLINE (pago del cliente)
   totalCents Int
+  vatPercent Float? // IVA al emitirlo (null solo en tickets antiguos, se rellena al arrancar)
   currency   String    @default("EUR")
   filePath   String // relativa a TICKETS_DIR: 2026/11/2026-0001.pdf
   payments   Payment[]
+  rectifications Rectification[]
 
   @@unique([year, seq])
   @@index([clientId])
+}
+
+// Ticket rectificativo: se emite al devolver (todo o parte de) un cobro con ticket.
+// Serie propia RAAAA-NNNN, consecutiva por año. El ticket original no se modifica.
+model Rectification {
+  id          String   @id @default(cuid())
+  number      String   @unique // p. ej. R2026-0001
+  year        Int
+  seq         Int
+  issuedAt    DateTime @default(now())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id])
+  refundId    String   @unique
+  refund      Refund   @relation(fields: [refundId], references: [id])
+  amountCents Int // importe devuelto (en positivo)
+  reason      String
+  filePath    String // relativa a TICKETS_DIR: 2026/11/R2026-0001.pdf
+
+  @@unique([year, seq])
+  @@index([ticketId])
 }
 
 model Refund {
@@ -141,6 +163,7 @@ model Refund {
   reason           String?
   requestedBy      String // CLIENT | ADMIN | SYSTEM
   createdAt        DateTime @default(now())
+  rectification    Rectification?
 }
 
 // Cierres temporales (vacaciones, festivos, bajas...). Bloquean huecos.

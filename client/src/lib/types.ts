@@ -9,7 +9,7 @@ export interface User {
   avatarUrl: string | null;
 }
 export interface Service { id: string; name: string; priceCents: number; active: boolean; sortOrder: number }
-export interface Refund { id: string; amountCents: number; reason: string | null; requestedBy: string; createdAt: string }
+export interface Refund { id: string; amountCents: number; reason: string | null; requestedBy: string; createdAt: string; rectification?: TicketRef | null }
 export interface Payment {
   id: string; provider: string; amountCents: number; currency: string; refundedCents: number;
   status: 'CREATED' | 'COMPLETED' | 'PARTIALLY_REFUNDED' | 'REFUNDED' | 'FAILED'; refunds: Refund[];
@@ -65,4 +65,5 @@ export interface TicketView {
   lines: { concept: string; detail: string; amountCents: number }[];
   vatPercent: number; baseCents: number | null; vatCents: number | null; totalCents: number; refundedCents: number;
   reference: string | null; footer: string;
+  rectifies: { number: string; issuedAtText: string; reason: string } | null; rectifications: string[];
 }

@@ -8,7 +8,7 @@ import { getProvider } from '../payments/registry.js';
 import { centsToAmount } from '../payments/types.js';
 import { computeSlots, localDate, type Interval } from './availability.js';
 import { getSettings, type Settings } from './settings.js';
-import { issueOnlineTicket } from './tickets.js';
+import { issueOnlineTicket, rectifyRefund } from './tickets.js';
 
 export type Actor = { id: string; role: 'CLIENT' | 'ADMIN' };
 type Tx = Prisma.TransactionClient;
@@ -100,7 +100,7 @@ const fmt = (d: Date, tz: string) =>
 const withRelations = {
   client: { select: { id: true, name: true, email: true, phone: true } },
   service: true,
-  payments: { include: { refunds: true, ticket: { select: { id: true, number: true, issuedAt: true } } } },
+  payments: { include: { refunds: { include: { rectification: { select: { id: true, number: true, issuedAt: true } } } }, ticket: { select: { id: true, number: true, issuedAt: true } } } },
   series: { select: { id: true, intervalDays: true } },
 } as const;
 
@@ -235,79 +235,49 @@ export async function refundPayment(paymentId: string, opts: { amountCents?: num
       data: { refundedCents, status: refundedCents >= payment.amountCents ? 'REFUNDED' : 'PARTIALLY_REFUNDED' },
     }),
   ]);
+  await rectifyRefund(refund.id);
   return refund;
 }
 
-/**
- * Devuelve en mano un cobro en efectivo. El pago queda como reembolsado (se conserva,
- * igual que su ticket) y la cita vuelve a estar pendiente de cobro; ya se puede anular.
- */
-export async function refundCashPayment(appointmentId: string, opts: { reason?: string } = {}) {
-  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: { payments: true } });
-  const p = a.payments.find((x) => x.provider === 'cash' && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(x.status));
-  if (!p) throw badRequest('Esta cita no tiene un cobro en efectivo que reembolsar');
-  const amount = p.amountCents - p.refundedCents;
-  await prisma.$transaction([
-    prisma.refund.create({ data: { paymentId: p.id, amountCents: amount, reason: opts.reason ?? 'Reembolso en efectivo', requestedBy: 'ADMIN' } }),
-    prisma.payment.update({ where: { id: p.id }, data: { status: 'REFUNDED', refundedCents: p.amountCents } }),
-  ]);
-  return { appointment: await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: withRelations }), refundedCents: amount };
-}
+type PaymentLike = { status: string; provider: string };
+const isActivePayment = (p: PaymentLike) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status);
 
 /**
- * Reembolso de un pago online desde el panel. Con `cancel` se anula también la cita
- * (reembolso completo). Si no, y se devuelve todo, la cita sigue en pie pendiente de cobro en el local.
+ * Devuelve desde el panel un pago online sin cancelar la cita:
+ * - «No vino»: el administrador decide devolver todo o parte;
+ * - «Corregir cobro» de una cita que aún no ha terminado (p. ej. cobro duplicado o importe
+ *   equivocado), con motivo. Si se devuelve todo, la cita sigue en pie y se cobrará en el local.
+ * Las citas ya realizadas no se reembolsan.
  */
-export async function refundOnlineAppointment(
-  actor: Actor,
-  appointmentId: string,
-  opts: { amountCents?: number; reason?: string; cancel: boolean; notify?: boolean },
-) {
-  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: { payments: true } });
-  const p = a.payments.find((x) => x.providerCaptureId && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(x.status));
+export async function refundWithoutCancel(appointmentId: string, opts: { amountCents?: number; reason?: string }) {
+  const settings = await getSettings();
+  const a = await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: withRelations });
+  const correcting = a.status === 'CONFIRMED' && a.endAt > new Date();
+  if (!correcting && a.status !== 'NO_SHOW') throw badRequest('Las citas realizadas o canceladas no se reembolsan');
+  if (correcting && !opts.reason?.trim()) throw badRequest('Indica el motivo de la corrección');
+  const p = a.payments.find((x) => x.providerCaptureId && isActivePayment(x));
   if (!p) throw badRequest('Esta cita no tiene un pago online que reembolsar');
-  const remaining = p.amountCents - p.refundedCents;
-  if (opts.cancel) {
-    if (opts.amountCents !== undefined && opts.amountCents !== remaining) throw badRequest('Para anular la cita el reembolso debe ser completo');
-    const r = await cancelAppointment(actor, appointmentId, { reason: opts.reason, refund: true, notify: opts.notify });
-    return { appointment: r.appointment, refundedCents: r.refundedCents };
-  }
-  const refund = await refundPayment(p.id, { amountCents: opts.amountCents, reason: opts.reason, requestedBy: 'ADMIN' });
-  if (refund.amountCents === remaining && ['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status)) {
-    // Devuelto entero sin anular: la cita se cobrará en el local.
-    await prisma.appointment.update({ where: { id: appointmentId }, data: { paymentMethod: 'cash' } });
-  }
+  const refund = await refundPayment(p.id, { amountCents: opts.amountCents, reason: opts.reason?.trim() || 'Devolución del importe', requestedBy: 'ADMIN' });
+  const full = p.refundedCents + refund.amountCents >= p.amountCents;
+  if (correcting && full) await prisma.appointment.update({ where: { id: appointmentId }, data: { paymentMethod: 'cash' } });
+  sendEmailSafe(
+    a.client.email,
+    'Reembolso de tu cita',
+    `Hola ${a.client.name},\n\nTe hemos devuelto ${centsToAmount(refund.amountCents)} ${settings.currency} de tu cita del ${fmt(a.startAt, settings.timezone)} a la cuenta con la que pagaste. Puede tardar unos días en aparecer.${opts.reason ? `\nMotivo: ${opts.reason}` : ''}${correcting ? `\n\nTu cita sigue en pie.${full ? ' Pagarás en el local.' : ''}` : ''}`,
+  );
   return { appointment: await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId }, include: withRelations }), refundedCents: refund.amountCents };
 }
 
-/** Pago cobrado (sin devolver del todo) que ya tiene ticket emitido. */
-export const ticketedPayment = (a: { payments: { status: string; ticketId: string | null; provider: string; providerCaptureId: string | null }[] }) =>
-  a.payments.find((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status) && p.ticketId) ?? null;
-
 /**
- * Una cita cobrada con ticket no se cancela sin más:
- * - en efectivo, primero hay que reembolsar el cobro (queda pendiente de cobro y ya se puede anular);
- * - online, solo se anula reembolsando el pago a la vez.
+ * Cancela una cita. Si está pagada online se devuelve el dinero a la vez: el cliente siempre
+ * recibe todo; el administrador puede devolver una parte (`refundCents`) o nada (`refund: false`).
+ * Si está cobrada en el local solo la cancela el administrador a propósito (`allowCashPaid`),
+ * devolviendo el dinero en mano; las cancelaciones en bloque se la saltan.
  */
-function assertCancellable(a: Parameters<typeof ticketedPayment>[0], role: Actor['role'] | 'SYSTEM', refund: boolean) {
-  const p = ticketedPayment(a);
-  if (!p) return;
-  const online = !!p.providerCaptureId;
-  if (!online) {
-    throw conflict(
-      role === 'CLIENT'
-        ? 'Esta cita ya está cobrada en el local y tiene ticket. Para anularla, habla con la peluquería.'
-        : 'La cita está cobrada y tiene ticket: primero reembolsa el cobro y después podrás cancelarla.',
-      'PAID_WITH_TICKET',
-    );
-  }
-  if (!refund) throw conflict('Una cita pagada online con ticket solo se puede anular reembolsando el pago.', 'PAID_WITH_TICKET');
-}
-
 export async function cancelAppointment(
   actor: Actor | { id: null; role: 'SYSTEM' },
   id: string,
-  opts: { reason?: string; refund?: boolean; notify?: boolean } = {},
+  opts: { reason?: string; refund?: boolean; refundCents?: number; notify?: boolean; allowCashPaid?: boolean } = {},
 ) {
   const settings = await getSettings();
   const a =
@@ -315,16 +285,47 @@ export async function cancelAppointment(
       ? await prisma.appointment.findUniqueOrThrow({ where: { id }, include: withRelations })
       : await loadForActor(actor as Actor, id);
   if (!['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status)) throw badRequest('La cita ya no está activa');
+  if (a.endAt <= new Date()) throw badRequest('La cita ya ha terminado y no se puede cancelar');
   if (actor.role === 'CLIENT') assertClientNotice(settings, a.startAt, 'cancelar');
 
   // El cliente siempre recibe reembolso completo; admin/sistema deciden (por defecto sí).
   const doRefund = actor.role === 'CLIENT' ? true : opts.refund ?? true;
-  assertCancellable(a, actor.role, doRefund);
+  const cashPaid = a.payments.filter((p) => p.provider === 'cash' && isActivePayment(p));
+  if (cashPaid.length && !opts.allowCashPaid) {
+    throw conflict(
+      actor.role === 'CLIENT'
+        ? 'Esta cita ya está cobrada en el local. Para cancelarla, habla con la peluquería.'
+        : 'La cita está cobrada en el local: cancélala desde la Agenda para devolver el dinero en mano.',
+      'PAID_IN_SHOP',
+    );
+  }
+  const online = a.payments.filter((p) => p.providerCaptureId && isActivePayment(p));
+  if (opts.refundCents !== undefined && online.length !== 1) throw badRequest('Esta cita no tiene un pago online que devolver');
   let refundedCents = 0;
   if (doRefund) {
-    for (const p of a.payments.filter((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status) && p.providerCaptureId)) {
-      const r = await refundPayment(p.id, { reason: opts.reason ?? 'Cancelación de cita', requestedBy: actor.role });
-      refundedCents += r.amountCents;
+    // Primero se devuelve el dinero: si PayPal falla, la cita no se cancela.
+    for (const p of online) {
+      try {
+        const r = await refundPayment(p.id, { amountCents: opts.refundCents, reason: opts.reason ?? 'Cancelación de cita', requestedBy: actor.role });
+        refundedCents += r.amountCents;
+      } catch (e) {
+        if (e instanceof HttpError && e.status < 500) throw e;
+        console.error('[reembolso]', e);
+        throw new HttpError(502, actor.role === 'CLIENT'
+          ? 'No hemos podido devolverte el dinero, así que la cita no se ha cancelado. Inténtalo de nuevo o llama a la peluquería.'
+          : `No se ha podido devolver el dinero, así que la cita no se ha cancelado. ${e instanceof Error ? e.message : ''}`.trim(), 'REFUND_FAILED');
+      }
+    }
+  }
+  const returnedCash = doRefund ? cashPaid : [];
+  const cashCents = returnedCash.reduce((n, p) => n + p.amountCents - p.refundedCents, 0);
+  if (returnedCash.length) {
+    for (const p of returnedCash) {
+      const [refund] = await prisma.$transaction([
+        prisma.refund.create({ data: { paymentId: p.id, amountCents: p.amountCents - p.refundedCents, reason: opts.reason ?? 'Cancelación de cita', requestedBy: actor.role } }),
+        prisma.payment.update({ where: { id: p.id }, data: { status: 'REFUNDED', refundedCents: p.amountCents } }),
+      ]);
+      await rectifyRefund(refund.id);
     }
   }
 
@@ -335,7 +336,8 @@ export async function cancelAppointment(
   });
 
   if (a.status === 'CONFIRMED' && opts.notify !== false) {
-    const refundText = refundedCents ? `\nTe hemos devuelto ${centsToAmount(refundedCents)} ${settings.currency}. Puede tardar unos días en aparecer.` : '';
+    const refundText = (refundedCents ? `\nTe hemos devuelto ${centsToAmount(refundedCents)} ${settings.currency} a la cuenta con la que pagaste. Puede tardar unos días en aparecer.` : '')
+      + (cashCents ? `\nTe devolvemos ${centsToAmount(cashCents)} ${settings.currency} en mano.` : '');
     const who = actor.role === 'CLIENT' ? 'Has cancelado' : 'La peluquería ha cancelado';
     sendEmailSafe(
       a.client.email,
@@ -343,7 +345,7 @@ export async function cancelAppointment(
       `Hola ${a.client.name},\n\n${who} tu cita del ${fmt(a.startAt, settings.timezone)}.${opts.reason && actor.role !== 'CLIENT' ? `\nMotivo: ${opts.reason}` : ''}${refundText}`,
     );
   }
-  return { appointment: cancelled, refundedCents };
+  return { appointment: cancelled, refundedCents, cashRefundedCents: cashCents };
 }
 
 /** Libera los huecos de pagos online que no se completaron a tiempo. */
@@ -665,7 +667,7 @@ export async function cancelSeries(actor: Actor, seriesId: string, opts: { fromA
     try {
       r = await cancelAppointment(actor, a.id, { reason: opts.reason, refund: opts.refund, notify: false });
     } catch (e) {
-      if (isPaidWithTicket(e)) { skipped++; continue; } // cobrada con ticket: se deja como está
+      if (isPaidInShop(e)) { skipped++; continue; } // cobrada en el local: se deja como está
       throw e;
     }
     refundedCents += r.refundedCents;
@@ -684,6 +686,6 @@ export async function cancelSeries(actor: Actor, seriesId: string, opts: { fromA
   return { cancelled: appts.length - skipped, skipped, refundedCents };
 }
 
-export const isPaidWithTicket = (e: unknown) => e instanceof HttpError && e.code === 'PAID_WITH_TICKET';
+export const isPaidInShop = (e: unknown) => e instanceof HttpError && e.code === 'PAID_IN_SHOP';
 
 export { withRelations };

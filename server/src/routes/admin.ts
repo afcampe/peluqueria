@@ -14,7 +14,7 @@ import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
-import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidWithTicket, previewSeries, refundCashPayment, refundOnlineAppointment, refundPayment, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidInShop, previewSeries, refundWithoutCancel, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
 import { getSettings, saveSettings } from '../services/settings.js';
 import { issueTicket } from '../services/tickets.js';
@@ -105,13 +105,6 @@ adminRouter.post('/appointments/:id/mark-paid', h(async (req, res) => {
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: a.id }, include: withRelations }));
 }));
 
-adminRouter.post('/appointments/:id/unmark-paid', h(async (req, res) => {
-  const ticketed = await prisma.payment.findFirst({ where: { appointmentId: req.params.id, provider: 'cash', ticketId: { not: null } }, include: { ticket: true } });
-  if (ticketed) throw conflict(`El cobro ya tiene el ticket ${ticketed.ticket!.number} y no se puede deshacer (la numeración debe ser consecutiva).`, 'TICKET_EXISTS');
-  await prisma.payment.deleteMany({ where: { appointmentId: req.params.id, provider: 'cash', refundedCents: 0 } });
-  res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
-}));
-
 /** Emite el ticket de una cita ya cobrada (en el local u online) que aún no lo tenga. */
 adminRouter.post('/appointments/:id/ticket', h(async (req, res) => {
   const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: { payments: true } });
@@ -151,35 +144,26 @@ adminRouter.patch('/appointments/:id', h(async (req, res) => {
     if (a.status === 'CANCELLED' || a.status === 'PENDING_PAYMENT') throw badRequest('No se puede cambiar el estado de esta cita');
     if (data.status === 'NO_SHOW' && a.startAt > new Date()) throw badRequest('La hora de la cita aún no ha llegado');
     if (data.status === 'NO_SHOW' && a.payments.some((p) => p.provider === 'cash' && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status)))
-      throw badRequest('La cita está cobrada en el local. Si fue un error, deshaz el cobro o reembólsalo antes de marcar que no vino');
-    await prisma.appointment.update({ where: { id: a.id }, data: { status: data.status } });
+      throw badRequest('La cita está cobrada en el local, así que el cliente vino');
+    // Si al final vino y ya se le había devuelto el pago online, se cobra en el local.
+    const refunded = a.paymentMethod !== 'cash' && a.payments.some((p) => p.status === 'REFUNDED') && !a.payments.some((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
+    await prisma.appointment.update({ where: { id: a.id }, data: { status: data.status, ...(data.status === 'CONFIRMED' && refunded && { paymentMethod: 'cash' }) } });
   }
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
 }));
 
 adminRouter.post('/appointments/:id/cancel', h(async (req, res) => {
-  const opts = z.object({ reason: z.string().max(300).optional(), refund: z.boolean().default(true), notify: z.boolean().default(true) }).parse(req.body ?? {});
-  res.json(await cancelAppointment(ADMIN(req), req.params.id, opts));
-}));
-
-/** Reembolso de un cobro en efectivo (se devuelve en mano). La cita queda pendiente de cobro. */
-adminRouter.post('/appointments/:id/refund-cash', h(async (req, res) => {
-  const { reason } = z.object({ reason: z.string().max(255).optional() }).parse(req.body ?? {});
-  res.json(await refundCashPayment(req.params.id, { reason }));
-}));
-
-/** Reembolso de un pago online (PayPal), con o sin anular la cita. */
-adminRouter.post('/appointments/:id/refund', h(async (req, res) => {
   const opts = z.object({
-    amountCents: z.number().int().positive().optional(), reason: z.string().max(255).optional(),
-    cancel: z.boolean().default(true), notify: z.boolean().default(true),
+    reason: z.string().max(300).optional(), refund: z.boolean().default(true),
+    refundCents: z.number().int().positive().optional(), notify: z.boolean().default(true),
   }).parse(req.body ?? {});
-  res.json(await refundOnlineAppointment(ADMIN(req), req.params.id, opts));
+  res.json(await cancelAppointment(ADMIN(req), req.params.id, { ...opts, allowCashPaid: true }));
 }));
 
-adminRouter.post('/payments/:id/refund', h(async (req, res) => {
-  const { amountCents, reason } = z.object({ amountCents: z.number().int().positive().optional(), reason: z.string().max(255).optional() }).parse(req.body ?? {});
-  res.json(await refundPayment(req.params.id, { amountCents, reason, requestedBy: 'ADMIN' }));
+/** Devuelve (todo o parte) un pago online sin cancelar: «No vino» o «Corregir cobro» de una cita próxima. */
+adminRouter.post('/appointments/:id/refund', h(async (req, res) => {
+  const opts = z.object({ amountCents: z.number().int().positive().optional(), reason: z.string().max(255).optional() }).parse(req.body ?? {});
+  res.json(await refundWithoutCancel(req.params.id, opts));
 }));
 
 // ---------------------------------------------------------------- Usuarios
@@ -263,7 +247,7 @@ async function cancelMany(req: Parameters<typeof actor>[0], ids: string[], reaso
       await cancelAppointment(ADMIN(req), id, { reason, refund: true });
       cancelled++;
     } catch (e) {
-      if (!isPaidWithTicket(e)) throw e;
+      if (!isPaidInShop(e)) throw e;
       skippedPaid++;
     }
   }

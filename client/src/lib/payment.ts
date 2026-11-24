@@ -25,24 +25,27 @@ export function paymentInfo(a: Appointment): { kind: PaymentKind; label: string;
   return { kind: 'unpaid', label: refunded ? `${pending} · reembolsados ${money(refunded)}` : pending, method };
 }
 
-/** Pago online reembolsable por la plataforma (el efectivo se devuelve a mano). */
+/** Pago online vigente: al cancelar la cita se devuelve por la plataforma (el efectivo, en mano). */
 export const onlinePayment = (a: Appointment): Payment | undefined =>
   a.payments.find((p) => p.provider !== 'cash' && ACTIVE.includes(p.status));
 
 export const cashPayment = (a: Appointment) => a.payments.find((p) => p.provider === 'cash' && p.status === 'COMPLETED');
 
-/**
- * Pago vigente con ticket emitido. Mientras exista, la cita no se cancela:
- * se reembolsa (en efectivo queda pendiente de cobro; online se anula a la vez).
- */
-export const ticketedPayment = (a: Appointment) => a.payments.find((p) => ACTIVE.includes(p.status) && p.ticket);
+/** Pago vigente con ticket emitido. */
+const ticketedPayment = (a: Appointment) => a.payments.find((p) => ACTIVE.includes(p.status) && p.ticket);
 
 /** Ticket vigente de la cita (o el último emitido, si se reembolsó). */
 export const ticketOf = (a: Appointment) => (ticketedPayment(a) ?? a.payments.find((p) => p.ticket))?.ticket ?? null;
 
-/** Todos los tickets de la cita, indicando los de cobros ya reembolsados. */
-export const ticketsOf = (a: Appointment): (TicketRef & { refunded: boolean })[] =>
-  a.payments.filter((p) => p.ticket).map((p) => ({ ...p.ticket!, refunded: p.status === 'REFUNDED' }));
+/** Todos los tickets de la cita (indicando los de cobros ya reembolsados) y sus rectificativos. */
+export const ticketsOf = (a: Appointment): (TicketRef & { refunded: boolean; rectification?: boolean })[] =>
+  a.payments.filter((p) => p.ticket).flatMap((p) => [
+    { ...p.ticket!, refunded: p.status === 'REFUNDED' },
+    ...p.refunds.flatMap((r) => (r.rectification ? [{ ...r.rectification, refunded: false, rectification: true }] : [])),
+  ]);
+
+/** Pago online que el administrador puede corregir sin cancelar: solo si la cita no ha terminado. */
+export const canCorrectCharge = (a: Appointment) => a.status === 'CONFIRMED' && new Date(a.endAt) > new Date() && !!onlinePayment(a);
 
 /** Pago cobrado (sin devoluciones) que aún no tiene ticket. */
 export const canIssueTicket = (a: Appointment) => a.payments.some((p) => p.status === 'COMPLETED' && !p.ticket);

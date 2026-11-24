@@ -5,7 +5,7 @@ import { SlotPicker } from '../../components/SlotPicker';
 import { TicketButtons } from '../../components/TicketButton';
 import { Link } from 'react-router-dom';
 import { Alert, Badge, ErrorAlert, Modal, Spinner, errMsg } from '../../components/ui';
-import { canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
+import { canCorrectCharge, canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketsOf } from '../../lib/payment';
 import { api } from '../../lib/api';
 import { addDays, addMonths, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, shownStatus, statusLabel, time, weekLabel } from '../../lib/format';
 import { useSession } from '../../lib/session';
@@ -19,7 +19,7 @@ const waUrl = (phone: string | null, text: string) => {
 };
 
 type View = 'list' | 'week' | 'month';
-type ModalState = { kind: 'new' | 'move' | 'cancel' | 'refund' | 'refundCash' | 'cash' | 'detail'; appt?: Appointment };
+type ModalState = { kind: 'new' | 'move' | 'cancel' | 'refund' | 'cash' | 'detail'; appt?: Appointment };
 const VIEW_KEY = 'pa_agenda_view';
 const readView = (): View => { try { const v = localStorage.getItem(VIEW_KEY); return v === 'week' || v === 'month' ? v : 'list'; } catch { return 'list'; } };
 
@@ -60,9 +60,6 @@ export function Agenda() {
     open: (kind, a) => setModal({ kind, appt: a }),
     setStatus: async (a, s) => {
       try { await api.patch(`/admin/appointments/${a.id}`, { status: s }); done(s === 'NO_SHOW' ? `Apuntado: ${a.client.name} no vino` : `Corregido: ${a.client.name} sí vino`); } catch (e) { setError(errMsg(e)); }
-    },
-    undoCash: async (a) => {
-      try { await api.post(`/admin/appointments/${a.id}/unmark-paid`); done('Cobro deshecho'); } catch (e) { setError(errMsg(e)); }
     },
     issueTicket: async (a) => {
       try {
@@ -163,7 +160,6 @@ export function Agenda() {
       {modal?.kind === 'move' && <MoveModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'cancel' && <CancelModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'refund' && <OnlineRefundModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
-      {modal?.kind === 'refundCash' && <CashRefundModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'cash' && <CashModal appt={modal.appt!} onClose={() => setModal(null)} onDone={done} />}
     </div>
   );
@@ -172,9 +168,8 @@ export function Agenda() {
 // ================================================================ Tarjeta de cita
 
 interface CardActions {
-  open: (kind: 'move' | 'cancel' | 'refund' | 'refundCash' | 'cash', a: Appointment) => void;
+  open: (kind: 'move' | 'cancel' | 'refund' | 'cash', a: Appointment) => void;
   setStatus: (a: Appointment, s: string) => void;
-  undoCash: (a: Appointment) => void;
   issueTicket: (a: Appointment) => void;
 }
 
@@ -189,8 +184,6 @@ function DayList({ day, appts, act }: { day: string; appts: Appointment[]; act: 
 
 function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
   const pay = paymentInfo(a);
-  const ticket = ticketOf(a);
-  const locked = ticketedPayment(a); // cobrada con ticket: se reembolsa en lugar de cancelar
   const online = onlinePayment(a);
   const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(shownStatus(a)); // las ya terminadas no se mueven ni se cancelan
   const wa = waUrl(a.client.phone, `Hola ${a.client.name}, te escribimos de la peluquería por tu cita del ${dateShort(a.startAt)} a las ${time(a.startAt)}.`);
@@ -212,19 +205,13 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
         {a.paymentMethod === 'cash' && !['CANCELLED', 'NO_SHOW'].includes(a.status) && !cashPayment(a) && (
           <button className="btn btn-sm" onClick={() => act.open('cash', a)}>Marcar cobrada</button>
         )}
-        {cashPayment(a) && !ticket && <button className="btn btn-sm" onClick={() => act.undoCash(a)}>Deshacer cobro</button>}
         <TicketButtons tickets={ticketsOf(a)} />
         {canIssueTicket(a) && (
           <button className="btn btn-sm btn-ticket" onClick={() => act.issueTicket(a)}><IconTicket size={16} /> Generar ticket</button>
         )}
-        {locked ? (
-          <button className="btn btn-sm btn-refund" onClick={() => act.open(locked.provider === 'cash' ? 'refundCash' : 'refund', a)}>Reembolsar</button>
-        ) : (
-          <>
-            {online && <button className="btn btn-sm btn-refund" onClick={() => act.open('refund', a)}>Reembolsar</button>}
-            {active && <button className="btn btn-sm btn-danger" onClick={() => act.open('cancel', a)}>Cancelar</button>}
-          </>
-        )}
+        {a.status === 'NO_SHOW' && online && <button className="btn btn-sm btn-refund" onClick={() => act.open('refund', a)}>Reembolsar</button>}
+        {canCorrectCharge(a) && <button className="btn btn-sm" onClick={() => act.open('refund', a)}>Corregir cobro</button>}
+        {active && <button className="btn btn-sm btn-danger" onClick={() => act.open('cancel', a)}>Cancelar</button>}
         {wa && <a className="btn btn-sm btn-wa" href={wa} target="_blank" rel="noreferrer">WhatsApp</a>}
         <EmailReminderButton appointmentId={a.id} disabledReason={!a.client.email ? 'El cliente no tiene email'
           : a.status !== 'CONFIRMED' || new Date(a.startAt) <= new Date() ? 'Solo para citas confirmadas que aún no han pasado' : undefined} />
@@ -367,7 +354,7 @@ export function CashModal({ appt, onClose, onDone }: { appt: Appointment; onClos
       <p className="total">{money(appt.priceCents)} en efectivo</p>
       <Alert>{error}</Alert>
       <label className="check"><input type="checkbox" checked={ticket} onChange={(e) => setTicket(e.target.checked)} /> Generar ticket de compra</label>
-      <p className="muted small">El ticket recibe el siguiente número de la serie del año y el cliente lo podrá descargar desde sus citas. Una vez emitido, el cobro ya no se puede deshacer.</p>
+      <p className="muted small">El ticket recibe el siguiente número de la serie del año y el cliente lo podrá descargar desde sus citas. El cobro es definitivo: no se puede deshacer.</p>
       <button className="btn btn-primary" disabled={busy} onClick={async () => {
         setBusy(true);
         try {
@@ -462,58 +449,74 @@ function MoveModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () =
 function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
   const paid = onlinePayment(appt);
   const cash = cashPayment(appt);
+  const max = paid ? paid.amountCents - paid.refundedCents : 0;
   const [reason, setReason] = useState('');
-  const [refund, setRefund] = useState(true);
+  const [mode, setMode] = useState<'full' | 'part' | 'none'>('full');
+  const [amount, setAmount] = useState((max / 100).toFixed(2));
   const [notify, setNotify] = useState(true);
   const [wholeSeries, setWholeSeries] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const cents = Math.round(Number(amount.replace(',', '.')) * 100);
+  const part = mode === 'part' && !wholeSeries;
+  const badAmount = part && !(cents > 0 && cents <= max);
   return (
     <Modal title="Cancelar cita" onClose={onClose}>
       <p>{appt.client.name} — {dateShort(appt.startAt)} {time(appt.startAt)}</p>
       <Alert>{error}</Alert>
       <label>Motivo (se incluye en el email)<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-      {paid && <label className="check"><input type="checkbox" checked={refund} onChange={(e) => setRefund(e.target.checked)} /> Reembolsar {money(paid.amountCents - paid.refundedCents)} por {methodLabel(paid.provider)}</label>}
-      {cash && <p className="muted small">Esta cita se cobró en el local ({money(cash.amountCents)}): si hay que devolverlo, hazlo en mano.</p>}
+      {paid && (
+        <fieldset className="radio-group">
+          <legend>Pagada por {methodLabel(paid.provider)}: {money(max)}{paid.payerEmail && ` (${paid.payerEmail})`}</legend>
+          <label className="check"><input type="radio" name="refund" checked={mode === 'full'} onChange={() => setMode('full')} /> Devolver todo ({money(max)})</label>
+          {!wholeSeries && <label className="check"><input type="radio" name="refund" checked={mode === 'part'} onChange={() => setMode('part')} /> Devolver otra cantidad</label>}
+          {part && <label>Importe a devolver (máx. {money(max)})<input type="number" step="0.01" min="0.01" max={max / 100} value={amount} onChange={(e) => setAmount(e.target.value)} /></label>}
+          <label className="check"><input type="radio" name="refund" checked={mode === 'none'} onChange={() => setMode('none')} /> No devolver nada</label>
+          <p className="muted small">{mode === 'none' ? 'El cliente no recibirá ningún reembolso.' : `El dinero vuelve automáticamente a la cuenta de ${methodLabel(paid.provider)} con la que pagó.${paid.ticket ? ' Se emitirá un ticket rectificativo.' : ''}`}</p>
+        </fieldset>
+      )}
+      {cash && (
+        wholeSeries
+          ? <Alert kind="info">Las citas cobradas en el local no se cancelan con la serie: cancélalas una a una.</Alert>
+          : <label className="check"><input type="checkbox" checked={mode !== 'none'} onChange={(e) => setMode(e.target.checked ? 'full' : 'none')} /> Devolver {money(cash.amountCents - cash.refundedCents)} en mano (se cobró en el local){cash.ticket && mode !== 'none' && '. Se emitirá un ticket rectificativo'}</label>
+      )}
       <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar al cliente por email</label>
       {appt.series && (
-        <label className="check"><input type="checkbox" checked={wholeSeries} onChange={(e) => setWholeSeries(e.target.checked)} /> Cancelar también las siguientes citas de esta serie (cada {appt.series.intervalDays} días)</label>
+        <label className="check"><input type="checkbox" checked={wholeSeries} onChange={(e) => { setWholeSeries(e.target.checked); if (mode === 'part') setMode('full'); }} /> Cancelar también las siguientes citas de esta serie (cada {appt.series.intervalDays} días)</label>
       )}
-      <button className="btn btn-danger" disabled={busy} onClick={async () => {
-        setBusy(true);
+      <button className="btn btn-danger" disabled={busy || badAmount} onClick={async () => {
+        setBusy(true); setError('');
         try {
-          const body = { reason: reason || undefined, refund, notify };
+          const body = { reason: reason || undefined, refund: mode !== 'none', notify };
           if (wholeSeries && appt.series) {
-            const r = await api.post<{ cancelled: number; refundedCents: number }>(`/admin/series/${appt.series.id}/cancel`, { ...body, fromAppointmentId: appt.id });
-            onDone(`${r.cancelled} cita(s) cancelada(s)${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.`);
+            const r = await api.post<{ cancelled: number; skipped: number; refundedCents: number }>(`/admin/series/${appt.series.id}/cancel`, { ...body, fromAppointmentId: appt.id });
+            onDone(`${r.cancelled} cita(s) cancelada(s)${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.${r.skipped ? ` ${r.skipped} cobrada(s) en el local siguen activas.` : ''}`);
           } else {
-            const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/cancel`, body);
-            onDone(`Cita cancelada${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.`);
+            const r = await api.post<{ refundedCents: number; cashRefundedCents: number }>(`/admin/appointments/${appt.id}/cancel`, { ...body, ...(part && { refundCents: cents }) });
+            onDone(`Cita cancelada${r.refundedCents ? ` y ${money(r.refundedCents)} reembolsados` : ''}.${r.cashRefundedCents ? ` Devuelve ${money(r.cashRefundedCents)} en mano.` : ''}`);
           }
         } catch (e) { setError(errMsg(e)); setBusy(false); }
-      }}>{wholeSeries ? 'Cancelar esta y las siguientes' : 'Cancelar cita'}</button>
+      }}>{busy ? 'Cancelando…' : wholeSeries ? 'Cancelar esta y las siguientes' : paid && mode !== 'none' && !badAmount ? `Cancelar y devolver ${money(part ? cents : max)}` : 'Cancelar cita'}</button>
     </Modal>
   );
 }
 
-/** Reembolso de un pago online: muestra los datos del pago en PayPal y si se anula o no la cita. */
+/** Devuelve un pago online sin cancelar la cita: «No vino» o «Corregir cobro» (con motivo) en una cita próxima. */
 export function OnlineRefundModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
   const payment = onlinePayment(appt)!;
   const max = payment.amountCents - payment.refundedCents;
-  const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(appt.status);
+  const correcting = appt.status !== 'NO_SHOW';
   const [amount, setAmount] = useState((max / 100).toFixed(2));
-  const [cancel, setCancel] = useState(active);
-  const [notify, setNotify] = useState(true);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const cents = Math.round(Number(amount.replace(',', '.')) * 100);
-  const full = cents === max;
   const when = payment.capturedAt ? `${dateShort(payment.capturedAt)} ${time(payment.capturedAt)}` : null;
 
   return (
-    <Modal title={`Reembolsar por ${methodLabel(payment.provider)}`} onClose={onClose}>
-      <p><strong>{appt.client.name}</strong> — {appt.service.name}, {dateShort(appt.startAt)} {time(appt.startAt)}</p>
+    <Modal title={correcting ? 'Corregir cobro' : `Reembolsar por ${methodLabel(payment.provider)}`} onClose={onClose}>
+      <p><strong>{appt.client.name}</strong> — {appt.service.name}, {dateShort(appt.startAt)} {time(appt.startAt)}{!correcting && ' · no vino'}</p>
+      {correcting && <Alert kind="info">Para errores del cobro online (duplicado, importe equivocado…). La cita no se cancela{cents === max ? ' y quedará pendiente de cobro en el local' : ''}. Si el cliente no va a venir, usa Cancelar.</Alert>}
       <dl className="payment-data">
         <dt>Pagado</dt><dd>{money(payment.amountCents)}{when && ` el ${when}`}</dd>
         {payment.refundedCents > 0 && <><dt>Ya reembolsado</dt><dd>{money(payment.refundedCents)}</dd></>}
@@ -526,51 +529,15 @@ export function OnlineRefundModal({ appt, onClose, onDone }: { appt: Appointment
       <label>Importe a devolver (máx. {money(max)})
         <input type="number" step="0.01" min="0.01" max={max / 100} value={amount} onChange={(e) => setAmount(e.target.value)} />
       </label>
-      {active && (
-        <fieldset className="radio-group">
-          <legend>Después del reembolso</legend>
-          <label className="check"><input type="radio" name="after" checked={cancel} disabled={!full} onChange={() => setCancel(true)} /> Anular la cita y liberar la hora</label>
-          <label className="check"><input type="radio" name="after" checked={!cancel} onChange={() => setCancel(false)} /> Mantener la cita{full ? ', pendiente de cobro en el local' : ''}</label>
-          {!full && <p className="muted small">Con un reembolso parcial la cita se mantiene.</p>}
-        </fieldset>
-      )}
-      <label>Nota para el cliente<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-      {cancel && full && active && <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar al cliente por email</label>}
-      <p className="muted small">El dinero se devuelve a la cuenta de {methodLabel(payment.provider)} con la que se pagó. El ticket se conserva y queda marcado como reembolsado.</p>
-      <button className="btn btn-refund" disabled={busy || !(cents > 0 && cents <= max)} onClick={async () => {
+      <label>{correcting ? 'Motivo (obligatorio; lo verá el cliente)' : 'Nota para el cliente'}<input value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+      <p className="muted small">El dinero se devuelve a la cuenta de {methodLabel(payment.provider)} con la que se pagó.{payment.ticket && ' Se emitirá un ticket rectificativo.'}</p>
+      <button className="btn btn-refund" disabled={busy || !(cents > 0 && cents <= max) || (correcting && !reason.trim())} onClick={async () => {
         setBusy(true); setError('');
         try {
-          const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/refund`, {
-            amountCents: cents, reason: reason || undefined, cancel: active && cancel && full, notify,
-          });
-          onDone(`Reembolsados ${money(r.refundedCents)} a ${appt.client.name}${active && cancel && full ? ' y cita anulada' : ''}.`);
+          const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/refund`, { amountCents: cents, reason: reason.trim() || undefined });
+          onDone(`Reembolsados ${money(r.refundedCents)} a ${appt.client.name}.`);
         } catch (e) { setError(errMsg(e)); setBusy(false); }
-      }}>{busy ? 'Reembolsando…' : `Reembolsar ${cents > 0 ? money(cents) : ''}${active && cancel && full ? ' y anular' : ''}`}</button>
-    </Modal>
-  );
-}
-
-/** Devolución en mano de un cobro en efectivo: la cita vuelve a quedar pendiente de cobro. */
-export function CashRefundModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
-  const p = ticketedPayment(appt) ?? cashPayment(appt)!;
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  return (
-    <Modal title="Reembolsar cobro en efectivo" onClose={onClose}>
-      <p>¿Seguro que quieres reembolsar <strong>{money(p.amountCents - p.refundedCents)}</strong> a <strong>{appt.client.name}</strong>?</p>
-      <p className="muted">{appt.service.name}, {dateShort(appt.startAt)} {time(appt.startAt)}{p.ticket && ` · ticket ${p.ticket.number}`}</p>
-      <p className="muted small">Entrega el dinero en mano. La cita quedará como no cobrada y pendiente de cobro, y ya se podrá cancelar. El ticket se conserva marcado como reembolsado.</p>
-      <Alert>{error}</Alert>
-      <div className="ticket-actions">
-        <button className="btn btn-refund" disabled={busy} onClick={async () => {
-          setBusy(true);
-          try {
-            const r = await api.post<{ refundedCents: number }>(`/admin/appointments/${appt.id}/refund-cash`);
-            onDone(`Reembolsados ${money(r.refundedCents)} en efectivo a ${appt.client.name}. La cita queda pendiente de cobro.`);
-          } catch (e) { setError(errMsg(e)); setBusy(false); }
-        }}>{busy ? 'Reembolsando…' : 'Sí, reembolsar'}</button>
-        <button className="btn" onClick={onClose}>No</button>
-      </div>
+      }}>{busy ? 'Devolviendo…' : `${correcting ? 'Devolver' : 'Reembolsar'} ${cents > 0 ? money(cents) : ''}`}</button>
     </Modal>
   );
 }

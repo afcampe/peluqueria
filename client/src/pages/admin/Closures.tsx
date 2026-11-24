@@ -24,7 +24,7 @@ export function Closures() {
         reason: f.reason || undefined,
         cancelAppointments: f.cancelAppointments,
       });
-      const paidNote = r.skippedPaid ? ` ${r.skippedPaid} cita(s) cobradas en el local con ticket siguen activas: reembólsalas desde la Agenda y luego cancélalas.` : '';
+      const paidNote = r.skippedPaid ? ` ${r.skippedPaid} cita(s) cobradas en el local siguen activas: cancélalas desde la Agenda.` : '';
       setFlash(r.cancelled || r.skippedPaid
         ? `Cierre creado. ${r.cancelled} cita(s) cancelada(s) y reembolsada(s); los clientes han sido avisados.${paidNote}`
         : r.affected ? `Cierre creado. Atención: hay ${r.affected} cita(s) en ese periodo que siguen activas; revísalas en la Agenda.` : 'Cierre creado.');

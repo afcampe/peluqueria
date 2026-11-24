@@ -4,7 +4,7 @@ import path from 'node:path';
 import jwt from 'jsonwebtoken';
 import { DateTime } from 'luxon';
 import PDFDocument from 'pdfkit';
-import { Prisma, type Ticket } from '@prisma/client';
+import { Prisma, type Rectification, type Ticket } from '@prisma/client';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
@@ -53,6 +53,7 @@ export async function issueTicket(paymentIds: string[], origin: TicketOrigin): P
             number, year: now.year, seq, issuedAt: now.toJSDate(),
             clientId: [...clientIds][0], provider: [...providers][0], origin,
             totalCents: payments.reduce((s, p) => s + p.amountCents, 0),
+            vatPercent: settings.ticketVatPercent,
             currency: payments[0].currency,
             filePath: `${now.year}/${String(now.month).padStart(2, '0')}/${number}.pdf`,
           },
@@ -88,9 +89,87 @@ export async function issueOnlineTicket(orderId: string, appointmentIds: string[
   return issueTicket(pending.map((p) => p.id), 'ONLINE');
 }
 
+// ---------------------------------------------------------------- Rectificativos
+
+export const rectificationNumber = (year: number, seq: number) => `R${year}-${pad(seq)}`;
+
+/**
+ * Emite el ticket rectificativo de un reembolso, si el cobro tenía ticket. Serie propia
+ * RAAAA-NNNN. Es idempotente: cada reembolso tiene como mucho un rectificativo.
+ */
+export async function issueRectification(refundId: string): Promise<Rectification | null> {
+  const refund = await prisma.refund.findUniqueOrThrow({ where: { id: refundId }, include: { payment: true, rectification: true } });
+  if (refund.rectification) return refund.rectification;
+  if (!refund.payment.ticketId) return null;
+  const settings = await getSettings();
+  let rect: Rectification | null = null;
+  for (let attempt = 0; !rect; attempt++) {
+    try {
+      rect = await prisma.$transaction(async (tx) => {
+        const now = DateTime.now().setZone(settings.timezone);
+        const last = await tx.rectification.findFirst({ where: { year: now.year }, orderBy: { seq: 'desc' }, select: { seq: true } });
+        const seq = (last?.seq ?? 0) + 1;
+        const number = rectificationNumber(now.year, seq);
+        return tx.rectification.create({
+          data: {
+            number, year: now.year, seq, issuedAt: now.toJSDate(), ticketId: refund.payment.ticketId!, refundId,
+            amountCents: refund.amountCents, reason: refund.reason || 'Devolución del importe',
+            filePath: `${now.year}/${String(now.month).padStart(2, '0')}/${number}.pdf`,
+          },
+        });
+      }, { isolationLevel: 'Serializable' });
+    } catch (e) {
+      const done = await prisma.rectification.findUnique({ where: { refundId } });
+      if (done) return done;
+      const retryable = e instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2034'].includes(e.code);
+      if (!retryable || attempt >= 5) throw e;
+    }
+  }
+  try {
+    await writeTicketFile(rect.id);
+  } catch (e) {
+    console.error(`No se pudo guardar el PDF del rectificativo ${rect.number}:`, e);
+  }
+  return rect;
+}
+
+/** Tras un reembolso ya hecho: si falla la emisión no se pierde el reembolso; se reintenta después. */
+export async function rectifyRefund(refundId: string) {
+  try {
+    return await issueRectification(refundId);
+  } catch (e) {
+    console.error(`No se pudo emitir el rectificativo del reembolso ${refundId}:`, e);
+    return null;
+  }
+}
+
+/** Emite los rectificativos que falten (reembolsos con ticket sin rectificativo). */
+export async function issueMissingRectifications() {
+  const pending = await prisma.refund.findMany({
+    where: { rectification: { is: null }, payment: { ticketId: { not: null } } }, orderBy: { createdAt: 'asc' }, select: { id: true },
+  });
+  for (const r of pending) await rectifyRefund(r.id);
+  return pending.length;
+}
+
+/** Los tickets anteriores a guardar el IVA toman el configurado ahora, y ya no cambian. */
+export async function fillMissingVat() {
+  const { ticketVatPercent } = await getSettings();
+  return (await prisma.ticket.updateMany({ where: { vatPercent: null }, data: { vatPercent: ticketVatPercent } })).count;
+}
+
+/** Busca un ticket o un rectificativo por su id. */
+export async function findTicketDoc(id: string) {
+  const t = await prisma.ticket.findUnique({ where: { id } });
+  if (t) return { id: t.id, number: t.number, filePath: t.filePath, clientId: t.clientId };
+  const r = await prisma.rectification.findUnique({ where: { id }, include: { ticket: { select: { clientId: true } } } });
+  return r ? { id: r.id, number: r.number, filePath: r.filePath, clientId: r.ticket.clientId } : null;
+}
+
 /** Guarda el PDF en disco (año/mes). */
 export async function writeTicketFile(ticketId: string) {
-  const t = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId } });
+  const t = await findTicketDoc(ticketId);
+  if (!t) throw notFound('Ticket no encontrado');
   const file = ticketFile(t);
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, await renderTicketPdf(ticketId));
@@ -98,7 +177,7 @@ export async function writeTicketFile(ticketId: string) {
 }
 
 /** Devuelve la ruta del PDF, regenerándolo si falta en disco. */
-export async function ensureTicketFile(t: Ticket) {
+export async function ensureTicketFile(t: Pick<Ticket, 'id' | 'filePath'>) {
   const file = ticketFile(t);
   if (!existsSync(file)) await writeTicketFile(t.id);
   return file;
@@ -145,22 +224,49 @@ export interface TicketView {
   /** Devuelto después de emitir el ticket (reembolsos). */
   refundedCents: number;
   reference: string | null;
+  /** Solo en los rectificativos: ticket que corrigen y motivo. */
+  rectifies: { number: string; issuedAtText: string; reason: string } | null;
+  /** Rectificativos emitidos para este ticket. */
+  rectifications: string[];
   footer: string;
 }
 
-export async function ticketView(ticketId: string): Promise<TicketView> {
+export async function ticketView(id: string): Promise<TicketView> {
+  const rect = await prisma.rectification.findUnique({ where: { id }, include: { refund: true } });
+  if (!rect) return originalView(id);
+  const t = await originalView(rect.ticketId);
+  const s = await getSettings();
+  const total = -rect.amountCents;
+  const base = t.vatPercent > 0 ? Math.round(total / (1 + t.vatPercent / 100)) : null;
+  // Importes en negativo: rectificación por la diferencia devuelta.
+  const line = await prisma.payment.findUniqueOrThrow({ where: { id: rect.refund.paymentId }, include: { appointment: { include: { service: true } } } });
+  const when = (d: Date, f: string) => DateTime.fromJSDate(d).setZone(s.timezone).setLocale('es').toFormat(f);
+  return {
+    ...t,
+    id: rect.id, number: rect.number, issuedAt: rect.issuedAt.toISOString(), issuedAtText: when(rect.issuedAt, 'dd/MM/yyyy HH:mm'),
+    lines: [{ concept: `Devolución: ${line.appointment.service.name}`, detail: `Cita del ${when(line.appointment.startAt, "cccc d 'de' LLLL yyyy, HH:mm")}`, amountCents: total }],
+    baseCents: base, vatCents: base === null ? null : total - base, totalCents: total, refundedCents: 0,
+    method: line.provider === 'cash' ? 'Devuelto en mano' : `Devuelto por ${t.method}`,
+    reference: rect.refund.providerRefundId,
+    rectifies: { number: t.number, issuedAtText: t.issuedAtText, reason: rect.reason },
+    rectifications: [],
+  };
+}
+
+async function originalView(ticketId: string): Promise<TicketView> {
   const s = await getSettings();
   const t = await prisma.ticket.findUniqueOrThrow({
     where: { id: ticketId },
     include: {
       client: { select: { name: true } },
+      rectifications: { select: { number: true }, orderBy: { issuedAt: 'asc' } },
       payments: { include: { appointment: { include: { service: true } } }, orderBy: { appointment: { startAt: 'asc' } } },
     },
   });
   const when = (d: Date, f: string) => DateTime.fromJSDate(d).setZone(s.timezone).setLocale('es').toFormat(f);
   let method = t.provider;
   try { method = getProvider(t.provider).label; } catch { /* proveedor retirado */ }
-  const vat = s.ticketVatPercent;
+  const vat = t.vatPercent ?? s.ticketVatPercent; // el IVA con el que se emitió, aunque cambie después
   const base = vat > 0 ? Math.round(t.totalCents / (1 + vat / 100)) : null;
   return {
     id: t.id,
@@ -191,6 +297,8 @@ export async function ticketView(ticketId: string): Promise<TicketView> {
     totalCents: t.totalCents,
     refundedCents: t.payments.reduce((n, p) => n + p.refundedCents, 0),
     reference: t.payments.find((p) => p.providerCaptureId)?.providerCaptureId ?? null,
+    rectifies: null,
+    rectifications: t.rectifications.map((r) => r.number),
     footer: s.ticketFooter,
   };
 }
@@ -204,7 +312,7 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
   const v = await ticketView(ticketId);
   const cur = (c: number) => money(c, v.currency);
 
-  const doc = new PDFDocument({ size: 'A5', margin: 36, info: { Title: `Ticket ${v.number}`, Author: v.issuer.name } });
+  const doc = new PDFDocument({ size: 'A5', margin: 36, info: { Title: `${v.rectifies ? 'Rectificativo' : 'Ticket'} ${v.number}`, Author: v.issuer.name } });
   const chunks: Buffer[] = [];
   doc.on('data', (c: Buffer) => chunks.push(c));
   const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
@@ -230,12 +338,16 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
     doc.font('Helvetica-Bold').fillColor('#111111').text(value, left + 90, y, { width: width - 90 });
     doc.moveDown(0.25);
   };
-  doc.font('Helvetica-Bold').fontSize(12).fillColor('#111111').text('TICKET DE COMPRA', left, doc.y);
+  doc.font('Helvetica-Bold').fontSize(12).fillColor('#111111').text(v.rectifies ? 'TICKET RECTIFICATIVO' : 'TICKET DE COMPRA', left, doc.y);
   doc.moveDown(0.4);
-  meta('Nº de ticket', v.number);
+  meta(v.rectifies ? 'Nº rectificativo' : 'Nº de ticket', v.number);
   meta('Fecha', v.issuedAtText);
   meta('Cliente', v.client);
-  meta('Forma de pago', v.method);
+  meta(v.rectifies ? 'Devolución' : 'Forma de pago', v.method);
+  if (v.rectifies) {
+    meta('Rectifica a', `Ticket ${v.rectifies.number} (${v.rectifies.issuedAtText})`);
+    meta('Motivo', v.rectifies.reason);
+  }
   doc.moveDown(0.6);
 
   // Líneas
@@ -271,14 +383,14 @@ export async function renderTicketPdf(ticketId: string): Promise<Buffer> {
 
   if (v.refundedCents > 0) {
     doc.moveDown(0.2);
-    row('Reembolsado', '', `-${cur(v.refundedCents)}`);
+    row('Reembolsado', v.rectifications.length ? `Rectificativo: ${v.rectifications.join(', ')}` : '', `-${cur(v.refundedCents)}`);
   }
 
   if (v.reference) {
     doc.moveDown(0.4);
-    doc.font('Helvetica').fontSize(7.5).fillColor('#888888').text(`Referencia del pago: ${v.reference}`, left, doc.y, { width });
+    doc.font('Helvetica').fontSize(7.5).fillColor('#888888').text(`Referencia ${v.rectifies ? 'del reembolso' : 'del pago'}: ${v.reference}`, left, doc.y, { width });
   }
-  if (v.footer) {
+  if (v.footer && !v.rectifies) {
     doc.moveDown(1.5);
     doc.font('Helvetica-Oblique').fontSize(9).fillColor('#444444').text(v.footer, left, doc.y, { width, align: 'center' });
   }

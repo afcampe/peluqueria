@@ -42,7 +42,7 @@
     <li><a href="#periodicas">Citas periódicas</a>
       <ol><li>Cada cuánto</li><li>Hasta cuándo</li><li>Revisar las fechas</li></ol></li>
     <li><a href="#miscitas">Mis citas</a>
-      <ol><li>Próximas citas</li><li>Cambiar la hora</li><li>Cancelar</li><li>Reembolsar</li><li>Cancelar una serie</li><li>Historial</li></ol></li>
+      <ol><li>Próximas citas</li><li>Cambiar la hora</li><li>Cancelar</li><li>Cancelar una cita pagada</li><li>Cancelar una serie</li><li>Historial</li></ol></li>
     <li><a href="#tickets">Tickets de compra</a></li>
     <li><a href="#perfil">Mi perfil</a>
       <ol><li>Datos y foto</li><li>Contraseña</li><li>Recordatorios de tus citas</li><li>Novedades por email</li><li>Tema claro u oscuro</li></ol></li>
@@ -73,7 +73,7 @@
   <h3>Cómo leer este manual</h3>
   <ul>
     <li>Los pasos numerados (<strong style="color:var(--gold)">1, 2, 3…</strong>) se hacen en orden.</li>
-    <li>Los botones aparecen así: <span class="btn-ref dark">Reservar</span>, <span class="btn-ref">Cambiar hora</span>, <span class="btn-ref blue">Reembolsar</span>, <span class="btn-ref red">Cancelar</span>.</li>
+    <li>Los botones aparecen así: <span class="btn-ref dark">Reservar</span>, <span class="btn-ref">Cambiar hora</span>, <span class="btn-ref red">Cancelar</span>.</li>
     <li>Los recuadros te avisan de cosas útiles:</li>
   </ul>
   <div class="tip"><p><strong>Consejo.</strong> Trucos para ir más rápido.</p></div>
@@ -221,9 +221,9 @@
     <thead><tr><th>La cita está…</th><th>Botones</th><th>Qué puedes hacer</th></tr></thead>
     <tbody>
       <tr><td>Sin pagar (se paga en el local)</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref red">Cancelar</span></td><td>Cambiarla de hora o anularla.</td></tr>
-      <tr><td>Pagada con PayPal</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref blue">Reembolsar</span></td><td>Cambiarla de hora, o anularla y recuperar el dinero.</td></tr>
+      <tr><td>Pagada con PayPal</td><td><span class="btn-ref">Cambiar hora</span> <span class="btn-ref red">Cancelar</span></td><td>Cambiarla de hora, o cancelarla y recuperar el dinero.</td></tr>
       <tr><td>Cobrada en la peluquería</td><td><span class="btn-ref">Cambiar hora</span></td><td>Cambiarla de hora. Para anularla, habla con la peluquería.</td></tr>
-      <tr><td>Falta menos de 1 hora</td><td>—</td><td>Ya no se puede cambiar, anular ni reembolsar desde la app: llama a la peluquería.</td></tr>
+      <tr><td>Falta menos de 1 hora</td><td>—</td><td>Ya no se puede cambiar ni cancelar desde la app: llama a la peluquería.</td></tr>
     </tbody>
   </table>
   <div class="warn"><p><strong>Plazo de 1 hora.</strong> Puedes cambiar o anular tus citas hasta <strong>1 hora antes</strong> de su comienzo. Con menos tiempo, la app muestra el teléfono de la peluquería para que llames. La peluquería sí puede hacer cambios en cualquier momento.</p></div>
@@ -244,16 +244,16 @@
   </ol>
   <figure class="sm"><img src="capturas/c-modal-cancelar.jpg" alt=""><figcaption><b>Figura 6.3</b> · Confirmación para cancelar</figcaption></figure>
 
-  <h3>Reembolsar una cita pagada con PayPal</h3>
-  <p>En las citas pagadas online, el botón <span class="btn-ref red">Cancelar</span> se sustituye por <span class="btn-ref blue">Reembolsar</span>: al usarlo, la cita se anula y te devolvemos el dinero.</p>
+  <h3>Cancelar una cita pagada con PayPal</h3>
+  <p>Se cancela igual que las demás y el dinero se te devuelve automáticamente.</p>
   <ol class="steps">
-    <li>Pulsa <span class="btn-ref blue">Reembolsar</span>.</li>
-    <li>La ventana te indica qué cita se anula, cuánto se devuelve y a qué cuenta de PayPal.</li>
-    <li>Pulsa <span class="btn-ref blue">Sí, reembolsar y anular</span>.</li>
+    <li>Pulsa <span class="btn-ref red">Cancelar</span> en la cita.</li>
+    <li>La ventana te avisa de cuánto se te devolverá y a qué cuenta de PayPal.</li>
+    <li>Pulsa <span class="btn-ref red">Sí, cancelar y devolver el dinero</span>.</li>
   </ol>
-  <p>El dinero vuelve a la misma cuenta de PayPal o tarjeta con la que pagaste. Puede tardar unos días en aparecer, según tu banco. Tu ticket se conserva y queda marcado como <strong>reembolsado</strong>.</p>
-  <figure class="sm"><img src="capturas/c-modal-reembolsar.jpg" alt=""><figcaption><b>Figura 6.4</b> · Reembolsar y anular una cita pagada online</figcaption></figure>
-  <div class="note"><p><strong>¿Y si pagué en la peluquería?</strong> Si la cita ya se cobró en el local y tiene ticket, no se puede anular desde la app, porque el dinero se devuelve en mano. Habla con la peluquería: te devolverán el importe y anularán la cita.</p></div>
+  <p>El dinero vuelve a la misma cuenta de PayPal o tarjeta con la que pagaste. Puede tardar unos días en aparecer, según tu banco. Recibirás un <strong>ticket rectificativo</strong>, que encontrarás en el historial junto al ticket. Si la devolución fallara, la cita no se cancela y la app te lo dice.</p>
+  <figure class="sm"><img src="capturas/c-modal-reembolsar.jpg" alt=""><figcaption><b>Figura 6.4</b> · Cancelar una cita pagada con PayPal</figcaption></figure>
+  <div class="note"><p><strong>¿Y si pagué en la peluquería?</strong> Si la cita ya se cobró en el local, no se puede cancelar desde la app, porque el dinero se devuelve en mano. Habla con la peluquería: te devolverán el importe y anularán la cita.</p></div>
 
   <h3>Cancelar una serie de citas periódicas</h3>
   <ol class="steps">
@@ -265,7 +265,7 @@
   <div class="tip"><p>¿Solo quieres saltarte una fecha de la serie? Cancela esa cita suelta con su propio botón y el resto de la serie se mantiene.</p></div>
 
   <h3>Historial</h3>
-  <p>Debajo de tus próximas citas está el <strong>Historial</strong>, con tus citas pasadas y anuladas: fecha, servicio, estado (<em>Realizada, Cancelada, No se presentó</em>…) y su ticket, si lo tiene.</p>
+  <p>Debajo de tus próximas citas está el <strong>Historial</strong>, con tus citas pasadas y anuladas: fecha, servicio, estado (<em>Realizada, Cancelada, No se presentó</em>…) y sus tickets, si los tiene.</p>
   <figure><img src="capturas/c-historial.jpg" alt=""><figcaption><b>Figura 6.6</b> · Historial de citas</figcaption></figure>
 </section>
 
@@ -277,6 +277,7 @@
   <ul>
     <li><strong>Pago online:</strong> automáticamente al completar el pago con PayPal.</li>
     <li><strong>Pago en la peluquería:</strong> cuando la peluquería registra el cobro y genera el ticket.</li>
+    <li><strong>Devolución:</strong> se conserva el ticket y a su lado aparece el <span class="btn-ref">▤ Rectificativo R2026-…</span> con el importe devuelto.</li>
   </ul>
   <p>Los tickets se numeran así: <strong>año-número</strong>, por ejemplo <strong>2026-0051</strong>.</p>
   <h3>Ver y descargar un ticket</h3>
@@ -287,7 +288,6 @@
     <li>Pulsa <span class="btn-ref">Cerrar</span> para volver.</li>
   </ol>
   <figure class="xs"><img src="capturas/c-modal-ticket.jpg" alt=""><figcaption><b>Figura 7.1</b> · Vista previa del ticket con el botón de descarga</figcaption></figure>
-  <div class="note"><p>Si una cita se reembolsa, su ticket no desaparece: se conserva con la línea <strong>Reembolsado</strong> y el botón indica «· reembolsado». Si después se vuelve a cobrar, la cita tendrá un ticket nuevo.</p></div>
 </section>
 
 <!-- ============================================================ 8 -->
@@ -340,7 +340,7 @@
     <dt>¿Hasta cuándo puedo cambiar o anular una cita?</dt>
     <dd>Hasta 1 hora antes de que empiece. Después, llama a la peluquería.</dd>
     <dt>He pagado con PayPal y no puedo ir, ¿recupero el dinero?</dt>
-    <dd>Sí. Pulsa <span class="btn-ref blue">Reembolsar</span> en la cita con al menos 1 hora de antelación: la cita se anula y el dinero vuelve a tu PayPal o tarjeta automáticamente.</dd>
+    <dd>Sí. Pulsa <span class="btn-ref red">Cancelar</span> en la cita con al menos 1 hora de antelación: el dinero vuelve a tu PayPal o tarjeta automáticamente.</dd>
     <dt>Pagué en la peluquería y quiero anular la cita.</dt>
     <dd>Habla con la peluquería: te devolverán el importe en mano y anularán la cita.</dd>
     <dt>No me aparecen horas libres.</dt>

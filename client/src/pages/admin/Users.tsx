@@ -96,7 +96,7 @@ export function Users() {
         <Modal title="Dar de baja" onClose={() => setModal(null)}>
           <p>¿Dar de baja a <strong>{modal.user!.name}</strong>? No podrá entrar y se cancelarán (con reembolso) sus citas futuras. Su historial se conserva.</p>
           <button className="btn btn-danger" onClick={async () => {
-            try { const r = await api.del<{ cancelled: number; skippedPaid: number }>(`/admin/users/${modal.user!.id}`); done(`Baja realizada. ${r.cancelled} cita(s) cancelada(s).${r.skippedPaid ? ` ${r.skippedPaid} cobrada(s) con ticket siguen activas: reembólsalas desde la Agenda.` : ''}`); } catch (e) { setError(errMsg(e)); setModal(null); }
+            try { const r = await api.del<{ cancelled: number; skippedPaid: number }>(`/admin/users/${modal.user!.id}`); done(`Baja realizada. ${r.cancelled} cita(s) cancelada(s).${r.skippedPaid ? ` ${r.skippedPaid} cobrada(s) en el local siguen activas: cancélalas desde la Agenda.` : ''}`); } catch (e) { setError(errMsg(e)); setModal(null); }
           }}>Dar de baja</button>
         </Modal>
       )}
@@ -174,7 +174,7 @@ function BlockForm({ user, onClose, onDone }: { user: User; onClose: () => void;
       <button className="btn btn-danger" onClick={async () => {
         try {
           const r = await api.post<{ cancelled: number; skippedPaid: number }>(`/admin/users/${user.id}/block`, { until: until || undefined, reason: reason || undefined, cancelFuture });
-          onDone(`${user.name} bloqueado${r.cancelled ? `; ${r.cancelled} cita(s) cancelada(s)` : ''}${r.skippedPaid ? `; ${r.skippedPaid} cobrada(s) con ticket siguen activas` : ''}`);
+          onDone(`${user.name} bloqueado${r.cancelled ? `; ${r.cancelled} cita(s) cancelada(s)` : ''}${r.skippedPaid ? `; ${r.skippedPaid} cobrada(s) en el local siguen activas` : ''}`);
         } catch (e) { setError(errMsg(e)); }
       }}>Bloquear</button>
     </Modal>

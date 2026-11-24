@@ -6,9 +6,9 @@ import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useSession } from '../../lib/session';
 import { contactLine, dateLong, methodLabel, money, shownStatus, statusLabel, time } from '../../lib/format';
-import { canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
+import { canCorrectCharge, canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketsOf } from '../../lib/payment';
 import { TicketButtons } from '../../components/TicketButton';
-import { CashModal, CashRefundModal, OnlineRefundModal } from './Agenda';
+import { CashModal, OnlineRefundModal } from './Agenda';
 import type { Appointment, User } from '../../lib/types';
 import { IconRepeat, IconTicket } from '../../components/icons';
 
@@ -130,10 +130,8 @@ export function UserDetail() {
 
 function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: boolean; onChange: () => void }) {
   const [error, setError] = useState('');
-  const [modal, setModal] = useState<'cash' | 'refund' | 'refundCash' | null>(null);
-  const locked = ticketedPayment(a);
+  const [modal, setModal] = useState<'cash' | 'refund' | null>(null);
   const pay = paymentInfo(a);
-  const ticket = ticketOf(a);
   const cash = cashPayment(a);
   const canMarkPaid = a.paymentMethod === 'cash' && !['CANCELLED', 'PENDING_PAYMENT', 'NO_SHOW'].includes(a.status) && !cash;
   const run = async (path: string) => {
@@ -167,20 +165,17 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         {canMarkNoShow(a) && <button className="btn btn-sm" onClick={() => setStatus('NO_SHOW')}>No vino</button>}
         {a.status === 'NO_SHOW' && <button className="btn btn-sm" onClick={() => setStatus('CONFIRMED')}>Sí vino</button>}
         {canMarkPaid && <button className="btn btn-sm" onClick={() => setModal('cash')}>Marcar cobrada</button>}
-        {cash && !ticket && <button className="btn btn-sm" onClick={() => run('unmark-paid')}>Deshacer cobro</button>}
         <TicketButtons tickets={ticketsOf(a)} />
         {canIssueTicket(a) && (
           <button className="btn btn-sm btn-ticket" onClick={() => run('ticket')}><IconTicket size={16} /> Generar ticket</button>
         )}
-        {(locked || onlinePayment(a)) && (
-          <button className="btn btn-sm btn-refund" onClick={() => setModal(locked?.provider === 'cash' ? 'refundCash' : 'refund')}>Reembolsar</button>
-        )}
+        {canCorrectCharge(a) && <button className="btn btn-sm" onClick={() => setModal('refund')}>Corregir cobro</button>}
+        {a.status === 'NO_SHOW' && onlinePayment(a) && <button className="btn btn-sm btn-refund" onClick={() => setModal('refund')}>Reembolsar</button>}
       </div>
       {modal && (() => {
         const close = () => setModal(null);
         const done = () => { setModal(null); onChange(); };
         if (modal === 'cash') return <CashModal appt={a} onClose={close} onDone={done} />;
-        if (modal === 'refundCash') return <CashRefundModal appt={a} onClose={close} onDone={done} />;
         return <OnlineRefundModal appt={a} onClose={close} onDone={done} />;
       })()}
     </article>

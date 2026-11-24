@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../lib/auth.js';
-import { prisma } from '../lib/db.js';
 import { notFound } from '../lib/errors.js';
-import { ticketDownloadPath, ticketView } from '../services/tickets.js';
+import { findTicketDoc, ticketDownloadPath, ticketView } from '../services/tickets.js';
 import { h } from './util.js';
 
 export const ticketsRouter = Router();
@@ -25,7 +24,7 @@ ticketsRouter.get('/:id', h(async (req, res) => {
 
 // Cada cliente solo ve sus tickets; el administrador, todos.
 async function loadOwn(id: string, user: { id: string; role: string }) {
-  const t = await prisma.ticket.findUnique({ where: { id } });
+  const t = await findTicketDoc(id);
   if (!t || (user.role !== 'ADMIN' && t.clientId !== user.id)) throw notFound('Ticket no encontrado');
   return t;
 }
