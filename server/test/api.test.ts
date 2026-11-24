@@ -1007,6 +1007,8 @@ describe('resumen del administrador', () => {
     const retaken = await mk(at(12, 30), { status: 'CANCELLED', cancelledBy: 'CLIENT', cancelledAt: at(9).toJSDate() });
     await mk(at(12, 30));
     const tomorrow = await mk(at(9, 0, 1));
+    const later = await mk(at(17, 0, 4), { status: 'CANCELLED', cancelledBy: 'ADMIN', cancelledAt: at(9, 0, -20).toJSDate() });
+    await mk(at(18, 0, 3), { status: 'CANCELLED', cancelledBy: 'SYSTEM', cancelledAt: at(9).toJSDate() }); // pago no completado: no cuenta
     const d = await dashboard(now);
     expect(d.next!.id).toBe(next.id);
     expect(d.next!.isToday).toBe(true);
@@ -1015,8 +1017,15 @@ describe('resumen del administrador', () => {
     expect(d.agenda).toHaveLength(16);
     expect(d.agenda.filter((c) => c.state === 'booked')).toHaveLength(4);
     expect(d.todo.unpaid.items[0].id).toBe(unpaid.id);
-    expect(d.todo.freed.map((x) => x.id)).toEqual([freed.id]);
-    expect(d.todo.freed.map((x) => x.id)).not.toContain(retaken.id);
+    // Huecos de 7 días: hoy y la semana, resaltando los que vienen de una cancelación aún libre
+    expect(d.week).toHaveLength(7);
+    expect(d.week[0]).toMatchObject({ date: day.toISODate(), open: true });
+    expect(d.week[0].gaps).toHaveLength(d.figures.free);
+    expect(d.week.flatMap((x) => x.gaps).filter((g) => g.cancelledBy)).toEqual([
+      { start: freed.startAt.toISOString(), cancelledBy: 'Otro' }, { start: later.startAt.toISOString(), cancelledBy: 'la peluquería' }]);
+    expect(d.week[1].gaps).toHaveLength(15);
+    expect(d.week[5]).toMatchObject({ open: false, gaps: [] }); // sábado
+    expect(d.week[0].gaps.map((g) => g.start)).not.toContain(retaken.startAt.toISOString());
     expect(d.todo.noReminder).toEqual([]); // recordatorios desactivados: no se avisa
     await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [1440] } }, adminToken);
     const on = await dashboard(now);

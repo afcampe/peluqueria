@@ -20,12 +20,13 @@ interface Data {
   figures: { done: number; pending: number; free: number; collectedCents: number; toCollectCents: number; monthCashCents: number; monthOnlineCents: number; clients: number; upcoming: number };
   todo: {
     unpaid: { count: number; totalCents: number; items: Brief[] };
-    freed: (Brief & { cancelledBy: string })[];
     noReminder: (Brief & { whatsappLink: string | null })[];
     failedReminders: { id: string; channel: string; detail: string | null; startAt: string; client: { id: string; name: string } }[];
     imports: number; warnings: string[];
   };
   waitlist: WaitEntry[];
+  /** Hoy y los 6 días siguientes. cancelledBy = hueco que viene de una cancelación. */
+  week: { date: string; open: boolean; gaps: { start: string; cancelledBy: string | null }[] }[];
 }
 
 export function Dashboard() {
@@ -65,7 +66,7 @@ export function Dashboard() {
         {d.agenda.length === 0 ? <p className="empty">Hoy la peluquería está cerrada y no hay citas.</p> : <DayStrip cells={d.agenda} now={d.now} onFree={setNewAt} />}
       </section>
 
-      <Todo todo={d.todo} onChange={done} onGive={setNewAt} />
+      <Todo todo={d.todo} week={d.week} today={d.today} onChange={done} onGive={setNewAt} />
       <Waitlist list={d.waitlist} onGive={setGive} onChange={done} />
       <Business figures={f} />
 
@@ -128,11 +129,10 @@ function DayStrip({ cells, now, onFree }: { cells: Cell[]; now: string; onFree: 
 
 // ---------------------------------------------------------------- Por resolver
 
-function Todo({ todo: t, onChange, onGive }: { todo: Data['todo']; onChange: (m: string) => void; onGive: (start: string) => void }) {
+function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; week: Data['week']; today: string; onChange: (m: string) => void; onGive: (start: string) => void }) {
   const [cash, setCash] = useState<Appointment | null>(null);
   const [error, setError] = useState('');
-  const n = t.unpaid.count + t.freed.length + t.noReminder.length + t.failedReminders.length + t.imports + t.warnings.length;
-  if (!n) return <section className="card dash-ok"><span className="dot ok" /> Todo al día: no hay nada por resolver.</section>;
+  const n = t.unpaid.count + t.noReminder.length + t.failedReminders.length + t.imports + t.warnings.length;
 
   const noShow = async (a: Brief) => {
     setError('');
@@ -143,8 +143,9 @@ function Todo({ todo: t, onChange, onGive }: { todo: Data['todo']; onChange: (m:
     <section className="card">
       <h2>Por resolver</h2>
       <Alert>{error}</Alert>
+      {!n && <p className="dash-ok"><span className="dot ok" /> Todo al día: no hay nada por resolver.</p>}
       {t.warnings.map((w) => <p key={w} className="todo-warn">{w} <Link to="/admin/configuracion">Configuración</Link></p>)}
-      <div className="todo-grid">
+      {n > t.warnings.length && <div className="todo-grid">
         {t.unpaid.count > 0 && (
           <div className="todo">
             <h3>Sin cobrar <small>{t.unpaid.count} · {money(t.unpaid.totalCents)}</small></h3>
@@ -161,16 +162,6 @@ function Todo({ todo: t, onChange, onGive }: { todo: Data['todo']; onChange: (m:
               ))}
             </ul>
             {t.unpaid.count > t.unpaid.items.length && <p className="small muted">y {t.unpaid.count - t.unpaid.items.length} más en la <Link to="/admin/agenda">agenda</Link>.</p>}
-          </div>
-        )}
-        {t.freed.length > 0 && (
-          <div className="todo">
-            <h3>Huecos por cancelación <small>{t.freed.length}</small></h3>
-            <p className="muted small">Horas de hoy o mañana que han quedado libres.</p>
-            <ul>{t.freed.map((a) => (
-              <li key={a.id}><div><strong>{dateShort(a.startAt)} {time(a.startAt)}</strong> <span className="muted small">canceló {a.cancelledBy === 'CLIENT' ? a.client.name : 'la peluquería'}</span></div>
-                <div className="actions"><button className="btn btn-sm" onClick={() => onGive(a.startAt)}>Dar esta hora</button></div></li>
-            ))}</ul>
           </div>
         )}
         {t.noReminder.length > 0 && (
@@ -196,9 +187,36 @@ function Todo({ todo: t, onChange, onGive }: { todo: Data['todo']; onChange: (m:
             <Link className="btn btn-sm" to="/admin/importar">Revisar páginas</Link>
           </div>
         )}
-      </div>
+      </div>}
+      <WeekGaps week={week} today={today} onGive={onGive} />
       {cash && <CashModalFor id={cash.id} onClose={() => setCash(null)} onDone={(m) => { setCash(null); onChange(m); }} />}
     </section>
+  );
+}
+
+/** Huecos de hoy y los 6 días siguientes: para dar hora a quien llama o llega a última hora. */
+function WeekGaps({ week, today, onGive }: { week: Data['week']; today: string; onGive: (start: string) => void }) {
+  const total = week.reduce((n, d) => n + d.gaps.length, 0);
+  const freed = week.reduce((n, d) => n + d.gaps.filter((g) => g.cancelledBy).length, 0);
+  return (
+    <div className="week-gaps">
+      <h3>Huecos en 7 días <small>{total}{freed > 0 && ` · ${freed} por cancelación`}</small></h3>
+      <p className="muted small">Pulsa una hora para dar la cita.{freed > 0 && <> Las <span className="gap-key">resaltadas</span> vienen de una cancelación.</>}</p>
+      <ul>
+        {week.map((d, i) => (
+          <li key={d.date}>
+            <div className="gap-day"><strong>{d.date === today ? 'Hoy' : i === 1 ? 'Mañana' : dateShort(`${d.date}T12:00:00Z`)}</strong>
+              <span className="muted small">{!d.open ? 'Cerrado' : d.gaps.length === 0 ? (d.date === today ? 'Sin huecos' : 'Completo') : d.gaps.length === 1 ? '1 libre' : `${d.gaps.length} libres`}</span></div>
+            <div className="gap-times">
+              {d.gaps.map((g) => (
+                <button key={g.start} type="button" className={g.cancelledBy ? 'is-freed' : ''} onClick={() => onGive(g.start)}
+                  title={g.cancelledBy ? `Canceló ${g.cancelledBy}` : undefined} aria-label={`${dateShort(g.start)} a las ${time(g.start)}${g.cancelledBy ? `, canceló ${g.cancelledBy}` : ''}: crear cita`}>{time(g.start)}</button>
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

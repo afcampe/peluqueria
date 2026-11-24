@@ -77,6 +77,7 @@ export async function dashboard(now = new Date()) {
       clients, upcoming,
     },
     todo: await pendingTasks(s, now),
+    week: await weekGaps(s, now),
     waitlist: await listWaitlist(now),
   };
 }
@@ -92,19 +93,44 @@ async function paymentsBetween(from: Date, to: Date) {
   });
 }
 
+/** Huecos libres de hoy y los 6 días siguientes, indicando los que vienen de una cancelación. */
+async function weekGaps(s: Settings, now: Date) {
+  const first = DateTime.fromJSDate(now).setZone(s.timezone).startOf('day');
+  const end = first.plus({ days: 6 }).endOf('day').toJSDate();
+  const [busy, closures, cancelled] = await Promise.all([
+    prisma.appointment.findMany({
+      // También ocupan las que se están pagando ahora mismo.
+      where: { startAt: { lte: end }, endAt: { gt: first.toJSDate() }, OR: [{ status: { in: OCCUPIES } }, { status: 'PENDING_PAYMENT', holdExpiresAt: { gt: now } }] },
+      select: { startAt: true, endAt: true },
+    }),
+    prisma.closure.findMany({ where: { startAt: { lt: end }, endAt: { gt: first.toJSDate() } } }),
+    prisma.appointment.findMany({
+      where: { status: 'CANCELLED', cancelledBy: { in: ['CLIENT', 'ADMIN'] }, startAt: { gt: now, lte: end } },
+      select: { startAt: true, endAt: true, cancelledBy: true, client: { select: { name: true } } }, orderBy: { cancelledAt: 'desc' },
+    }),
+  ]);
+  return Array.from({ length: 7 }, (_, i) => {
+    const date = first.plus({ days: i }).toISODate()!;
+    const slots = computeSlots({ date, settings: s, appointments: busy, closures, now });
+    return {
+      date,
+      open: slots.some((x) => x.reason !== 'CLOSED'),
+      gaps: slots.filter((x) => x.available).map((x) => {
+        const c = cancelled.find((a) => a.startAt < new Date(x.end) && new Date(x.start) < a.endAt);
+        return { start: x.start, cancelledBy: c ? (c.cancelledBy === 'CLIENT' ? c.client.name : 'la peluquería') : null };
+      }),
+    };
+  });
+}
+
 async function pendingTasks(s: Settings, now: Date) {
   const local = DateTime.fromJSDate(now).setZone(s.timezone);
   const tomorrow = local.plus({ days: 1 });
-  const [past, cancelled, tomorrowAppts, failed, imports, soonBusy, closures] = await Promise.all([
+  const [past, tomorrowAppts, failed, imports] = await Promise.all([
     // Ya pasadas (60 días) sin cobrar ni marcar como ausencia.
     prisma.appointment.findMany({
       where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, endAt: { lte: now }, startAt: { gte: local.minus({ days: 60 }).toJSDate() }, payments: { none: { status: { in: PAID } } } },
       include, orderBy: { startAt: 'desc' },
-    }),
-    // Canceladas en las últimas 48 h que dejan libre una hora de hoy o de mañana.
-    prisma.appointment.findMany({
-      where: { status: 'CANCELLED', cancelledBy: { in: ['CLIENT', 'ADMIN'] }, cancelledAt: { gte: local.minus({ hours: 48 }).toJSDate() }, startAt: { gt: now, lte: tomorrow.endOf('day').toJSDate() } },
-      include, orderBy: { startAt: 'asc' },
     }),
     dayAppointments(tomorrow.startOf('day').toJSDate(), tomorrow.endOf('day').toJSDate()),
     prisma.appointmentReminder.findMany({
@@ -112,18 +138,7 @@ async function pendingTasks(s: Settings, now: Date) {
       include: { appointment: { select: { startAt: true, client: { select: { id: true, name: true } } } } }, orderBy: { createdAt: 'desc' },
     }),
     prisma.agendaImport.count({ where: { status: { in: ['READY', 'ERROR'] } } }),
-    dayAppointments(now, tomorrow.endOf('day').toJSDate()),
-    prisma.closure.findMany({ where: { startAt: { lt: tomorrow.endOf('day').toJSDate() }, endAt: { gt: now } } }),
   ]);
-
-  const seen = new Set<number>();
-  const freed = cancelled.filter((a) => {
-    const t = a.startAt.getTime();
-    if (seen.has(t) || closures.some((c) => c.startAt < a.endAt && a.startAt < c.endAt)) return false;
-    if (soonBusy.filter((b) => b.startAt < a.endAt && a.startAt < b.endAt).length >= s.capacity) return false; // ya se ha vuelto a ocupar
-    seen.add(t);
-    return true;
-  });
 
   // Solo si los recordatorios están activados: quién tiene cita mañana y no lo recibirá.
   const on = reminderChannels(s);
@@ -138,7 +153,6 @@ async function pendingTasks(s: Settings, now: Date) {
 
   return {
     unpaid: { count: past.length, totalCents: past.reduce((n, a) => n + a.priceCents, 0), items: past.slice(0, 5).map(brief) },
-    freed: freed.map((a) => ({ ...brief(a), cancelledBy: a.cancelledBy })),
     noReminder: noReminder.map((a) => ({ ...brief(a), whatsappLink: waLink(a.client.phone, `Hola ${a.client.name}, te recordamos tu cita de mañana a las ${DateTime.fromJSDate(a.startAt).setZone(s.timezone).toFormat('HH:mm')} en ${s.shopName}.`) })),
     failedReminders: failed.map((f) => ({ id: f.id, channel: f.channel, detail: f.detail, startAt: f.appointment.startAt, client: f.appointment.client })),
     imports, warnings,

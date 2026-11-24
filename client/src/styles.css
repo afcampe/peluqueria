@@ -760,3 +760,13 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .book-wait { margin: .6rem 0; padding: .7rem .85rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; } .book-wait p { margin: 0 0 .4rem; font-size: .9rem; } .book-wait p:last-child { margin: 0; } .book-wait select { width: auto; }
 .lapsed li.has-gap { border-left: 3px solid var(--accent); padding-left: .7rem; } .lapsed li .actions { flex-wrap: wrap; justify-content: flex-end; }
 .consent-note { margin: -.2rem 0 .8rem; }
+
+.dash-ok { margin: .6rem 0 0; }
+.week-gaps { margin-top: 1.3rem; } .week-gaps h3 { margin: 0; } .week-gaps h3 small { color: var(--muted); font-weight: 400; } .week-gaps > p { margin: .15rem 0 .5rem; }
+.week-gaps ul { list-style: none; margin: 0; padding: 0; } .week-gaps li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: .75rem; padding: .5rem 0; border-top: 1px solid var(--border); }
+.gap-day span { display: block; }
+.gap-times { display: flex; flex-wrap: wrap; gap: .3rem; align-content: center; }
+.gap-times button { font: inherit; font-size: .85rem; font-weight: 500; font-variant-numeric: tabular-nums; padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); cursor: pointer; }
+.gap-times button:hover { border-color: var(--text); }
+.gap-times button.is-freed, .gap-key { background: var(--warn-bg); color: var(--warn-text); border-color: var(--accent); font-weight: 600; } .gap-key { padding: 0 .3rem; border-radius: 3px; }
+@media (max-width: 480px) { .week-gaps li { grid-template-columns: minmax(0, 1fr); gap: .35rem; } .gap-day { display: flex; gap: .6rem; align-items: baseline; } .gap-times button { padding: .4rem .6rem; } }
