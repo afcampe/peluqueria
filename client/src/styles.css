@@ -462,12 +462,12 @@ label.inline input { width: 5rem; }
 .cal-appt.st-COMPLETED, .cal-appt.st-NO_SHOW { border-left-color: var(--past); background: var(--past-bg); }
 .cal-appt.st-PENDING_PAYMENT { border-left-style: dashed; }
 .cal-appt.st-CANCELLED { opacity: .55; text-decoration: line-through; }
-.pay-dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; background: #ff1f2d; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); flex: none; }
+.pay-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #c8101e; flex: none; }
 .cal-appt .pay-dot { position: absolute; top: .4rem; right: .35rem; }
-.cal-appt.pay-paid .pay-dot, .pay-dot.pay-paid { background: #00b83a; }
+.cal-appt.pay-paid .pay-dot, .pay-dot.pay-paid { background: #0b8a30; }
 .cal-appt.pay-partial .pay-dot, .cal-appt.pay-refunded .pay-dot { background: var(--info-text); }
 .cal-appt.pay-none .pay-dot { display: none; }
-.pay-dot.pay-unpaid { background: #ff1f2d; }
+.pay-dot.pay-unpaid { background: #c8101e; }
 .legend.small { margin: .6rem 0 0; flex-wrap: wrap; gap: .5rem 1.25rem; }
 
 /* Mes: cuadrícula de 6 semanas; cada día abre su lista de citas */
