@@ -758,4 +758,39 @@ describe('recordatorios de citas', () => {
   });
 });
 
+describe('recordatorio por email enviado a mano', () => {
+  it('muestra el texto, lo registra, se puede repetir y no bloquea los automáticos', async () => {
+    const start = await slotIn(9, 1);
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    const id = r.body.id as string;
+    const me = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    const p = await call('GET', `/api/admin/reminders/preview?appointmentId=${id}`, undefined, adminToken);
+    expect(p.body).toMatchObject({ appointmentId: id, to: 'c@c.es', simulated: true });
+    expect(p.body.body).not.toContain('{');
+    const next = await prisma.appointment.findFirstOrThrow({ where: { clientId: me.id, status: 'CONFIRMED', startAt: { gt: new Date() } }, orderBy: { startAt: 'asc' } });
+    expect((await call('GET', `/api/admin/reminders/preview?clientId=${me.id}`, undefined, adminToken)).body.appointmentId).toBe(next.id);
+    for (let i = 0; i < 2; i++) expect((await call('POST', `/api/admin/appointments/${id}/remind-email`, undefined, adminToken)).status).toBe(200);
+    // Sin SMTP no consta como enviado
+    expect(await prisma.appointmentReminder.findMany({ where: { appointmentId: id } })).toMatchObject([{ offsetMinutes: 0, channel: 'EMAIL', status: 'SKIPPED' }]);
+    const { runReminders } = await import('../src/services/reminders.js');
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [120] } }, adminToken);
+    await runReminders(new Date(new Date(start).getTime() - 100 * 60_000));
+    expect(await prisma.appointmentReminder.count({ where: { appointmentId: id, offsetMinutes: 120 } })).toBe(1);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
+  });
+
+  it('solo para el administrador, con email y en citas confirmadas futuras', async () => {
+    const start = await slotIn(9, 3);
+    const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
+    const url = `/api/admin/appointments/${r.body.id}/remind-email`;
+    expect((await call('POST', url, undefined, clientToken)).status).toBe(403);
+    await call('POST', `/api/admin/appointments/${r.body.id}/cancel`, { notify: false }, adminToken);
+    expect((await call('POST', url, undefined, adminToken)).status).toBe(400);
+    const ficha = await prisma.user.create({ data: { name: 'Sin email', acceptsEmail: false } });
+    expect((await call('GET', `/api/admin/reminders/preview?clientId=${ficha.id}`, undefined, adminToken)).status).toBe(400);
+    const a = await prisma.appointment.create({ data: { clientId: ficha.id, serviceId, startAt: new Date(Date.now() + 864e5), endAt: new Date(Date.now() + 864e5 + 18e5), status: 'CONFIRMED', paymentMethod: 'cash', priceCents: 1500 } });
+    expect((await call('POST', `/api/admin/appointments/${a.id}/remind-email`, undefined, adminToken)).body.error).toContain('email');
+  });
+});
+
 vi.setConfig({ testTimeout: 20_000 });

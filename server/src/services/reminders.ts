@@ -1,9 +1,9 @@
 import { DateTime } from 'luxon';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
-import { sendEmail } from '../notifications/email.js';
+import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { normalizePhone, sendWhatsApp, sendWhatsAppTemplate, whatsappApiConfigured } from '../notifications/whatsapp.js';
-import { badRequest } from '../lib/errors.js';
+import { HttpError, badRequest } from '../lib/errors.js';
 import { getSettings, type Settings } from './settings.js';
 
 /**
@@ -39,9 +39,12 @@ export function reminderVars(a: ReminderAppt, s: Settings) {
   };
 }
 
+/** Antelación con la que se registran los avisos enviados a mano (las automáticas son de 15 min o más). */
+const MANUAL = 0;
+
 /** Texto de la antelación: "1 día", "2 h", "30 min". */
 export const offsetLabel = (m: number) =>
-  m % 1440 === 0 ? `${m / 1440} día${m === 1440 ? '' : 's'}` : m % 60 === 0 ? `${m / 60} h` : `${m} min`;
+  m === MANUAL ? 'manual' : m % 1440 === 0 ? `${m / 1440} día${m === 1440 ? '' : 's'}` : m % 60 === 0 ? `${m / 60} h` : `${m} min`;
 
 type Channel = 'EMAIL' | 'WHATSAPP';
 
@@ -124,6 +127,52 @@ export async function runReminders(now = new Date()) {
   } finally {
     running = false;
   }
+}
+
+/** Cita de la que se puede recordar: la indicada o la próxima confirmada del cliente. */
+async function findRemindable(by: { appointmentId: string } | { clientId: string }) {
+  const a = await prisma.appointment.findFirst({
+    where: 'appointmentId' in by ? { id: by.appointmentId } : { clientId: by.clientId, status: 'CONFIRMED', startAt: { gt: new Date() } },
+    orderBy: { startAt: 'asc' },
+    include: { client: { select: { name: true, email: true, phone: true, status: true } }, service: { select: { name: true } } },
+  });
+  if (!a) throw badRequest('appointmentId' in by ? 'La cita no existe' : 'El cliente no tiene ninguna cita próxima confirmada');
+  if (a.status !== 'CONFIRMED' || a.startAt <= new Date()) throw badRequest('Solo se puede recordar una cita confirmada que aún no ha pasado');
+  if (a.client.status === 'DELETED') throw badRequest('El cliente está de baja');
+  if (!a.client.email) throw badRequest('El cliente no tiene email');
+  return { a, to: a.client.email };
+}
+
+/** Vista previa del recordatorio por email que el administrador va a enviar a mano. */
+export async function previewEmailReminder(by: { appointmentId: string } | { clientId: string }) {
+  const { a, to } = await findRemindable(by);
+  const s = await getSettings();
+  return {
+    appointmentId: a.id, to, simulated: !emailConfigured(),
+    subject: renderReminder(s.reminders.emailSubject, a, s), body: renderReminder(s.reminders.emailBody, a, s),
+  };
+}
+
+/** Envía a mano el recordatorio por email. No afecta a los avisos automáticos. */
+export async function sendEmailReminder(appointmentId: string) {
+  const { a } = await findRemindable({ appointmentId });
+  const s = await getSettings();
+  const simulated = !emailConfigured();
+  let res: { status: string; detail: string };
+  try {
+    res = await sendOne('EMAIL', a, s);
+    if (simulated) res = { status: 'SKIPPED', detail: 'El SMTP no está configurado: el email no ha salido' };
+  } catch (e) {
+    res = { status: 'FAILED', detail: (e instanceof Error ? e.message : 'Error al enviar').slice(0, 300) };
+  }
+  // Un solo registro manual por cita, hora y canal: al repetirlo se actualiza.
+  const key = { appointmentId: a.id, startAt: a.startAt, offsetMinutes: MANUAL, channel: 'EMAIL' };
+  await prisma.appointmentReminder.upsert({
+    where: { appointmentId_startAt_offsetMinutes_channel: key },
+    create: { ...key, ...res }, update: { ...res, createdAt: new Date() },
+  });
+  if (res.status === 'FAILED') throw new HttpError(502, `No se pudo enviar el email: ${res.detail}`);
+  return { to: a.client.email, simulated };
 }
 
 /** Últimos avisos para el panel. */

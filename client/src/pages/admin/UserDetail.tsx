@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -76,6 +77,10 @@ export function UserDetail() {
         </div>
  {!user.hasAccount && user.role === 'CLIENT' && <button className="btn" onClick={() => setMerging(true)}>Unir con un cliente registrado</button>}
         {user.whatsappLink && <a className="btn btn-wa" href={user.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
+        {user.role === 'CLIENT' && user.status !== 'DELETED' && (
+          <EmailReminderButton small={false} clientId={user.id} disabledReason={!user.email ? 'El cliente no tiene email'
+            : future.some((a) => a.status === 'CONFIRMED') ? undefined : 'No tiene ninguna cita próxima confirmada'} />
+        )}
       </section>
 
       {merging && <MergeModal user={user} onClose={() => setMerging(false)} />}

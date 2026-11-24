@@ -8,7 +8,7 @@ import { avatarData, avatarField } from '../lib/avatar.js';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
 import { mergeClient } from '../services/agendaImport.js';
-import { assertReminderPrefs, defaultReminderPrefs, recentReminders, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
+import { assertReminderPrefs, defaultReminderPrefs, previewEmailReminder, recentReminders, sendEmailReminder, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
 import { remindersSchema } from '../services/settings.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
@@ -364,6 +364,15 @@ adminRouter.delete('/closures/:id', h(async (req, res) => {
 // ---------------------------------------------------------------- Configuración y servicios
 // ---------------------------------------------------------------- Recordatorios
 adminRouter.get('/reminders', h(async (_req, res) => { res.json(await recentReminders(40)); }));
+
+/** Recordatorio por email enviado a mano: vista previa (de una cita o de la próxima del cliente) y envío. */
+adminRouter.get('/reminders/preview', h(async (req, res) => {
+  const { appointmentId, clientId } = z.object({ appointmentId: z.string().optional(), clientId: z.string().optional() }).parse(req.query);
+  if (appointmentId) res.json(await previewEmailReminder({ appointmentId }));
+  else if (clientId) res.json(await previewEmailReminder({ clientId }));
+  else throw badRequest('Indica la cita o el cliente');
+}));
+adminRouter.post('/appointments/:id/remind-email', h(async (req, res) => { res.json(await sendEmailReminder(req.params.id)); }));
 
 /** Manda un recordatorio de ejemplo al propio administrador (email) o al teléfono indicado. */
 adminRouter.post('/reminders/test', h(async (req, res) => {

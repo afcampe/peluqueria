@@ -200,7 +200,7 @@ export function Reminders({ value: r, saved, channels, onChange }: {
                   <td>{dateShort(x.createdAt)} {time(x.createdAt)}</td>
                   <td><Link to={`/admin/usuarios/${x.appointment.client.id}`}>{x.appointment.client.name}</Link></td>
                   <td>{dateShort(x.startAt)} {time(x.startAt)}</td>
-                  <td>{x.channel === 'EMAIL' ? 'Email' : 'WhatsApp'} · {x.offsetLabel} antes</td>
+                  <td>{x.channel === 'EMAIL' ? 'Email' : 'WhatsApp'} · {x.offsetMinutes === 0 ? 'enviado a mano' : `${x.offsetLabel} antes`}</td>
                   <td><span className={`badge badge-${statusClass[x.status]}`}>{statusText[x.status]}</span>{x.detail && <div className="muted small">{x.detail}</div>}</td>
                 </tr>
               ))}

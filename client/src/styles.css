@@ -152,6 +152,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .btn-danger:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); }
 .btn-wa { color: var(--wa); border-color: color-mix(in srgb, var(--wa) 45%, transparent); }
 .btn-wa:hover:not(:disabled) { border-color: var(--wa); color: var(--wa); }
+.btn-mail { color: var(--accent-strong); border-color: color-mix(in srgb, var(--accent-strong) 45%, transparent); }
+.btn-mail:hover:not(:disabled) { border-color: var(--accent-strong); color: var(--accent-strong); }
+.mail-preview { white-space: pre-wrap; border: 1px solid var(--border); border-radius: var(--radius); padding: .9rem; margin-bottom: 1rem; max-height: 45vh; overflow-y: auto; }
 .btn-lg { padding: .9rem 1.6rem; font-size: .95rem; }
 .btn-sm { padding: .35rem .7rem; font-size: .75rem; }
 .btn-icon { display: inline-flex; align-items: center; justify-content: center; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text); padding: .4rem; border-radius: var(--radius); }

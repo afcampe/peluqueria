@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RecurrencePlanner, type SeriesPlan } from '../../components/RecurrencePlanner';
+import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { SlotPicker } from '../../components/SlotPicker';
 import { TicketButtons } from '../../components/TicketButton';
 import { Link } from 'react-router-dom';
@@ -229,6 +230,8 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
           </>
         )}
         {wa && <a className="btn btn-sm btn-wa" href={wa} target="_blank" rel="noreferrer">WhatsApp</a>}
+        <EmailReminderButton appointmentId={a.id} disabledReason={!a.client.email ? 'El cliente no tiene email'
+          : a.status !== 'CONFIRMED' || new Date(a.startAt) <= new Date() ? 'Solo para citas confirmadas que aún no han pasado' : undefined} />
       </div>
     </article>
   );

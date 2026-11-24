@@ -1,6 +1,7 @@
 import { ReminderPrefs, reminderPayload } from '../../components/ReminderPrefs';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { Avatar, AvatarInput } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -76,6 +77,7 @@ export function Users() {
                   <td className="actions">
                     {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}><IconCalendar size={14} /> Ver citas</Link>}
                     {u.whatsappLink && <a className="btn btn-sm btn-wa" href={u.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
+                    {u.role === 'CLIENT' && u.status !== 'DELETED' && <EmailReminderButton clientId={u.id} disabledReason={u.email ? undefined : 'El cliente no tiene email'} />}
                     <button className="btn btn-sm" onClick={() => setModal({ kind: 'edit', user: u })}>{u.status === 'DELETED' ? 'Reactivar' : 'Editar'}</button>
                     {u.id !== me?.id && u.status === 'ACTIVE' && <button className="btn btn-sm" onClick={() => setModal({ kind: 'block', user: u })}>Bloquear</button>}
                     {u.status === 'BLOCKED' && <button className="btn btn-sm" onClick={() => unblock(u)}>Desbloquear</button>}
