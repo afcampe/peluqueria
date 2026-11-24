@@ -96,6 +96,7 @@ adminRouter.post('/appointments/:id/mark-paid', h(async (req, res) => {
   const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: { payments: true } });
   if (a.paymentMethod !== 'cash') throw badRequest('Solo se marcan como cobradas las citas que se pagan en el local');
   if (a.status === 'CANCELLED') throw badRequest('La cita está cancelada');
+  if (a.status === 'NO_SHOW') throw badRequest('La cita consta como «No vino». Pulsa antes «Sí vino» para cobrarla');
   let cash = a.payments.find((p) => p.provider === 'cash' && p.status === 'COMPLETED');
   if (!cash) {
     cash = await prisma.payment.create({ data: { appointmentId: a.id, provider: 'cash', amountCents: a.priceCents, currency: s.currency, status: 'COMPLETED' } });
@@ -146,9 +147,11 @@ adminRouter.patch('/appointments/:id', h(async (req, res) => {
   if (data.startAt) await rescheduleAppointment(ADMIN(req), req.params.id, { startAt: data.startAt, serviceId: data.serviceId, notes: data.notes });
   else if (data.notes !== undefined) await prisma.appointment.update({ where: { id: req.params.id }, data: { notes: data.notes } });
   if (data.status) {
-    const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id } });
+    const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: { payments: true } });
     if (a.status === 'CANCELLED' || a.status === 'PENDING_PAYMENT') throw badRequest('No se puede cambiar el estado de esta cita');
     if (data.status === 'NO_SHOW' && a.startAt > new Date()) throw badRequest('La hora de la cita aún no ha llegado');
+    if (data.status === 'NO_SHOW' && a.payments.some((p) => p.provider === 'cash' && ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status)))
+      throw badRequest('La cita está cobrada en el local. Si fue un error, deshaz el cobro o reembólsalo antes de marcar que no vino');
     await prisma.appointment.update({ where: { id: a.id }, data: { status: data.status } });
   }
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));

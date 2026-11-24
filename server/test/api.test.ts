@@ -569,7 +569,7 @@ describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
     const client = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
     const past = new Date(Date.now() - 4 * 86_400_000);
     const a = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: past, endAt: new Date(past.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED',
-      payments: { create: { provider: 'cash', amountCents: 1500, currency: 'EUR', status: 'COMPLETED' } } } });
+      payments: { create: { provider: 'paypal', amountCents: 1500, currency: 'EUR', status: 'COMPLETED' } } } });
     const noShows = async () => (await call('GET', '/api/admin/reports/incidents', undefined, adminToken)).body.find((x: { client: { id: string } }) => x.client.id === client.id)?.noShow ?? 0;
     const listed = async (status: string) => (await call('GET', `/api/admin/appointments?status=${status}`, undefined, adminToken)).body.some((x: { id: string }) => x.id === a.id);
     const set = (status: string) => call('PATCH', `/api/admin/appointments/${a.id}`, { status }, adminToken);
@@ -582,6 +582,18 @@ describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
       expect(back.body.payments).toMatchObject([{ status: 'COMPLETED', amountCents: 1500 }]);
       expect([await noShows(), await listed('COMPLETED')]).toEqual([n, true]);
     }
+    // Cobrada en el local: vino. Al deshacer el cobro ya se puede marcar.
+    const c = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: past, endAt: new Date(past.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED' } });
+    const noShow = () => call('PATCH', `/api/admin/appointments/${c.id}`, { status: 'NO_SHOW' }, adminToken);
+    await call('POST', `/api/admin/appointments/${c.id}/mark-paid`, {}, adminToken);
+    expect((await noShow()).status).toBe(400);
+    await call('POST', `/api/admin/appointments/${c.id}/unmark-paid`, {}, adminToken);
+    expect((await noShow()).status).toBe(200);
+    // Como ausencia no se puede cobrar; al corregirla, sí.
+    const pay = () => call('POST', `/api/admin/appointments/${c.id}/mark-paid`, {}, adminToken);
+    expect((await pay()).status).toBe(400);
+    await call('PATCH', `/api/admin/appointments/${c.id}`, { status: 'CONFIRMED' }, adminToken);
+    expect((await pay()).status).toBe(200);
     // Una cita futura no se puede marcar como ausencia
     const fut = new Date(Date.now() + 400 * 86_400_000);
     const f = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: fut, endAt: new Date(fut.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED' } });

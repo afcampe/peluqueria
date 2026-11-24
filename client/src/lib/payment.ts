@@ -8,8 +8,8 @@ const ACTIVE = ['COMPLETED', 'PARTIALLY_REFUNDED'];
 /** Pago vigente: cobrado y no devuelto del todo. */
 export const activePayment = (a: Appointment) => a.payments.find((p) => ACTIVE.includes(p.status));
 
-/** ¿Se puede apuntar (o corregir) si el cliente vino? Solo cuando ya ha llegado la hora. */
-export const canMarkNoShow = (a: Appointment) => ['CONFIRMED', 'COMPLETED'].includes(a.status) && new Date(a.startAt) <= new Date();
+/** ¿Se puede apuntar que no vino? Cuando ya ha llegado la hora y no se ha cobrado en el local (si pagó allí, vino). Pagar online no implica venir. */
+export const canMarkNoShow = (a: Appointment) => ['CONFIRMED', 'COMPLETED'].includes(a.status) && new Date(a.startAt) <= new Date() && !a.payments.some((p) => p.provider === 'cash' && ACTIVE.includes(p.status));
 
 /** Resume si una cita está pagada, cómo y si se ha devuelto algo. */
 export function paymentInfo(a: Appointment): { kind: PaymentKind; label: string; method: string } {
@@ -19,7 +19,7 @@ export function paymentInfo(a: Appointment): { kind: PaymentKind; label: string;
   if (p?.status === 'PARTIALLY_REFUNDED') return { kind: 'partial', label: `Pagada ${money(p.amountCents)}, devueltos ${money(p.refundedCents)}`, method };
   if (p) return { kind: 'paid', label: p.provider === 'cash' ? `Cobrada en el local (${money(p.amountCents)})` : `Pagada (${money(p.amountCents)})`, method };
   if (refunded && (a.status === 'CANCELLED' || a.status === 'NO_SHOW')) return { kind: 'refunded', label: `Reembolsada (${money(refunded)})`, method };
-  if (a.status === 'CANCELLED') return { kind: 'none', label: 'Sin pago', method };
+  if (a.status === 'CANCELLED' || a.status === 'NO_SHOW') return { kind: 'none', label: 'Sin pago', method };
   if (a.status === 'PENDING_PAYMENT') return { kind: 'unpaid', label: 'Pago online sin completar', method };
   const pending = a.paymentMethod === 'cash' ? 'Pendiente de cobro en el local' : 'No pagada';
   return { kind: 'unpaid', label: refunded ? `${pending} · reembolsados ${money(refunded)}` : pending, method };

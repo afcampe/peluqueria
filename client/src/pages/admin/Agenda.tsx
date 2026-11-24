@@ -209,7 +209,7 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
         {active && <button className="btn btn-sm" onClick={() => act.open('move', a)}>Cambiar hora</button>}
         {canMarkNoShow(a) && <button className="btn btn-sm" onClick={() => act.setStatus(a, 'NO_SHOW')}>No vino</button>}
         {a.status === 'NO_SHOW' && <button className="btn btn-sm" onClick={() => act.setStatus(a, 'CONFIRMED')}>Sí vino</button>}
-        {a.paymentMethod === 'cash' && a.status !== 'CANCELLED' && !cashPayment(a) && (
+        {a.paymentMethod === 'cash' && !['CANCELLED', 'NO_SHOW'].includes(a.status) && !cashPayment(a) && (
           <button className="btn btn-sm" onClick={() => act.open('cash', a)}>Marcar cobrada</button>
         )}
         {cashPayment(a) && !ticket && <button className="btn btn-sm" onClick={() => act.undoCash(a)}>Deshacer cobro</button>}

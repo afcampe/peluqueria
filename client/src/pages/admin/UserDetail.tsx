@@ -135,7 +135,7 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
   const pay = paymentInfo(a);
   const ticket = ticketOf(a);
   const cash = cashPayment(a);
-  const canMarkPaid = a.paymentMethod === 'cash' && a.status !== 'CANCELLED' && a.status !== 'PENDING_PAYMENT' && !cash;
+  const canMarkPaid = a.paymentMethod === 'cash' && !['CANCELLED', 'PENDING_PAYMENT', 'NO_SHOW'].includes(a.status) && !cash;
   const run = async (path: string) => {
     setError('');
     try { await api.post(`/admin/appointments/${a.id}/${path}`); onChange(); } catch (e) { setError(errMsg(e)); }
