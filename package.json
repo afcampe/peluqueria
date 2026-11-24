@@ -13,7 +13,7 @@
     "db:setup": "npm run db:setup --workspace server",
     "desktop": "npm --prefix desktop install && npm --prefix desktop start",
     "desktop:dist": "npm run build --workspace client && npm --prefix desktop install && npm --prefix desktop run dist",
-    "start": "npm run start:prod --workspace server"
+    "start": "exec npm run start:prod --workspace server"
   },
   "allowScripts": {
     "@prisma/client@6.19.3": true,

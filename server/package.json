@@ -9,7 +9,7 @@
     "start": "node dist/index.js",
     "test": "vitest run",
     "db:setup": "prisma db push && tsx src/seed.ts",
-    "start:prod": "prisma db push --skip-generate && node dist/seed.js && node dist/demo.js && node dist/index.js"
+    "start:prod": "prisma db push --skip-generate && node dist/seed.js && node dist/demo.js && exec node dist/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "1.12.0",
