@@ -713,3 +713,18 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .heat td.lv4 { background: rgba(var(--heat), .78); color: var(--surface); } .heat td.lv5 { background: rgb(var(--heat)); color: var(--surface); }
 @media (max-width: 860px) { .dash-top, .dash-charts { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 480px) { .day-strip { grid-template-columns: 1fr 1fr; } .dash-stats .stat { padding: .8rem; } .dash-stats .stat strong { font-size: 1.5rem; } }
+
+.dash-biz .stats { grid-template-columns: repeat(auto-fit, minmax(min(260px, 46%), 1fr)); }
+.dash-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.25rem; }
+.dash-two .card { margin-bottom: 1.25rem; } .dash-two h3 { margin: 0; } .dash-two h4 { margin: .9rem 0 .2rem; }
+.bar-list { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .7rem; }
+.bar-list li > div { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; font-size: .9rem; }
+.bar-value { white-space: nowrap; font-variant-numeric: tabular-nums; } .bar-value small { color: var(--muted); margin-left: .5rem; }
+.bar-list i { display: block; height: 8px; margin-top: .25rem; border-radius: 0 4px 4px 0; background: color-mix(in srgb, var(--chart-cash) 14%, transparent); }
+.bar-list i b { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--chart-cash); }
+.dash-lost { margin: 1rem 0 0; font-size: .85rem; color: var(--muted); } .dash-lost strong { color: var(--text); }
+.dash-pair { display: flex; gap: 2rem; } .dash-pair p { margin: 0; } .dash-pair strong { font-family: var(--font-display); font-size: 1.8rem; font-weight: 600; margin-right: .4rem; } .dash-pair span { color: var(--muted); font-size: .85rem; }
+.lapsed { list-style: none; margin: .4rem 0 0; padding: 0; }
+.lapsed li { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .5rem 0; border-top: 1px solid var(--border); }
+.lapsed li > div span { display: block; }
+@media (max-width: 860px) { .dash-two { grid-template-columns: minmax(0, 1fr); } }

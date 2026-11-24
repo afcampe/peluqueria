@@ -116,10 +116,11 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
     e.preventDefault();
     try {
       if (user && !reactivate) {
-        await api.patch(`/admin/users/${user.id}`, { ...f, ...reminderPayload(f, config?.reminders), email: f.email || undefined, password: f.password || undefined, avatar });
+        // El consentimiento de WhatsApp solo cambia si se toca la casilla (los antiguos solo aceptaron email).
+        await api.patch(`/admin/users/${user.id}`, { ...f, ...(f.acceptsEmail !== user.acceptsEmail && { acceptsWhatsapp: f.acceptsEmail }), ...reminderPayload(f, config?.reminders), email: f.email || undefined, password: f.password || undefined, avatar });
         onDone('Usuario actualizado');
       } else {
-        await api.post('/admin/users', { ...f, ...reminderPayload(f, config?.reminders), avatar: avatar ?? undefined });
+        await api.post('/admin/users', { ...f, acceptsWhatsapp: f.acceptsEmail, ...reminderPayload(f, config?.reminders), avatar: avatar ?? undefined });
         onDone(reactivate ? 'Usuario reactivado' : 'Usuario dado de alta');
       }
     } catch (e) { setError(errMsg(e)); }
@@ -151,7 +152,7 @@ function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void;
         {f.role === 'CLIENT' && (
           <>
             <ReminderPrefs admin value={f} onChange={(v) => setF({ ...f, ...v })} hasEmail={!!f.email.trim()} hasPhone={!!f.phone.trim()} />
-            <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta novedades y promociones por email</label>
+            <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Acepta novedades y promociones por email y WhatsApp</label>
           </>
         )}
         <button className="btn btn-primary">Guardar</button>

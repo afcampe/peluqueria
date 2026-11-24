@@ -19,7 +19,7 @@ export function Profile() {
     e.preventDefault();
     setMsg(''); setError('');
     try {
-      setUser(await api.patch<User>('/auth/me', { ...f, ...reminderPayload(f, config?.reminders), password: f.password || undefined, avatar }));
+      setUser(await api.patch<User>('/auth/me', { ...f, acceptsWhatsapp: f.acceptsEmail, ...reminderPayload(f, config?.reminders), password: f.password || undefined, avatar }));
       setF({ ...f, password: '' });
       setAvatar(undefined);
       setMsg('Datos guardados');
@@ -44,7 +44,7 @@ export function Profile() {
       {user!.role === 'CLIENT' && (
         <>
           <ReminderPrefs value={f} onChange={(v) => setF({ ...f, ...v })} hasEmail={!!user!.email} hasPhone={!!f.phone.trim()} />
-          <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Recibir novedades y promociones por email</label>
+          <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={(e) => setF({ ...f, acceptsEmail: e.target.checked })} /> Recibir novedades y promociones por email y WhatsApp</label>
         </>
       )}
       <label>Nueva contraseña (opcional)<input type="password" minLength={8} autoComplete="new-password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} /></label>

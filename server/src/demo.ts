@@ -14,6 +14,7 @@ import { issueTicket } from './services/tickets.js';
 if (process.env.DEMO_DATA !== 'true') process.exit(0);
 if ((await prisma.user.count({ where: { role: 'CLIENT' } })) > 0) {
   await demoHistory();
+  await demoClients();
   console.log('[demo] ya hay clientes: no se crean más datos de ejemplo');
   process.exit(0);
 }
@@ -80,6 +81,7 @@ for (let d = -14; d <= 21; d++) {
   }
 }
 await demoHistory();
+await demoClients();
 console.log(`[demo] ${clients.length} clientes y ${created} citas de ejemplo creados`);
 await prisma.$disconnect();
 
@@ -134,4 +136,48 @@ async function demoHistory() {
     }
   }
   console.log('[demo] historial de ejemplo creado para los gráficos');
+}
+
+/** Clientes de ejemplo para el apartado Clientes del Resumen: tres que han dejado de venir y dos nuevos. Solo una vez. */
+async function demoClients() {
+  if (await prisma.user.count({ where: { email: 'victor10@example.com' } })) return;
+  const s = await getSettings();
+  const now = DateTime.now().setZone(s.timezone);
+  const services = await prisma.service.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } });
+  if (!services.length) return;
+  const hash = await bcrypt.hash(process.env.DEMO_CLIENT_PASSWORD ?? 'cliente1234', 10);
+  // [nombre, email, teléfono, días desde cada visita, acepta novedades]
+  const list: [string, string, string, number[], boolean][] = [
+    ['Víctor Soler', 'victor10', '612345011', [74, 102, 131, 160, 188], true],
+    ['Hugo Marín', 'hugo11', '612345012', [61, 82, 103, 124, 146, 167], true],
+    ['Óscar Peña', 'oscar12', '612345013', [95, 130, 166], false],
+    ['Iván Crespo', 'ivan13', '612345014', [6], true],
+    ['Marcos Rey', 'marcos14', '612345015', [11], true],
+  ];
+  for (const [name, email, phone, ago, acceptsEmail] of list) {
+    const u = await prisma.user.create({ data: { name, email: `${email}@example.com`, phone, passwordHash: hash, acceptsEmail, acceptsWhatsapp: acceptsEmail, remindEmail: s.reminders.enabled && s.reminders.email, remindWhatsapp: s.reminders.enabled && s.reminders.whatsapp, createdAt: now.minus({ days: Math.max(...ago) + 2 }).toJSDate() } });
+    for (const [i, d] of ago.entries()) {
+      // Día laborable y hora libre más cercanos
+      let day = now.minus({ days: d }).startOf('day');
+      for (let n = 0; n < 7 && !(s.weeklySchedule[String(day.weekday) as keyof typeof s.weeklySchedule] ?? []).length; n++) day = day.minus({ days: 1 });
+      const ranges = s.weeklySchedule[String(day.weekday) as keyof typeof s.weeklySchedule] ?? [];
+      let at: DateTime | null = null;
+      for (const r of ranges) {
+        const [h0, m0] = r.start.split(':').map(Number);
+        const [h1, m1] = r.end.split(':').map(Number);
+        for (let t = h0 * 60 + m0; t + s.slotMinutes <= h1 * 60 + m1 && !at; t += s.slotMinutes) {
+          const c = day.set({ hour: Math.floor(t / 60), minute: t % 60 });
+          if (!(await prisma.appointment.count({ where: { startAt: c.toJSDate(), status: { not: 'CANCELLED' } } }))) at = c;
+        }
+      }
+      if (!at) continue;
+      const svc = services[i % Math.min(2, services.length)];
+      const end = at.plus({ minutes: s.slotMinutes });
+      await prisma.appointment.create({ data: {
+        clientId: u.id, serviceId: svc.id, startAt: at.toJSDate(), endAt: end.toJSDate(), status: 'COMPLETED', paymentMethod: 'cash', priceCents: svc.priceCents, createdAt: at.minus({ days: 1 }).toJSDate(),
+        payments: { create: { provider: 'cash', amountCents: svc.priceCents, currency: s.currency, status: 'COMPLETED', createdAt: end.toJSDate() } },
+      } });
+    }
+  }
+  console.log('[demo] clientes de ejemplo creados para el Resumen');
 }

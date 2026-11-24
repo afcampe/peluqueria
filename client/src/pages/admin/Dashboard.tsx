@@ -211,6 +211,11 @@ interface Bucket { key: string; label: string; title: string; cashCents: number;
 interface Biz {
   period: Period; buckets: Bucket[]; totalCents: number; cashCents: number; onlineCents: number; previousCents: number | null;
   occupancy: { percent: number | null; hours: number[]; weekdays: number[]; cells: (number | null)[][] };
+  avgTicketCents: number | null; refunds: { count: number; cents: number }; forecast: { count: number; cents: number };
+  services: { id: string; name: string; count: number; cents: number }[];
+  incidents: { came: number; noShow: number; byClient: number; byShop: number; lostNoShowCents: number; lostCancelledCents: number };
+  clients: { fresh: number; recurring: number; top: { id: string; name: string; visits: number; cents: number }[] };
+  lapsed: { count: number; items: { id: string; name: string; days: number; usualDays: number | null; visits: number; spentCents: number; accepts: boolean; whatsappLink: string | null }[] };
 }
 const periods: [Period, string, string][] = [['7d', 'Últimos 7 días', 'los 7 días anteriores'], ['30d', 'Últimos 30 días', 'los 30 días anteriores'], ['12m', 'Últimos 12 meses', 'los 12 meses anteriores']];
 
@@ -241,13 +246,21 @@ function Business({ figures }: { figures: Data['figures'] }) {
           <div className="stats">
             <div className="stat"><strong>{money(b.totalCents)}</strong><span>Cobrado</span>
               <p className="stat-note">{diff === null ? 'Sin datos anteriores para comparar' : <><b className={diff >= 0 ? 'up' : 'down'}>{diff >= 0 ? '▲' : '▼'} {Math.abs(diff)} %</b> frente a {prevLabel}</>}</p></div>
-            <div className="stat"><strong>{b.occupancy.percent === null ? '—' : `${b.occupancy.percent} %`}</strong><span>Ocupación</span><p className="stat-note">Horas con cita sobre horas abiertas</p></div>
             <div className="stat"><strong>{money(figures.monthCashCents + figures.monthOnlineCents)}</strong><span>Este mes</span><p className="stat-note">{money(figures.monthCashCents)} en el local · {money(figures.monthOnlineCents)} online</p></div>
-            <Link to="/admin/usuarios" className="stat"><strong>{figures.clients}</strong><span>Clientes</span><p className="stat-note">{figures.upcoming} citas próximas</p></Link>
+            <div className="stat"><strong>{money(b.forecast.cents)}</strong><span>Previsto en 7 días</span><p className="stat-note">{times(b.forecast.count, 'cita reservada', 'citas reservadas')} · {figures.upcoming} en total</p></div>
+            <div className="stat"><strong>{b.occupancy.percent === null ? '—' : `${b.occupancy.percent} %`}</strong><span>Ocupación</span><p className="stat-note">Horas con cita sobre horas abiertas</p></div>
+            <div className="stat"><strong>{b.avgTicketCents === null ? '—' : money(b.avgTicketCents)}</strong><span>Ticket medio</span><p className="stat-note">Por cita cobrada</p></div>
+            <div className="stat"><strong>{money(b.refunds.cents)}</strong><span>Devoluciones</span><p className="stat-note">{b.refunds.count === 1 ? '1 devolución' : `${b.refunds.count} devoluciones`}</p></div>
           </div>
           <div className="dash-charts">
             <RevenueChart b={b} />
             <Occupancy o={b.occupancy} />
+          </div>
+          <div className="dash-two">
+            <Services list={b.services} />
+            <Incidents x={b.incidents} />
+            <ClientsCard c={b.clients} total={figures.clients} />
+            <Lapsed l={b.lapsed} />
           </div>
         </div>
       )}
@@ -330,6 +343,89 @@ function Occupancy({ o }: { o: Biz['occupancy'] }) {
           </tbody>
         </table>
       </div>
+    </section>
+  );
+}
+
+/** Barras horizontales de una sola serie, con su valor escrito: se leen sin depender del color. */
+function BarList({ rows }: { rows: { key: string; label: React.ReactNode; value: number; text: string; note?: string }[] }) {
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  return (
+    <ul className="bar-list">
+      {rows.map((r) => (
+        <li key={r.key}>
+          <div><span>{r.label}</span><span className="bar-value"><strong>{r.text}</strong>{r.note && <small>{r.note}</small>}</span></div>
+          <i aria-hidden><b style={{ width: `${Math.max(0, (r.value / max) * 100)}%` }} /></i>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const times = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function Services({ list }: { list: Biz['services'] }) {
+  return (
+    <section className="card chart-card">
+      <h3>Servicios</h3>
+      <p className="muted small">Cobrado por las citas realizadas en el periodo.</p>
+      {list.length === 0 ? <p className="empty">No hay citas realizadas en este periodo.</p>
+        : <BarList rows={list.map((x) => ({ key: x.id, label: x.name, value: x.cents, text: money(x.cents), note: times(x.count, 'cita', 'citas') }))} />}
+    </section>
+  );
+}
+
+function Incidents({ x }: { x: Biz['incidents'] }) {
+  const total = x.came + x.noShow + x.byClient + x.byShop;
+  const pct = (n: number) => `${Math.round((n / total) * 100)} %`;
+  const lost = x.lostNoShowCents + x.lostCancelledCents;
+  return (
+    <section className="card chart-card">
+      <div className="dash-head"><h3>Ausencias y cancelaciones</h3><Link to="/admin/anulaciones" className="small">Ver por cliente</Link></div>
+      {total === 0 ? <p className="empty">No hay citas en este periodo.</p> : (
+        <>
+          <BarList rows={[
+            { key: 'came', label: 'Vinieron', value: x.came, text: pct(x.came), note: times(x.came, 'cita', 'citas') },
+            { key: 'noShow', label: 'No vinieron', value: x.noShow, text: pct(x.noShow), note: times(x.noShow, 'cita', 'citas') },
+            { key: 'byClient', label: 'Canceló el cliente', value: x.byClient, text: pct(x.byClient), note: times(x.byClient, 'cita', 'citas') },
+            { key: 'byShop', label: 'Canceló la peluquería', value: x.byShop, text: pct(x.byShop), note: times(x.byShop, 'cita', 'citas') },
+          ]} />
+          <p className="dash-lost"><strong>{money(lost)}</strong> perdidos (estimado): {money(x.lostNoShowCents)} por ausencias y {money(x.lostCancelledCents)} por horas canceladas que no se volvieron a llenar.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ClientsCard({ c, total }: { c: Biz['clients']; total: number }) {
+  return (
+    <section className="card chart-card">
+      <div className="dash-head"><h3>Clientes</h3><Link to="/admin/usuarios" className="small">{total} en total</Link></div>
+      <div className="dash-pair"><p><strong>{c.fresh}</strong><span>nuevos</span></p><p><strong>{c.recurring}</strong><span>han repetido</span></p></div>
+      <h4 className="dash-part">Mejores del periodo</h4>
+      {c.top.length === 0 ? <p className="empty">No hay citas realizadas en este periodo.</p>
+        : <BarList rows={c.top.map((x) => ({ key: x.id, label: <Link to={`/admin/usuarios/${x.id}`}>{x.name}</Link>, value: x.cents, text: money(x.cents), note: times(x.visits, 'visita', 'visitas') }))} />}
+    </section>
+  );
+}
+
+function Lapsed({ l }: { l: Biz['lapsed'] }) {
+  return (
+    <section className="card chart-card">
+      <h3>Llevan tiempo sin venir {l.count > 0 && <small className="muted">{l.count}</small>}</h3>
+      <p className="muted small">Más de lo habitual en ellos y sin cita reservada. No depende del periodo.</p>
+      {l.items.length === 0 ? <p className="empty">Todos vienen a su ritmo.</p> : (
+        <ul className="lapsed">
+          {l.items.map((x) => (
+            <li key={x.id}>
+              <div><Link to={`/admin/usuarios/${x.id}`}>{x.name}</Link><span className="muted small">hace {x.days} días{x.usualDays ? ` · suele venir cada ${x.usualDays}` : ' · solo ha venido una vez'}</span></div>
+              {x.whatsappLink ? <a className="btn btn-sm btn-wa" href={x.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>
+                : <span className="muted small">{x.accepts ? 'Sin teléfono' : 'No acepta WhatsApp'}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {l.count > l.items.length && <p className="small muted">y {l.count - l.items.length} más.</p>}
     </section>
   );
 }

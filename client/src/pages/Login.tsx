@@ -64,7 +64,7 @@ export function Register() {
     setBusy(true);
     setError('');
     try {
-      await register({ ...f, avatar: avatar ?? undefined });
+      await register({ ...f, acceptsWhatsapp: f.acceptsEmail, avatar: avatar ?? undefined });
       nav(params.get('next') ?? '/reservar');
     } catch (e) {
       setError(errMsg(e));
@@ -87,7 +87,7 @@ export function Register() {
       <label>Email<input type="email" required autoComplete="email" value={f.email} onChange={set('email')} /></label>
       <label>Teléfono (WhatsApp)<input type="tel" required autoComplete="tel" value={f.phone} onChange={set('phone')} /></label>
       <label>Contraseña<input type="password" required minLength={8} autoComplete="new-password" value={f.password} onChange={set('password')} /></label>
-      <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={set('acceptsEmail')} /> Quiero recibir avisos y novedades por email</label>
+      <label className="check"><input type="checkbox" checked={f.acceptsEmail} onChange={set('acceptsEmail')} /> Quiero recibir avisos y novedades por email y WhatsApp</label>
       <button className="btn btn-primary" disabled={busy}>{busy ? 'Creando…' : 'Crear cuenta'}</button>
       <p className="muted">¿Ya tienes cuenta? <Link to="/entrar">Entra</Link></p>
     </form>

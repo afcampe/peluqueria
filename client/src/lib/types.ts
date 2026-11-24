@@ -3,7 +3,7 @@ export interface User {
   /** false = ficha sin cuenta creada al importar la agenda en papel. */
   hasAccount: boolean;
   role: 'CLIENT' | 'ADMIN'; status: 'ACTIVE' | 'BLOCKED' | 'DELETED';
-  blockedUntil: string | null; blockReason: string | null; acceptsEmail: boolean; createdAt: string;
+  blockedUntil: string | null; blockReason: string | null; acceptsEmail: boolean; acceptsWhatsapp: boolean; createdAt: string;
   remindEmail: boolean; remindWhatsapp: boolean;
   whatsappLink?: string | null;
   avatarUrl: string | null;

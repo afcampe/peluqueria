@@ -896,6 +896,15 @@ describe('recordatorio por email enviado a mano', () => {
 });
 
 describe('resumen del administrador', () => {
+  it('novedades por WhatsApp: solo con consentimiento expreso', async () => {
+    const reg = (email: string, o = {}) => call('POST', '/api/auth/register', { name: 'Consent', email, phone: '600222333', password: 'cliente123', ...o });
+    expect((await reg('w1@w.es', { acceptsEmail: true })).body.user).toMatchObject({ acceptsEmail: true, acceptsWhatsapp: false });
+    const r = await reg('w2@w.es', { acceptsEmail: true, acceptsWhatsapp: true });
+    expect(r.body.user.acceptsWhatsapp).toBe(true);
+    expect((await call('PATCH', '/api/auth/me', { name: 'Otro nombre' }, r.body.token)).body.acceptsWhatsapp).toBe(true);
+    expect((await call('PATCH', '/api/auth/me', { acceptsEmail: false, acceptsWhatsapp: false }, r.body.token)).body).toMatchObject({ acceptsEmail: false, acceptsWhatsapp: false });
+  });
+
   it('muestra el día, lo pendiente y los huecos liberados', async () => {
     const { dashboard } = await import('../src/services/dashboard.js');
     const me = await prisma.user.findUniqueOrThrow({ where: { email: 'o@o.es' } });
@@ -956,6 +965,45 @@ describe('resumen del administrador', () => {
     expect(m.totalCents).toBe(m.buckets.reduce((n, x) => n + x.cashCents + x.onlineCents, 0));
     expect((await call('GET', '/api/admin/dashboard/business?period=30d', undefined, adminToken)).status).toBe(200);
     expect((await call('GET', '/api/admin/dashboard/business', undefined, clientToken)).status).toBe(403);
+  });
+
+  it('servicios, ausencias, clientes y quién lleva tiempo sin venir', async () => {
+    const { business } = await import('../src/services/dashboard.js');
+    const base = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 120 }).set({ weekday: 3, hour: 21, minute: 0, second: 0, millisecond: 0 });
+    const user = (name: string, o = {}) => prisma.user.create({ data: { name, phone: '600123123', email: `${name}@r.es`, ...o } });
+    const [fiel, nuevo, perdido, promo, conCita] = await Promise.all([user('Fiel'), user('Nuevo'), user('Perdido', { acceptsWhatsapp: true }), user('SinPromo'), user('ConCita')]);
+    const mk = async (clientId: string, ago: number, hour: number, o: Record<string, unknown> = {}, paid = 1500, refunded = 0) => {
+      const t = base.minus({ days: ago }).set({ hour });
+      const a = await prisma.appointment.create({ data: { clientId, serviceId, startAt: t.toJSDate(), endAt: t.plus({ minutes: 30 }).toJSDate(), priceCents: 1500, paymentMethod: 'cash', status: 'COMPLETED', ...o } });
+      if (paid) {
+        const p = await prisma.payment.create({ data: { appointmentId: a.id, provider: 'cash', amountCents: paid, refundedCents: refunded, currency: 'EUR', status: refunded ? 'PARTIALLY_REFUNDED' : 'COMPLETED', createdAt: t.toJSDate() } });
+        if (refunded) await prisma.refund.create({ data: { paymentId: p.id, amountCents: refunded, requestedBy: 'ADMIN', createdAt: t.toJSDate() } });
+      }
+    };
+    await mk(fiel.id, 40, 9); await mk(fiel.id, 5, 9); await mk(fiel.id, 2, 9, {}, 2000, 500);
+    await mk(nuevo.id, 1, 10);
+    await mk(fiel.id, 3, 11, { status: 'NO_SHOW' }, 0);
+    await mk(nuevo.id, 3, 12, { status: 'CANCELLED', cancelledBy: 'CLIENT' }, 0); // se quedó vacía
+    await mk(fiel.id, 4, 16, { status: 'CANCELLED', cancelledBy: 'CLIENT' }, 0); // se volvió a llenar
+    await mk(nuevo.id, 4, 16, { priceCents: 1000 }, 1000);
+    await mk(nuevo.id, 4, 17, { status: 'CANCELLED', cancelledBy: 'ADMIN' }, 0);
+    for (const u of [perdido, promo, conCita]) for (const d of [150, 120, 90]) await mk(u.id, d, 9);
+    await mk(conCita.id, -3, 9, { status: 'CONFIRMED' }, 0);
+
+    const b = await business('30d', base.toJSDate());
+    expect(b.incidents).toEqual({ came: 4, noShow: 1, byClient: 2, byShop: 1, lostNoShowCents: 1500, lostCancelledCents: 1500 });
+    expect(b.services).toEqual([expect.objectContaining({ count: 4, cents: 1500 + 1500 + 1500 + 1000 })]);
+    expect(b.avgTicketCents).toBe(1375);
+    expect(b.refunds).toEqual({ count: 1, cents: 500 });
+    expect(b.forecast).toEqual({ count: 1, cents: 1500 });
+    expect(b.clients).toMatchObject({ fresh: 1, recurring: 2, top: [{ name: 'Fiel', visits: 2, cents: 3000 }, { name: 'Nuevo', visits: 2, cents: 2500 }] });
+    const names = b.lapsed.items.map((x) => x.name);
+    expect(names).toContain('Perdido');
+    expect(names).not.toContain('ConCita');
+    expect(names).not.toContain('Fiel');
+    expect(b.lapsed.items.find((x) => x.name === 'Perdido')).toMatchObject({ days: 90, usualDays: 30, visits: 3, whatsappLink: expect.stringContaining('wa.me') });
+    // Aceptar solo el email (casilla antigua) no vale para WhatsApp
+    expect(b.lapsed.items.find((x) => x.name === 'SinPromo')).toMatchObject({ accepts: false, whatsappLink: null });
   });
 });
 

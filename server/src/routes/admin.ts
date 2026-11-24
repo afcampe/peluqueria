@@ -185,6 +185,7 @@ const userSchema = z.object({
   role: z.enum(['CLIENT', 'ADMIN']).default('CLIENT'),
   password: z.string().min(8),
   acceptsEmail: z.boolean().default(true),
+  acceptsWhatsapp: z.boolean().optional(),
   remindEmail: z.boolean().optional(),
   remindWhatsapp: z.boolean().optional(),
   avatar: avatarField,
@@ -276,7 +277,7 @@ adminRouter.post('/users/:id/unblock', h(async (req, res) => {
 adminRouter.delete('/users/:id', h(async (req, res) => {
   if (req.params.id === req.user!.id) throw badRequest('No puedes darte de baja a ti mismo');
   const r = await cancelFutureOf(req, req.params.id, 'Baja del cliente');
-  const user = await prisma.user.update({ where: { id: req.params.id }, data: { status: 'DELETED', acceptsEmail: false } });
+  const user = await prisma.user.update({ where: { id: req.params.id }, data: { status: 'DELETED', acceptsEmail: false, acceptsWhatsapp: false } });
   res.json({ user: publicUser(user), ...r });
 }));
 

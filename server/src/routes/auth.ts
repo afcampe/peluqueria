@@ -16,6 +16,7 @@ const registerSchema = z.object({
   phone: z.string().trim().min(9, 'Teléfono no válido'),
   password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres'),
   acceptsEmail: z.boolean().optional(),
+  acceptsWhatsapp: z.boolean().optional(),
   avatar: avatarField,
 });
 
@@ -24,7 +25,7 @@ authRouter.post('/register', h(async (req, res) => {
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw conflict('Ya existe una cuenta con ese email');
   const user = await prisma.user.create({
     data: {
-      name: data.name, email: data.email, phone: data.phone, acceptsEmail: data.acceptsEmail ?? true, ...(await defaultReminderPrefs()),
+      name: data.name, email: data.email, phone: data.phone, acceptsEmail: data.acceptsEmail ?? true, acceptsWhatsapp: data.acceptsWhatsapp ?? false, ...(await defaultReminderPrefs()),
       passwordHash: await bcrypt.hash(data.password, 10), ...avatarData(data.avatar),
     },
   });
@@ -49,6 +50,7 @@ authRouter.patch('/me', requireAuth, h(async (req, res) => {
     name: z.string().trim().min(2).optional(),
     phone: z.string().trim().min(9).optional(),
     acceptsEmail: z.boolean().optional(),
+  acceptsWhatsapp: z.boolean().optional(),
     remindEmail: z.boolean().optional(),
     remindWhatsapp: z.boolean().optional(),
     password: z.string().min(8).optional(),

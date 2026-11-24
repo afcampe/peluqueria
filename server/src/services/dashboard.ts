@@ -203,6 +203,7 @@ export async function business(period: Period, now = new Date()) {
   const total = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
   return {
     period, buckets,
+    ...(await businessDetails(s, from, now)),
     totalCents: net(pays), cashCents: net(pays.filter((p) => p.provider === 'cash')), onlineCents: net(pays.filter((p) => p.provider !== 'cash')),
     /** null = no había cobros en el periodo anterior, así que no se compara. */
     previousCents: prev.length ? net(prev) : null,
@@ -212,6 +213,86 @@ export async function business(period: Period, now = new Date()) {
       cells: weekdays.map((w) => hours.map((hr) => { const o = open.get(`${w}-${hr}`); return o ? Math.round(((busy.get(`${w}-${hr}`) ?? 0) / o) * 100) : null; })),
     },
   };
+}
+
+/** Servicios, ausencias y clientes del periodo, y clientes que llevan tiempo sin venir. */
+async function businessDetails(s: Settings, from: DateTime, now: Date) {
+  const start = from.toJSDate();
+  const [appts, refunds, forecast, firsts, occupied] = await Promise.all([
+    prisma.appointment.findMany({
+      where: { startAt: { gte: start, lte: now }, status: { in: [...OCCUPIES, 'CANCELLED'] }, NOT: { status: 'CANCELLED', cancelledBy: 'SYSTEM' } },
+      include: { client: { select: { id: true, name: true } }, service: { select: { id: true, name: true } }, payments: { select: { status: true, amountCents: true, refundedCents: true } } },
+    }),
+    prisma.refund.aggregate({ where: { createdAt: { gte: start, lte: now } }, _sum: { amountCents: true }, _count: true }),
+    prisma.appointment.aggregate({ where: { status: 'CONFIRMED', startAt: { gt: now, lte: DateTime.fromJSDate(now).plus({ days: 7 }).toJSDate() } }, _sum: { priceCents: true }, _count: true }),
+    // Primera visita de cada cliente, para distinguir nuevos de recurrentes.
+    prisma.appointment.groupBy({ by: ['clientId'], where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, endAt: { lte: now } }, _min: { startAt: true } }),
+    prisma.appointment.findMany({ where: { startAt: { gte: start, lte: now }, status: { in: OCCUPIES } }, select: { startAt: true, endAt: true } }),
+  ]);
+  const netOf = (a: (typeof appts)[number]) => a.payments.filter((p) => [...PAID, 'REFUNDED'].includes(p.status)).reduce((n, p) => n + p.amountCents - p.refundedCents, 0);
+  const came = appts.filter((a) => ['CONFIRMED', 'COMPLETED'].includes(a.status) && a.endAt <= now);
+
+  const services = new Map<string, { id: string; name: string; count: number; cents: number }>();
+  const spend = new Map<string, { id: string; name: string; visits: number; cents: number }>();
+  for (const a of came) {
+    const sv = services.get(a.service.id) ?? { id: a.service.id, name: a.service.name, count: 0, cents: 0 };
+    sv.count++; sv.cents += netOf(a); services.set(sv.id, sv);
+    const c = spend.get(a.client.id) ?? { id: a.client.id, name: a.client.name, visits: 0, cents: 0 };
+    c.visits++; c.cents += netOf(a); spend.set(c.id, c);
+  }
+  const paid = came.filter((a) => netOf(a) > 0);
+  const first = new Map(firsts.map((f) => [f.clientId, f._min.startAt!]));
+  const fresh = [...spend.keys()].filter((id) => first.get(id)! >= start).length;
+
+  // Dinero perdido (estimado con el precio): ausencias sin pagar y horas canceladas por el cliente que no se volvieron a llenar.
+  const noShow = appts.filter((a) => a.status === 'NO_SHOW');
+  const byClient = appts.filter((a) => a.status === 'CANCELLED' && a.cancelledBy === 'CLIENT');
+  const byShop = appts.filter((a) => a.status === 'CANCELLED' && a.cancelledBy !== 'CLIENT');
+  const refilled = (a: { startAt: Date; endAt: Date }) => occupied.some((o) => o.startAt < a.endAt && a.startAt < o.endAt);
+  const lostNoShow = noShow.filter((a) => netOf(a) <= 0).reduce((n, a) => n + a.priceCents, 0);
+  const lostCancelled = byClient.filter((a) => netOf(a) <= 0 && !refilled(a)).reduce((n, a) => n + a.priceCents, 0);
+
+  return {
+    avgTicketCents: paid.length ? Math.round(paid.reduce((n, a) => n + netOf(a), 0) / paid.length) : null,
+    refunds: { count: refunds._count, cents: refunds._sum.amountCents ?? 0 },
+    forecast: { count: forecast._count, cents: forecast._sum.priceCents ?? 0 },
+    services: [...services.values()].sort((a, b) => b.cents - a.cents || b.count - a.count),
+    incidents: { came: came.length, noShow: noShow.length, byClient: byClient.length, byShop: byShop.length, lostNoShowCents: lostNoShow, lostCancelledCents: lostCancelled },
+    clients: { fresh, recurring: [...spend.values()].filter((c) => c.visits > 1 || first.get(c.id)! < start).length, top: [...spend.values()].sort((a, b) => b.cents - a.cents || b.visits - a.visits).slice(0, 5) },
+    lapsed: await lapsedClients(s, now),
+  };
+}
+
+const DAY = 86_400_000;
+
+/**
+ * Clientes que ya deberían haber vuelto: llevan bastante más de lo habitual en ellos
+ * (la mediana de días entre visitas; 45 si solo han venido una vez) y no tienen cita.
+ * Solo el último año.
+ */
+async function lapsedClients(s: Settings, now: Date) {
+  const users = await prisma.user.findMany({
+    where: { role: 'CLIENT', status: 'ACTIVE', appointments: { some: { status: { in: ['CONFIRMED', 'COMPLETED'] }, endAt: { lte: now, gte: new Date(now.getTime() - 365 * DAY) } }, none: { status: { in: ['CONFIRMED', 'PENDING_PAYMENT'] }, startAt: { gt: now } } } },
+    select: {
+      id: true, name: true, phone: true, acceptsWhatsapp: true,
+      appointments: { where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, endAt: { lte: now } }, select: { startAt: true, priceCents: true }, orderBy: { startAt: 'asc' } },
+    },
+  });
+  const list = users.flatMap((u) => {
+    const days = u.appointments.map((a) => a.startAt.getTime());
+    const gaps = days.slice(1).map((t, i) => Math.round((t - days[i]) / DAY)).filter((g) => g > 0).sort((a, b) => a - b);
+    const usual = gaps.length ? gaps[Math.floor(gaps.length / 2)] : null;
+    const since = Math.floor((now.getTime() - days.at(-1)!) / DAY);
+    const base = usual ?? 45;
+    if (since < Math.max(base * 1.5, base + 10)) return [];
+    return [{
+      id: u.id, name: u.name, days: since, usualDays: usual, visits: days.length, spentCents: u.appointments.reduce((n, a) => n + a.priceCents, 0),
+      /** Es un mensaje comercial: solo a quien acepta novedades por WhatsApp. */
+      accepts: u.acceptsWhatsapp,
+      whatsappLink: u.acceptsWhatsapp ? waLink(u.phone, `Hola ${u.name.split(' ')[0]}, hace tiempo que no te vemos por ${s.shopName}. ¿Te reservamos hora? Puedes pedirla desde la app o respondiendo a este mensaje.`) : null,
+    }];
+  });
+  return { count: list.length, items: list.sort((a, b) => b.spentCents - a.spentCents).slice(0, 6) };
 }
 
 export function integrations(agendaReader: boolean, payments: { id: string; label: string; configured: boolean }[]) {
