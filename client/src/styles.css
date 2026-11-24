@@ -409,11 +409,10 @@ label.inline input { width: 5rem; }
 .history-tags .badge { margin-left: 0; }
 .history-divider { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: .75rem 0 .25rem; }
 @media (max-width: 640px) { .history-item { grid-template-columns: 1fr; gap: .4rem; } }
-.pay { display: inline-block; max-width: 100%; font-size: .78rem; font-weight: 600; padding: .12rem .5rem; border-radius: 99px; }
-/* Verde y rojo vivos, algo más oscuros que los puntos para que el texto blanco se lea. */
-.pay-paid { background: #00812a; color: #fff; }
+.pay { font-size: .78rem; font-weight: 600; padding: .12rem .5rem; border-radius: 99px; }
+.pay-paid { background: var(--ok-bg); color: var(--ok-text); }
 .pay-partial, .pay-refunded { background: var(--info-bg); color: var(--info-text); }
-.pay-unpaid { background: #d80f1d; color: #fff; }
+.pay-unpaid { background: var(--warn-bg); color: var(--warn-text); }
 .pay-none { color: var(--muted); font-weight: 400; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation-duration: .01ms !important; scroll-behavior: auto !important; } }
@@ -487,7 +486,7 @@ label.inline input { width: 5rem; }
 .mo-list li.st-COMPLETED, .mo-list li.st-NO_SHOW { color: var(--muted); }
 .mo-list li.st-CANCELLED { text-decoration: line-through; color: var(--muted); }
 .mo-unpaid { position: absolute; top: .4rem; right: .4rem; min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 99px;
-  font-size: .68rem; font-weight: 700; display: grid; place-items: center; background: #d80f1d; color: #fff; }
+  font-size: .68rem; font-weight: 700; display: grid; place-items: center; background: var(--warn-bg); color: var(--warn-text); }
 @media (max-width: 640px) {
   .mo-day { min-height: 3.6rem; padding: .25rem; align-items: center; }
   .mo-num { align-self: center; }
