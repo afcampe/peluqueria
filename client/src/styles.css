@@ -453,7 +453,7 @@ label.inline input { width: 5rem; }
 .swatch-closed { border: 1px solid var(--border); }
 
 .cal-appt { position: relative; display: block; width: 100%; text-align: left; font: inherit; font-size: .78rem; line-height: 1.25; cursor: pointer;
-  padding: .3rem 1.4rem .3rem .45rem; border: 1px solid var(--border); border-left: 3px solid var(--future); border-radius: 4px;
+  padding: .3rem 1rem .3rem .45rem; border: 1px solid var(--border); border-left: 3px solid var(--future); border-radius: 4px;
   background: var(--future-bg); color: var(--text); }
 .cal-appt:hover { border-color: var(--text); }
 .cal-appt strong, .cal-appt span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -462,12 +462,12 @@ label.inline input { width: 5rem; }
 .cal-appt.st-COMPLETED, .cal-appt.st-NO_SHOW { border-left-color: var(--past); background: var(--past-bg); }
 .cal-appt.st-PENDING_PAYMENT { border-left-style: dashed; }
 .cal-appt.st-CANCELLED { opacity: .55; text-decoration: line-through; }
-.pay-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #c8101e; flex: none; }
+.pay-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #9c0a15; flex: none; }
 .cal-appt .pay-dot { position: absolute; top: .4rem; right: .35rem; }
-.cal-appt.pay-paid .pay-dot, .pay-dot.pay-paid { background: #0b8a30; }
+.cal-appt.pay-paid .pay-dot, .pay-dot.pay-paid { background: #066322; }
 .cal-appt.pay-partial .pay-dot, .cal-appt.pay-refunded .pay-dot { background: var(--info-text); }
 .cal-appt.pay-none .pay-dot { display: none; }
-.pay-dot.pay-unpaid { background: #c8101e; }
+.pay-dot.pay-unpaid { background: #9c0a15; }
 .legend.small { margin: .6rem 0 0; flex-wrap: wrap; gap: .5rem 1.25rem; }
 
 /* Mes: cuadrícula de 6 semanas; cada día abre su lista de citas */
