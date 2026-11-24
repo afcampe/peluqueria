@@ -58,3 +58,5 @@ export const weekLabel = (start: string) => {
   const sameMonth = start.slice(0, 7) === end.slice(0, 7);
   return `${f(start, sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' })} – ${f(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
 };
+
+export const waitPartLabel = { ANY: 'todo el día', MORNING: 'por la mañana', AFTERNOON: 'por la tarde' };

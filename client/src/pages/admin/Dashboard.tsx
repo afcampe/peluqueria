@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { BookForClient } from '../../components/BookForClient';
 import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { Alert, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
-import { dateLong, dateShort, money, time, weekdayNames } from '../../lib/format';
-import type { Appointment } from '../../lib/types';
+import { dateLong, dateShort, money, time, waitPartLabel, weekdayNames } from '../../lib/format';
+import type { Appointment, WaitEntry } from '../../lib/types';
 import { CashModal, NewAppointmentModal } from './Agenda';
 
 interface Brief {
@@ -24,6 +25,7 @@ interface Data {
     failedReminders: { id: string; channel: string; detail: string | null; startAt: string; client: { id: string; name: string } }[];
     imports: number; warnings: string[];
   };
+  waitlist: WaitEntry[];
 }
 
 export function Dashboard() {
@@ -31,6 +33,7 @@ export function Dashboard() {
   const [error, setError] = useState('');
   const [flash, setFlash] = useState('');
   const [newAt, setNewAt] = useState<string | null>(null);
+  const [give, setGive] = useState<WaitEntry | null>(null);
   const load = useCallback(() => api.get<Data>('/admin/dashboard').then((r) => { setD(r); setError(''); }).catch((e) => setError(e.message)), []);
   // Se refresca cada minuto: cambian la próxima cita y las horas libres.
   useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
@@ -63,8 +66,10 @@ export function Dashboard() {
       </section>
 
       <Todo todo={d.todo} onChange={done} onGive={setNewAt} />
+      <Waitlist list={d.waitlist} onGive={setGive} onChange={done} />
       <Business figures={f} />
 
+      {give && <BookForClient user={give.client} initialDate={give.date} onChanged={load} onClose={() => setGive(null)} onDone={(m) => { setGive(null); done(m); }} />}
       {newAt && <NewAppointmentModal initialStart={newAt} onClose={() => setNewAt(null)} onDone={done} />}
     </div>
   );
@@ -202,6 +207,39 @@ function CashModalFor({ id, onClose, onDone }: { id: string; onClose: () => void
   const [a, setA] = useState<Appointment | null>(null);
   useEffect(() => { api.get<Appointment>(`/admin/appointments/${id}`).then(setA).catch(onClose); /* eslint-disable-next-line */ }, [id]);
   return a ? <CashModal appt={a} onClose={onClose} onDone={onDone} /> : null;
+}
+
+// ---------------------------------------------------------------- Lista de espera
+
+/** Quien espera hora en un día completo; primero los que ya tienen hueco. */
+function Waitlist({ list, onGive, onChange }: { list: WaitEntry[]; onGive: (w: WaitEntry) => void; onChange: (m: string) => void }) {
+  const [error, setError] = useState('');
+  if (!list.length) return null;
+  const sorted = [...list].sort((a, b) => Number(b.free.length > 0) - Number(a.free.length > 0));
+  const withGap = list.filter((w) => w.free.length).length;
+  const remove = async (w: WaitEntry) => {
+    try { await api.del(`/admin/waitlist/${w.id}`); onChange(`${w.client.name} ya no está en la lista de espera`); } catch (e) { setError(errMsg(e)); }
+  };
+  return (
+    <section className="card">
+      <h2>Lista de espera <small className="muted">{list.length}</small></h2>
+      <p className="muted small">{withGap ? `${withGap === 1 ? 'Hay hueco para 1 cliente' : `Hay hueco para ${withGap} clientes`}.` : 'Todavía no se ha liberado ninguna hora para ellos.'}</p>
+      <Alert>{error}</Alert>
+      <ul className="lapsed">
+        {sorted.map((w) => (
+          <li key={w.id} className={w.free.length ? 'has-gap' : ''}>
+            <div><Link to={`/admin/usuarios/${w.client.id}`}>{w.client.name}</Link>
+              <span className="muted small">{dateShort(`${w.date}T12:00:00Z`)}, {waitPartLabel[w.part]}{w.free.length > 0 ? <> · <strong>libre: {w.free.slice(0, 4).map(time).join(', ')}{w.free.length > 4 && '…'}</strong>{w.notifiedAt && ' · avisado por email'}</> : ' · completo'}</span></div>
+            <div className="actions">
+              {w.free.length > 0 && <button className="btn btn-sm btn-primary" onClick={() => onGive(w)}>Reservar</button>}
+              {w.whatsappLink && <a className="btn btn-sm btn-wa" href={w.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
+              <button className="btn btn-sm" onClick={() => remove(w)}>Quitar</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 // ---------------------------------------------------------------- Negocio

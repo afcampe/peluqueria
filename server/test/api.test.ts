@@ -895,6 +895,92 @@ describe('recordatorio por email enviado a mano', () => {
   });
 });
 
+describe('reservar a un cliente desde Usuarios', () => {
+  it('el calendario cuenta los huecos de cada día y la reserva queda a nombre del cliente', async () => {
+    const start = await slotIn(62);
+    const month = DateTime.fromISO(start).setZone('Europe/Madrid').toFormat('yyyy-MM');
+    const date = DateTime.fromISO(start).setZone('Europe/Madrid').toISODate();
+    const day = async () => (await call('GET', `/api/admin/calendar?month=${month}`, undefined, adminToken)).body.find((d: { date: string }) => d.date === date);
+    const before = await day();
+    expect(before.open).toBe(true);
+    const avail = (await call('GET', `/api/admin/availability?date=${date}`, undefined, adminToken)).body;
+    expect(before.free).toBe(avail.filter((s: { available: boolean }) => s.available).length);
+    const other = await prisma.user.findUniqueOrThrow({ where: { email: 'o@o.es' } });
+    const r = await call('POST', '/api/admin/appointments', { clientId: other.id, serviceId, startAt: start, paymentMethod: 'cash' }, adminToken);
+    expect(r.body.client.id).toBe(other.id);
+    expect((await day()).free).toBe(before.free - 1);
+    const sunday = DateTime.fromISO(date!).set({ weekday: 7 }).toISODate()!;
+    const cal = (await call('GET', `/api/admin/calendar?month=${sunday.slice(0, 7)}`, undefined, adminToken)).body;
+    expect(cal.find((d: { date: string }) => d.date === sunday)).toMatchObject({ open: false, free: 0 });
+    expect((await call('GET', '/api/admin/calendar?month=2026-1', undefined, adminToken)).status).toBe(400);
+    expect((await call('GET', `/api/admin/calendar?month=${month}`, undefined, clientToken)).status).toBe(403);
+  });
+});
+
+describe('lista de espera y consentimiento', () => {
+  it('solo en días completos; al liberarse se avisa una vez, se puede reservar y sale de la lista', async () => {
+    const { runWaitlist, listWaitlist } = await import('../src/services/waitlist.js');
+    const [a, b] = await Promise.all(['Espera', 'Ocupa'].map((name) => prisma.user.create({ data: { name, email: `${name}@e.es`, phone: '600777888' } })));
+    const day = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 30 }).set({ weekday: 2, hour: 0, minute: 0, second: 0, millisecond: 0 });
+    const date = day.toISODate()!;
+    const add = (part: string, d = date) => call('POST', '/api/admin/waitlist', { clientId: a.id, date: d, part }, adminToken);
+    expect((await add('ANY')).status).toBe(400); // hay horas libres
+    expect((await add('ANY', day.set({ weekday: 7 }).toISODate()!)).status).toBe(400); // cerrado
+    const free = ((await call('GET', `/api/public/availability?date=${date}`)).body as { start: string; available: boolean }[]).filter((s) => s.available);
+    const ids: string[] = [];
+    for (const s of free.filter((x) => DateTime.fromISO(x.start).setZone('Europe/Madrid').hour < 14)) ids.push((await call('POST', '/api/admin/appointments', { clientId: b.id, serviceId, startAt: s.start, paymentMethod: 'cash' }, adminToken)).body.id);
+    expect((await add('ANY')).status).toBe(400); // queda la tarde
+    const w = await add('MORNING');
+    expect(w.status).toBe(201);
+    expect((await add('MORNING')).status).toBe(409);
+    expect((await call('POST', '/api/admin/waitlist', { clientId: a.id, date, part: 'MORNING' }, clientToken)).status).toBe(403);
+    expect(await runWaitlist(new Date(), true)).toBe(0);
+    expect((await listWaitlist(new Date(), a.id))[0].free).toEqual([]);
+
+    await call('POST', `/api/admin/appointments/${ids[2]}/cancel`, { notify: false }, adminToken);
+    expect(await runWaitlist(new Date(), true)).toBe(1);
+    expect(await runWaitlist(new Date(), true)).toBe(0); // no se repite
+    const [entry] = await listWaitlist(new Date(), a.id);
+    expect(entry.notifiedAt).not.toBeNull();
+    expect(entry.free).toHaveLength(1);
+    expect(entry.whatsappLink).toContain('wa.me');
+    expect((await call('GET', '/api/admin/dashboard', undefined, adminToken)).body.waitlist.map((x: { id: string }) => x.id)).toContain(entry.id);
+    // Se vuelve a llenar y se libera otra vez: se avisa de nuevo
+    const again = await call('POST', '/api/admin/appointments', { clientId: b.id, serviceId, startAt: entry.free[0], paymentMethod: 'cash' }, adminToken);
+    expect(await runWaitlist(new Date(), true)).toBe(0);
+    await call('POST', `/api/admin/appointments/${again.body.id}/cancel`, { notify: false }, adminToken);
+    expect(await runWaitlist(new Date(), true)).toBe(1);
+    // Con el aviso desactivado no se envía
+    await prisma.waitlistEntry.update({ where: { id: entry.id }, data: { notifiedAt: null } });
+    await call('PUT', '/api/admin/settings', { waitlistEmail: false }, adminToken);
+    expect(await runWaitlist(new Date(), true)).toBe(0);
+    await call('PUT', '/api/admin/settings', { waitlistEmail: true }, adminToken);
+
+    await call('POST', '/api/admin/appointments', { clientId: a.id, serviceId, startAt: entry.free[0], paymentMethod: 'cash' }, adminToken);
+    expect(await listWaitlist(new Date(), a.id)).toEqual([]);
+    expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { id: entry.id } })).status).toBe('BOOKED');
+    expect((await add('MORNING')).body.error).toContain('Ya tiene cita');
+    const c = await prisma.user.create({ data: { name: 'Otro espera' } });
+    const w2 = await call('POST', '/api/admin/waitlist', { clientId: c.id, date, part: 'MORNING' }, adminToken);
+    expect((await call('DELETE', `/api/admin/waitlist/${w2.body.id}`, undefined, adminToken)).status).toBe(204);
+    expect(await listWaitlist(new Date(), c.id)).toEqual([]);
+  });
+
+  it('sin consentimiento expreso no hay novedades, y WhatsApp filtra las promociones', async () => {
+    const reg = await call('POST', '/api/auth/register', { name: 'Sin marcar', email: 'sm@s.es', phone: '600222444', password: 'cliente123' });
+    expect(reg.body.user).toMatchObject({ acceptsEmail: false, acceptsWhatsapp: false });
+    const alta = await call('POST', '/api/admin/users', { name: 'Alta', email: 'alta@s.es', phone: '600222555', password: 'cliente123' }, adminToken);
+    expect(alta.body).toMatchObject({ acceptsEmail: false, acceptsWhatsapp: false });
+    const si = await call('POST', '/api/auth/register', { name: 'Marcada', email: 'si@s.es', phone: '600222666', password: 'cliente123', acceptsEmail: true, acceptsWhatsapp: true });
+    const ids = [reg.body.user.id, si.body.user.id];
+    const links = (onlyConsent: boolean) => call('POST', '/api/admin/whatsapp/links', { audience: 'selected', userIds: ids, body: 'Hola', onlyConsent }, adminToken);
+    expect((await links(true)).body).toMatchObject({ skipped: 1, rows: [{ name: 'Marcada' }] });
+    expect((await links(false)).body.rows).toHaveLength(2);
+    // Editar otro dato no cambia el consentimiento
+    expect((await call('PATCH', `/api/admin/users/${si.body.user.id}`, { name: 'Marcada 2' }, adminToken)).body).toMatchObject({ acceptsEmail: true, acceptsWhatsapp: true });
+  });
+});
+
 describe('resumen del administrador', () => {
   it('novedades por WhatsApp: solo con consentimiento expreso', async () => {
     const reg = (email: string, o = {}) => call('POST', '/api/auth/register', { name: 'Consent', email, phone: '600222333', password: 'cliente123', ...o });

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { BookForClient } from '../../components/BookForClient';
 import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
@@ -24,6 +25,8 @@ export function UserDetail() {
   const [filter, setFilter] = useState<Filter>(params.get('ver') === 'incidencias' ? 'incidents' : 'all');
   const [error, setError] = useState('');
   const [merging, setMerging] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [flash, setFlash] = useState('');
 
   const load = useCallback(() => {
     api.get<User>(`/admin/users/${id}`).then(setUser).catch((e) => setError(e.message));
@@ -76,6 +79,7 @@ export function UserDetail() {
           )}
         </div>
  {!user.hasAccount && user.role === 'CLIENT' && <button className="btn" onClick={() => setMerging(true)}>Unir con un cliente registrado</button>}
+        {user.role === 'CLIENT' && user.status !== 'DELETED' && <button className="btn btn-primary" onClick={() => setBooking(true)}>Reservar cita</button>}
         {user.whatsappLink && <a className="btn btn-wa" href={user.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
         {user.role === 'CLIENT' && user.status !== 'DELETED' && (
           <EmailReminderButton small={false} clientId={user.id} disabledReason={!user.email ? 'El cliente no tiene email'
@@ -83,6 +87,8 @@ export function UserDetail() {
         )}
       </section>
 
+      <Alert kind="ok">{flash}</Alert>
+      {booking && <BookForClient user={user} onChanged={load} onClose={() => setBooking(false)} onDone={(m) => { setBooking(false); setFlash(m); load(); }} />}
       {merging && <MergeModal user={user} onClose={() => setMerging(false)} />}
 
       {user.role === 'ADMIN' ? (

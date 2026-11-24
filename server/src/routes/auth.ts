@@ -25,7 +25,7 @@ authRouter.post('/register', h(async (req, res) => {
   if (await prisma.user.findUnique({ where: { email: data.email } })) throw conflict('Ya existe una cuenta con ese email');
   const user = await prisma.user.create({
     data: {
-      name: data.name, email: data.email, phone: data.phone, acceptsEmail: data.acceptsEmail ?? true, acceptsWhatsapp: data.acceptsWhatsapp ?? false, ...(await defaultReminderPrefs()),
+      name: data.name, email: data.email, phone: data.phone, acceptsEmail: data.acceptsEmail ?? false, acceptsWhatsapp: data.acceptsWhatsapp ?? false, ...(await defaultReminderPrefs()),
       passwordHash: await bcrypt.hash(data.password, 10), ...avatarData(data.avatar),
     },
   });

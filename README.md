@@ -55,6 +55,8 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
   - Sin `ANTHROPIC_API_KEY`, las fotos se suben igual y las citas se pasan a mano mirando la foto.
 - **Anulaciones**: histórico por cliente de citas anuladas (por el cliente o por la peluquería) y de ausencias, filtrable por periodo y ordenable, con acceso a sus citas
 - **Usuarios**: ficha de cada cliente con todas sus citas (próximas y pasadas en colores distintos, estado de pago y método), alta como usuario normal o administrador, edición, bloqueo (temporal hasta una fecha o indefinido, con opción de cancelar sus citas), desbloqueo, baja (se conserva el historial) y reactivación
+- **Reservar cita desde Usuarios**: ventana con el calendario de huecos, las citas del cliente (cambiar y cancelar) y lista de espera para los días completos (`server/src/services/waitlist.ts`): se ve en el Resumen y, si está activado, avisa por email cuando se libera una hora
+- **Consentimiento**: la casilla de novedades viene sin marcar; la pestaña WhatsApp filtra por quienes las aceptan, salvo en avisos de servicio
 - **Cierres**: vacaciones o festivos (días enteros o por horas). Bloquean las reservas y pueden cancelar y reembolsar las citas afectadas
 - **Avisos email**: envío a todos los clientes que aceptan emails, a los clientes con cita un día concreto o a clientes elegidos. Incluye plantillas, `{nombre}` personalizado e historial
 - **WhatsApp**: enlaces `wa.me` con el mensaje ya escrito para cada cliente (funciona sin configurar nada). Opcionalmente, envío automático con la API de WhatsApp Business

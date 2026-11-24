@@ -728,3 +728,35 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .lapsed li { display: flex; justify-content: space-between; align-items: center; gap: .75rem; padding: .5rem 0; border-top: 1px solid var(--border); }
 .lapsed li > div span { display: block; }
 @media (max-width: 860px) { .dash-two { grid-template-columns: minmax(0, 1fr); } }
+
+/* -------------------------------------------------------------- Reservar a un cliente */
+.modal.modal-xl { max-width: 1080px; }
+.book-who { margin: -.4rem 0 1rem; }
+.book-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 1.75rem; align-items: start; }
+.book-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; }
+.book-nav strong { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; }
+.book-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; } .book-month.is-loading { opacity: .5; }
+.book-day { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 66px; padding: .3rem .4rem; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); font: inherit; font-size: .72rem; line-height: 1.25; text-align: left; cursor: pointer; overflow: hidden; }
+.book-day b { font-size: .95rem; font-weight: 600; }
+.book-day span { color: var(--ok-text); font-weight: 600; }
+.book-day.is-full span, .book-day:disabled span { color: var(--muted); font-weight: 400; }
+.book-day:disabled { background: var(--surface-2); color: var(--muted); cursor: default; } .book-day.other { opacity: .35; }
+.book-day:not(:disabled):hover { border-color: var(--text); }
+.book-day.is-today b { text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.book-day.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
+.book-day em, .book-legend em { font-style: normal; font-weight: 600; font-size: .7rem; padding: 0 .3rem; border-radius: 3px; background: var(--future-bg); color: var(--future); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.book-legend { margin: .5rem 0 0; flex-wrap: wrap; gap: .3rem 1.25rem; }
+.book-mine { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow-y: auto; } .book-mine li { padding: .3rem 0; border-top: 1px solid var(--border); }
+.book-day-title { margin: .2rem 0 .4rem; }
+.book-near { margin: 0 0 .4rem; padding: .45rem .7rem; border-radius: 4px; background: var(--warn-bg); color: var(--warn-text); font-size: .85rem; }
+.slot.booked.is-own { background: var(--future-bg); color: var(--future); border-style: solid; border-color: var(--future); }
+.book-form .slots { margin-bottom: .5rem; } .book-form > label { margin-top: .7rem; } .book-form > label:first-child { margin-top: 0; }
+.book-save { width: 100%; }
+@media (max-width: 860px) { .book-grid { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; } }
+@media (max-width: 480px) { .book-day { min-height: 54px; padding: .2rem; font-size: .6rem; align-items: center; text-align: center; } .book-day em { font-size: .58rem; padding: 0 .1rem; } }
+.table td.actions .btn-sm { padding-left: .55rem; padding-right: .55rem; }
+.book-mine li { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .5rem; } .book-mine li .actions { margin-left: auto; } .book-mine { max-height: 190px; }
+.book-mine .btn-sm { padding: .2rem .5rem; font-size: .68rem; }
+.book-wait { margin: .6rem 0; padding: .7rem .85rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; } .book-wait p { margin: 0 0 .4rem; font-size: .9rem; } .book-wait p:last-child { margin: 0; } .book-wait select { width: auto; }
+.lapsed li.has-gap { border-left: 3px solid var(--accent); padding-left: .7rem; } .lapsed li .actions { flex-wrap: wrap; justify-content: flex-end; }
+.consent-note { margin: -.2rem 0 .8rem; }

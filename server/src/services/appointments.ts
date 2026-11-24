@@ -58,6 +58,20 @@ export async function availabilityForDate(date: string, excludeId?: string, reve
     s.reason === 'BOOKED' ? { ...s, bookedBy: ownersAt(appointments, new Date(s.start).getTime(), new Date(s.end).getTime()) } : s);
 }
 
+/** Huecos libres de cada día de un mes ("YYYY-MM"), para el calendario del administrador. */
+export async function calendarMonth(month: string) {
+  const settings = await getSettings();
+  const first = DateTime.fromISO(`${month}-01`, { zone: settings.timezone });
+  if (!first.isValid) throw badRequest('Mes no válido');
+  const { appointments, closures } = await busyIntervals(prisma, first.startOf('month').toJSDate(), first.endOf('month').toJSDate());
+  return Array.from({ length: first.daysInMonth! }, (_, i) => {
+    const date = first.plus({ days: i }).toISODate()!;
+    const slots = computeSlots({ date, settings, appointments, closures });
+    const open = slots.filter((s) => s.reason !== 'CLOSED');
+    return { date, open: open.length > 0, total: open.length, free: slots.filter((s) => s.available).length };
+  });
+}
+
 /** Comprueba dentro de la transacción que el hueco sigue libre y encaja en el horario. */
 async function assertSlotBookable(tx: Tx, settings: Settings, start: Date, excludeId?: string, revealOwner = false): Promise<Interval> {
   const date = localDate(start, settings.timezone);

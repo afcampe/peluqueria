@@ -4,6 +4,7 @@ import { prisma } from './lib/db.js';
 import { expirePendingPayments } from './services/appointments.js';
 import { resumeImportQueue } from './services/agendaImport.js';
 import { fillMissingVat, issueMissingRectifications } from './services/tickets.js';
+import { runWaitlist } from './services/waitlist.js';
 import { runReminders } from './services/reminders.js';
 
 const server = createApp().listen(config.port, () => {
@@ -21,6 +22,7 @@ fillMissingVat().catch((e) => console.error('[iva]', e)).finally(rectify);
 const timer = setInterval(() => {
   // Recordatorios de las próximas citas (email / WhatsApp) según la configuración.
   runReminders().catch((e) => console.error('[recordatorios]', e));
+  runWaitlist().catch((e) => console.error('[lista de espera]', e));
   rectify();
   expirePendingPayments().catch((e) => console.error('[expirar pagos]', e));
 }, 60_000);

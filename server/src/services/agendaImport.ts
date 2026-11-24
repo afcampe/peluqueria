@@ -341,6 +341,7 @@ export async function mergeClient(sourceId: string, targetId: string) {
   const moved = await prisma.$transaction(async (tx) => {
     const r = await tx.appointment.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } });
     await tx.appointmentSeries.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } });
+    await tx.waitlistEntry.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } });
     await tx.ticket.updateMany({ where: { clientId: sourceId }, data: { clientId: targetId } });
     await tx.user.update({
       where: { id: targetId },

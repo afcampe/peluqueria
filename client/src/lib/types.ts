@@ -46,7 +46,7 @@ export interface Settings {
   paymentHoldMinutes: number; recurringEnabled: boolean; recurringMaxAppointments: number;
   ticketLegalName: string; ticketTaxId: string; ticketVatPercent: number; ticketFooter: string;
   weeklySchedule: Record<string, TimeRange[]>; paymentMethods: Record<string, { enabled: boolean }>;
-  reminders: ReminderSettings;
+  reminders: ReminderSettings; waitlistEmail: boolean;
 }
 export interface ReminderSettings {
   enabled: boolean; email: boolean; whatsapp: boolean; offsetsMinutes: number[];
@@ -66,4 +66,12 @@ export interface TicketView {
   vatPercent: number; baseCents: number | null; vatCents: number | null; totalCents: number; refundedCents: number;
   reference: string | null; footer: string;
   rectifies: { number: string; issuedAtText: string; reason: string } | null; rectifications: string[];
+}
+
+export type WaitPart = 'ANY' | 'MORNING' | 'AFTERNOON';
+export interface WaitEntry {
+  id: string; date: string; part: WaitPart; notes: string | null; createdAt: string; notifiedAt: string | null;
+  client: { id: string; name: string; email: string | null; phone: string | null };
+  /** Horas libres que le valen (vacío = sigue completo). */
+  free: string[]; whatsappLink: string | null;
 }

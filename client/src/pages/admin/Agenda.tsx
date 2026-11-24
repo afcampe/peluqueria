@@ -446,7 +446,7 @@ function MoveModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () =
   );
 }
 
-function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
+export function CancelModal({ appt, onClose, onDone }: { appt: Appointment; onClose: () => void; onDone: (m: string) => void }) {
   const paid = onlinePayment(appt);
   const cash = cashPayment(appt);
   const max = paid ? paid.amountCents - paid.refundedCents : 0;

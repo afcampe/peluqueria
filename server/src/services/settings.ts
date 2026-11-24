@@ -62,6 +62,8 @@ export const settingsSchema = z.object({
   ticketVatPercent: z.number().min(0).max(100).default(21),
   ticketFooter: z.string().max(300).default('Gracias por su visita'),
   reminders: remindersSchema.default({}),
+  /** Avisar por email a quien está en lista de espera cuando se libera una hora. */
+  waitlistEmail: z.boolean().default(true),
   /** Métodos de pago activos. La clave es el id del proveedor. */
   paymentMethods: z.record(z.string(), z.object({ enabled: z.boolean() })),
 });
@@ -96,6 +98,7 @@ export const defaultSettings: Settings = {
     '7': [],
   },
   reminders: remindersSchema.parse({}),
+  waitlistEmail: true,
   paymentMethods: { cash: { enabled: true }, paypal: { enabled: true } },
 };
 

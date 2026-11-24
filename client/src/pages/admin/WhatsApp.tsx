@@ -10,6 +10,8 @@ export function WhatsApp() {
   const [body, setBody] = useState('Hola {nombre}, ');
   const [rows, setRows] = useState<LinkRow[] | null>(null);
   const [opened, setOpened] = useState<Set<string>>(new Set());
+  const [onlyConsent, setOnlyConsent] = useState(true);
+  const [skipped, setSkipped] = useState(0);
   const [apiOn, setApiOn] = useState(false);
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
@@ -18,13 +20,13 @@ export function WhatsApp() {
 
   const generate = async () => {
     setError(''); setFlash('');
-    try { setRows(await api.post<LinkRow[]>('/admin/whatsapp/links', { ...aud, body })); setOpened(new Set()); } catch (e) { setError(errMsg(e)); }
+    try { const r = await api.post<{ rows: LinkRow[]; skipped: number }>('/admin/whatsapp/links', { ...aud, body, onlyConsent }); setRows(r.rows); setSkipped(r.skipped); setOpened(new Set()); } catch (e) { setError(errMsg(e)); }
   };
   const sendApi = async () => {
     if (!(await confirmDialog({ title: 'Enviar por WhatsApp', message: 'Se enviará el mensaje automáticamente por la API de WhatsApp a los clientes elegidos. ¿Continuar?', confirmLabel: 'Sí, enviar' }))) return;
     try {
-      const r = await api.post<{ sent: number; failed: { name: string; error: string }[] }>('/admin/whatsapp/send', { ...aud, body });
-      setFlash(`Enviados ${r.sent}.${r.failed.length ? ` Fallos: ${r.failed.map((f) => `${f.name} (${f.error})`).join('; ')}` : ''}`);
+      const r = await api.post<{ sent: number; failed: { name: string; error: string }[]; skipped: number }>('/admin/whatsapp/send', { ...aud, body, onlyConsent });
+      setFlash(`Enviados ${r.sent}.${r.skipped ? ` ${r.skipped} no aceptan novedades por WhatsApp y no se les ha enviado.` : ''}${r.failed.length ? ` Fallos: ${r.failed.map((f) => `${f.name} (${f.error})`).join('; ')}` : ''}`);
     } catch (e) { setError(errMsg(e)); }
   };
 
@@ -39,6 +41,8 @@ export function WhatsApp() {
         <Alert kind="ok">{flash}</Alert>
         <Alert>{error}</Alert>
         <AudiencePicker value={aud} onChange={setAud} allLabel="Todos los clientes" />
+        <label className="check"><input type="checkbox" checked={onlyConsent} onChange={(e) => { setOnlyConsent(e.target.checked); setRows(null); }} /> Solo quienes aceptan novedades por WhatsApp</label>
+        <p className="muted small consent-note">{onlyConsent ? 'Obligatorio para promociones y novedades.' : 'Desmarcado: úsalo solo para avisos de servicio sobre sus citas (un cierre, un retraso, un cambio de hora), nunca para promociones.'}</p>
         <label>Mensaje <small className="muted">— {'{nombre}'} se sustituye por el nombre</small><textarea rows={5} value={body} onChange={(e) => setBody(e.target.value)} /></label>
         <div className="actions">
           <button className="btn btn-primary" onClick={generate} disabled={!body.trim()}>Preparar enlaces</button>
@@ -48,6 +52,7 @@ export function WhatsApp() {
       {rows && (
         <div className="card">
           <h2>{rows.length} cliente(s)</h2>
+          {skipped > 0 && <p className="muted small">{skipped} no aceptan novedades por WhatsApp y no se incluyen.</p>}
           <ul className="wa-list">
             {rows.map((r) => (
               <li key={r.id} className={opened.has(r.id) ? 'dim' : ''}>

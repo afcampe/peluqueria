@@ -5,6 +5,7 @@ import { normalizePhone, waLink, whatsappApiConfigured } from '../notifications/
 import { computeSlots } from './availability.js';
 import { reminderChannels } from './reminders.js';
 import { getSettings, type Settings } from './settings.js';
+import { listWaitlist } from './waitlist.js';
 
 /** Resumen del administrador: el día, lo que hay que resolver y cómo va el negocio. */
 
@@ -76,6 +77,7 @@ export async function dashboard(now = new Date()) {
       clients, upcoming,
     },
     todo: await pendingTasks(s, now),
+    waitlist: await listWaitlist(now),
   };
 }
 

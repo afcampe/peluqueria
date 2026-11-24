@@ -1,6 +1,7 @@
 import { ReminderPrefs, reminderPayload } from '../../components/ReminderPrefs';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import { BookForClient } from '../../components/BookForClient';
 import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { Avatar, AvatarInput } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
@@ -20,7 +21,7 @@ export function Users() {
   const [list, setList] = useState<User[] | null>(null);
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
-  const [modal, setModal] = useState<{ kind: 'edit' | 'block' | 'delete'; user?: User } | null>(null);
+  const [modal, setModal] = useState<{ kind: 'edit' | 'block' | 'delete' | 'book'; user?: User } | null>(null);
 
   const load = useCallback(() => {
     const p = new URLSearchParams({ ...(q && { q }), ...(status && { status }), ...(role && { role }) });
@@ -75,6 +76,7 @@ export function Users() {
                     {u.status === 'BLOCKED' && <div className="muted small">{u.blockedUntil ? `hasta ${dateLong(u.blockedUntil)}` : 'indefinido'}{u.blockReason && ` · ${u.blockReason}`}</div>}
                   </td>
                   <td className="actions">
+                    {u.role === 'CLIENT' && u.status !== 'DELETED' && <button className="btn btn-sm btn-primary" onClick={() => setModal({ kind: 'book', user: u })}>Reservar cita</button>}
                     {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}><IconCalendar size={14} /> Ver citas</Link>}
                     {u.whatsappLink && <a className="btn btn-sm btn-wa" href={u.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
                     {u.role === 'CLIENT' && u.status !== 'DELETED' && <EmailReminderButton clientId={u.id} disabledReason={u.email ? undefined : 'El cliente no tiene email'} />}
@@ -91,6 +93,7 @@ export function Users() {
         </div>
       )}
       {modal?.kind === 'edit' && <UserForm user={modal.user} onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'book' && <BookForClient user={modal.user!} onChanged={load} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'block' && <BlockForm user={modal.user!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'delete' && (
         <Modal title="Dar de baja" onClose={() => setModal(null)}>
@@ -107,7 +110,7 @@ export function Users() {
 function UserForm({ user, onClose, onDone }: { user?: User; onClose: () => void; onDone: (m: string) => void }) {
   const reactivate = user?.status === 'DELETED';
   const { user: me, config } = useSession();
-  const [f, setF] = useState({ name: user?.name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', role: user?.role ?? 'CLIENT', password: '', acceptsEmail: user?.acceptsEmail ?? true, remindEmail: user?.remindEmail ?? true, remindWhatsapp: user?.remindWhatsapp ?? true });
+  const [f, setF] = useState({ name: user?.name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', role: user?.role ?? 'CLIENT', password: '', acceptsEmail: user?.acceptsEmail ?? false, remindEmail: user?.remindEmail ?? true, remindWhatsapp: user?.remindWhatsapp ?? true });
   const isMe = user?.id === me?.id;
   const noAccount = !!user && !user.hasAccount;
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);

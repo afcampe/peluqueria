@@ -34,7 +34,7 @@
     <li><a href="#intro">Introducción al panel</a>
       <ol><li>Entrar</li><li>Secciones</li><li>Reglas básicas</li></ol></li>
     <li><a href="#resumen">Resumen</a>
-      <ol><li>Hoy</li><li>Por resolver</li><li>Cómo va el negocio</li></ol></li>
+      <ol><li>Hoy</li><li>Por resolver</li><li>Lista de espera</li><li>Cómo va el negocio</li></ol></li>
     <li><a href="#agenda">Agenda</a>
       <ol><li>Vista Lista</li><li>Vista Semana</li><li>Vista Mes</li><li>La tarjeta de una cita</li></ol></li>
     <li><a href="#gestion">Gestionar citas</a>
@@ -42,7 +42,7 @@
     <li><a href="#cobros">Cobros, tickets y devoluciones</a>
       <ol><li>Cobrar en efectivo</li><li>Generar ticket</li><li>Ver un ticket</li><li>Devoluciones</li><li>Corregir cobro</li><li>Tickets rectificativos</li></ol></li>
     <li><a href="#usuarios">Usuarios</a>
-      <ol><li>Lista</li><li>Alta</li><li>Editar</li><li>Bloquear</li><li>Baja y reactivación</li><li>Ficha del cliente</li></ol></li>
+      <ol><li>Lista</li><li>Reservar cita</li><li>Lista de espera</li><li>Alta</li><li>Editar</li><li>Bloquear</li><li>Baja y reactivación</li><li>Ficha del cliente</li></ol></li>
     <li><a href="#importar">Importar la agenda en papel</a>
       <ol><li>Subir las fotos</li><li>Revisar e importar</li><li>Fichas sin cuenta</li></ol></li>
     <li><a href="#anulaciones">Anulaciones y ausencias</a></li>
@@ -50,7 +50,7 @@
     <li><a href="#avisos">Avisos por email</a></li>
     <li><a href="#whatsapp">WhatsApp</a></li>
     <li><a href="#config">Configuración</a>
-      <ol><li>Citas</li><li>Periódicas</li><li>Horario</li><li>Recordatorios</li><li>Formas de pago</li><li>Datos</li><li>Tickets</li><li>Servicios</li><li>Integraciones</li></ol></li>
+      <ol><li>Citas</li><li>Periódicas</li><li>Lista de espera</li><li>Horario</li><li>Recordatorios</li><li>Formas de pago</li><li>Datos</li><li>Tickets</li><li>Servicios</li><li>Integraciones</li></ol></li>
     <li><a href="#chuleta">Resumen de reglas y preguntas frecuentes</a></li>
   </ol>
 </section>
@@ -126,9 +126,13 @@
   </table>
   <p>Cada apartado aparece solo si hay algo. Si no hay nada pendiente, verás «Todo al día». Un aviso en amarillo indica que los recordatorios están activados pero falta configurar el correo o WhatsApp en el servidor.</p>
 
+  <h3>Lista de espera</h3>
+  <figure><img src="capturas/a-resumen-espera.jpg" alt=""><figcaption><b>Figura 2.3</b> · Clientes en lista de espera</figcaption></figure>
+  <p>Aparece si hay alguien esperando. Primero salen los que ya tienen hueco, con las horas libres: <span class="btn-ref dark">Reservar</span> abre la reserva en ese día, <span class="btn-ref green">WhatsApp</span> abre un mensaje ofreciéndole la hora y <span class="btn-ref">Quitar</span> lo saca de la lista. Cómo apuntar a un cliente: capítulo 6.</p>
+
   <h3>Cómo va el negocio</h3>
   <p>Elige <span class="btn-ref">Últimos 7 días</span>, <span class="btn-ref">Últimos 30 días</span> o <span class="btn-ref">Últimos 12 meses</span>.</p>
-  <figure><img src="capturas/a-resumen-negocio.jpg" alt=""><figcaption><b>Figura 2.3</b> · Ingresos y ocupación</figcaption></figure>
+  <figure><img src="capturas/a-resumen-negocio.jpg" alt=""><figcaption><b>Figura 2.4</b> · Ingresos y ocupación</figcaption></figure>
   <ul>
     <li><strong>Previsto en 7 días:</strong> lo que suman las citas confirmadas de los próximos 7 días. <strong>Ticket medio:</strong> media por cita cobrada. <strong>Devoluciones:</strong> lo devuelto en el periodo.</li>
     <li><strong>Cobrado:</strong> total del periodo, comparado con el periodo anterior igual de largo. Si entonces no había cobros, no se compara.</li>
@@ -138,7 +142,7 @@
     <li><strong>Ocupación por día y hora:</strong> el porcentaje de cada hora. Cuanto más intenso el color, más llena. Ayuda a ver cuándo sobran huecos.</li>
   </ul>
   <h3>Servicios, ausencias y clientes</h3>
-  <figure><img src="capturas/a-resumen-clientes.jpg" alt=""><figcaption><b>Figura 2.4</b> · Servicios, ausencias y cancelaciones, y clientes</figcaption></figure>
+  <figure><img src="capturas/a-resumen-clientes.jpg" alt=""><figcaption><b>Figura 2.5</b> · Servicios, ausencias y cancelaciones, y clientes</figcaption></figure>
   <ul>
     <li><strong>Servicios:</strong> lo cobrado y el número de citas realizadas de cada uno.</li>
     <li><strong>Ausencias y cancelaciones:</strong> cuántos vinieron, cuántos no y quién canceló. El dinero <strong>perdido</strong> es una estimación: ausencias sin pagar y horas canceladas por el cliente que no se volvieron a llenar.</li>
@@ -391,7 +395,39 @@
     <li><strong>Tipo:</strong> clientes (usuarios normales) o administradores.</li>
     <li><strong>Estado:</strong> activos, bloqueados o de baja.</li>
   </ul>
-  <p>En cada fila tienes <span class="btn-ref">Ver citas</span> (abre la ficha del cliente), <span class="btn-ref green">WhatsApp</span>, <span class="btn-ref">Email</span> (recordatorio de su próxima cita), <span class="btn-ref">Editar</span>, <span class="btn-ref">Bloquear</span> o <span class="btn-ref">Desbloquear</span>, y <span class="btn-ref red">Baja</span> o <span class="btn-ref">Reactivar</span>.</p>
+  <p>En cada fila tienes <span class="btn-ref dark">Reservar cita</span>, <span class="btn-ref">Ver citas</span> (abre la ficha del cliente), <span class="btn-ref green">WhatsApp</span>, <span class="btn-ref">Email</span> (recordatorio de su próxima cita), <span class="btn-ref">Editar</span>, <span class="btn-ref">Bloquear</span> o <span class="btn-ref">Desbloquear</span>, y <span class="btn-ref red">Baja</span> o <span class="btn-ref">Reactivar</span>.</p>
+
+  <h3>Reservar una cita a un cliente</h3>
+  <ol class="steps">
+    <li>Pulsa <span class="btn-ref dark">Reservar cita</span> en el cliente, en la lista o en su ficha.</li>
+    <li>En el <strong>calendario</strong>, elige un día. Cada uno indica las horas libres que quedan, «Completo» o «Cerrado», y en azul las horas en las que el cliente ya tiene cita.</li>
+    <li>Comprueba el <strong>servicio</strong> (se propone el de su última visita) y pulsa una <strong>hora libre</strong>. En las ocupadas se ve quién las tiene.</li>
+    <li>Si quieres, marca <span class="ui">Repetir periódicamente</span> o escribe una nota.</li>
+    <li>Pulsa <span class="btn-ref dark">Reservar …</span>. La cita se paga en el local y el cliente recibe un email de confirmación si tiene email.</li>
+  </ol>
+  <figure class="tall"><img src="capturas/a-reservar-usuario.jpg" alt=""><figcaption><b>Figura 6.2</b> · Reservar una cita viendo los huecos y las citas del cliente</figcaption></figure>
+  <p>La app avisa, sin impedirlo, si el cliente ya tiene cita ese día, si tiene otra a menos de una semana o si está bloqueado.</p>
+  <p>En <strong>Sus próximas citas</strong> puedes:</p>
+  <ul>
+    <li>Pulsar la fecha para ir a ese día.</li>
+    <li><span class="btn-ref">Cambiar</span>: elige el nuevo día y la hora en el mismo calendario y pulsa <span class="btn-ref dark">Cambiar a …</span>. Se mantienen el pago y el ticket.</li>
+    <li><span class="btn-ref red">Cancelar</span>: se abre la misma ventana que en la Agenda, con la devolución si está pagada.</li>
+  </ul>
+  <figure class="tall"><img src="capturas/a-mover-usuario.jpg" alt=""><figcaption><b>Figura 6.3</b> · Cambiar de hora una cita del cliente</figcaption></figure>
+
+  <h3>Lista de espera</h3>
+  <p>Cuando no quedan horas libres (en todo el día, por la mañana o por la tarde), puedes apuntar al cliente por si se libera alguna.</p>
+  <ol class="steps">
+    <li>En <span class="btn-ref dark">Reservar cita</span>, elige el día completo.</li>
+    <li>Elige <span class="ui">Cualquier hora</span>, <span class="ui">Por la mañana</span> o <span class="ui">Por la tarde</span>, si se ofrece.</li>
+    <li>Pulsa <span class="btn-ref">Apuntar en lista de espera</span>.</li>
+  </ol>
+  <figure class="tall"><img src="capturas/a-lista-espera.jpg" alt=""><figcaption><b>Figura 6.4</b> · Apuntar a un cliente en un día completo</figcaption></figure>
+  <ul>
+    <li>Cuando se libera una hora, se ve en el <strong>Resumen</strong> y, si está activado, el cliente recibe un email.</li>
+    <li>La hora <strong>no queda reservada</strong>: es para quien llegue antes.</li>
+    <li>Sale de la lista al tener cita ese día, al pasar el día o si lo quitas con <span class="btn-ref">Quitar</span>. No se puede apuntar a quien ya tiene cita ese día.</li>
+  </ul>
 
   <h3>Dar de alta un usuario</h3>
   <ol class="steps">
@@ -400,10 +436,10 @@
     <li>Si quieres, añade una <strong>foto</strong>.</li>
     <li>Escribe nombre, email, teléfono y una <strong>contraseña inicial</strong> (mínimo 8 caracteres). Comunícasela al usuario para que la cambie en su perfil.</li>
     <li>Elige sus <strong>recordatorios de citas</strong> (por email y/o por WhatsApp). Solo se pueden activar los que estén activados en Configuración.</li>
-    <li>Marca o no <span class="ui">Acepta novedades y promociones por email y WhatsApp</span>, según lo que te haya dicho el cliente.</li>
+    <li>Marca o no <span class="ui">Acepta novedades y promociones por email y WhatsApp</span>. Viene sin marcar: márcala solo si el cliente te lo ha dicho.</li>
     <li>Pulsa <span class="btn-ref dark">Guardar</span>.</li>
   </ol>
-  <figure class="sm"><img src="capturas/a-modal-alta.jpg" alt=""><figcaption><b>Figura 6.2</b> · Alta de usuario</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-alta.jpg" alt=""><figcaption><b>Figura 6.5</b> · Alta de usuario</figcaption></figure>
 
   <h3>Editar</h3>
   <p>Con <span class="btn-ref">Editar</span> puedes cambiar los datos de una cuenta, su tipo, su foto, sus recordatorios de citas o ponerle una contraseña nueva (por ejemplo, si un cliente la ha olvidado). No puedes quitarte a ti mismo el rol de administrador.</p>
@@ -415,12 +451,12 @@
     <li>Marca <span class="ui">Cancelar también sus citas futuras (con reembolso)</span> si quieres anularlas.</li>
     <li>Pulsa <span class="btn-ref red">Bloquear</span>.</li>
   </ol>
-  <figure class="sm"><img src="capturas/a-modal-bloquear.jpg" alt=""><figcaption><b>Figura 6.3</b> · Bloquear a un cliente</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-bloquear.jpg" alt=""><figcaption><b>Figura 6.6</b> · Bloquear a un cliente</figcaption></figure>
   <p>Un cliente bloqueado no puede reservar ni modificar citas hasta la fecha indicada (después se desbloquea solo). Para levantar el bloqueo antes, pulsa <span class="btn-ref">Desbloquear</span>.</p>
 
   <h3>Baja y reactivación</h3>
   <p><span class="btn-ref red">Baja</span> desactiva la cuenta y cancela sus citas futuras (con reembolso de las pagadas online). El historial de citas y pagos <strong>se conserva</strong>. Para recuperar la cuenta, filtra por <em>De baja</em> y pulsa <span class="btn-ref">Reactivar</span>.</p>
-  <figure class="sm"><img src="capturas/a-modal-baja.jpg" alt=""><figcaption><b>Figura 6.4</b> · Confirmar la baja</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-baja.jpg" alt=""><figcaption><b>Figura 6.7</b> · Confirmar la baja</figcaption></figure>
   <div class="note"><p>Al bloquear con cancelación, dar de baja, crear un cierre o cancelar una serie, las citas <strong>cobradas en el local</strong> no se cancelan automáticamente: la app te avisa de cuántas quedan para que las canceles una a una.</p></div>
 
   <h3>Ficha del cliente</h3>
@@ -431,7 +467,7 @@
     <li><strong>Citas:</strong> todas, con filtros <em>Todas, Próximas, Pasadas</em> y <em>Anuladas y no vino</em>. Las próximas aparecen en <span style="color:#2f6fb3;font-weight:600">azul</span> y las pasadas en <span style="color:#9a948f;font-weight:600">gris</span>. Cada una indica si está pagada y con qué método.</li>
     <li>Desde cada cita puedes cobrar, generar o ver los tickets, corregir un cobro de PayPal y apuntar o corregir si el cliente vino, igual que en la Agenda.</li>
   </ul>
-  <figure><img src="capturas/a-ficha.jpg" alt=""><figcaption><b>Figura 6.5</b> · Ficha de un cliente</figcaption></figure>
+  <figure><img src="capturas/a-ficha.jpg" alt=""><figcaption><b>Figura 6.8</b> · Ficha de un cliente</figcaption></figure>
 </section>
 
 <!-- ============================================================ IMPORTAR -->
@@ -550,6 +586,7 @@
   <ol class="steps">
     <li>Abre la pestaña <span class="ui">WhatsApp</span>.</li>
     <li>Elige los <strong>destinatarios</strong>: todos los clientes, los que tienen cita un día o clientes elegidos.</li>
+    <li>Deja marcado <span class="ui">Solo quienes aceptan novedades por WhatsApp</span> si es una promoción. Desmárcalo solo para avisos de servicio sobre sus citas (un cierre, un retraso…).</li>
     <li>Escribe el <strong>mensaje</strong>. <strong>{nombre}</strong> se sustituye por el nombre de cada cliente.</li>
     <li>Pulsa <span class="btn-ref dark">Preparar enlaces</span>.</li>
     <li>En la lista, pulsa <span class="btn-ref green">Abrir chat</span> en cada cliente y envía el mensaje desde WhatsApp.</li>
@@ -578,8 +615,12 @@
   <figure><img src="capturas/a-config-2.jpg" alt=""><figcaption><b>Figura 12.2</b> · Citas periódicas</figcaption></figure>
   <p>Activa o desactiva que los clientes puedan reservar varias citas de una vez y el máximo de citas por serie (60 por defecto). Desde el panel siempre puedes crear series para un cliente.</p>
 
+  <h3>Lista de espera</h3>
+  <figure><img src="capturas/a-config-9.jpg" alt=""><figcaption><b>Figura 12.3</b> · Aviso por email de la lista de espera</figcaption></figure>
+  <p>Activa o desactiva el email a quienes esperan cuando se libera una hora. Se avisa a todos los que esperan ese día y esa parte del día, una vez por cada vez que se libera. Necesita el servidor de correo (SMTP).</p>
+
   <h3>Horario semanal</h3>
-  <figure><img src="capturas/a-config-3.jpg" alt=""><figcaption><b>Figura 12.3</b> · Horario semanal por tramos</figcaption></figure>
+  <figure><img src="capturas/a-config-3.jpg" alt=""><figcaption><b>Figura 12.4</b> · Horario semanal por tramos</figcaption></figure>
   <ul>
     <li>Cada día tiene uno o varios <strong>tramos</strong> (por ejemplo, 09:00–13:00 y 16:00–20:00). Cambia las horas directamente.</li>
     <li><span class="btn-ref">+ tramo</span> añade un tramo; <strong>✕</strong> lo quita. Un día sin tramos queda <em>Cerrado</em>.</li>
@@ -587,14 +628,14 @@
 
   <h3>Recordatorios de citas</h3>
   <p>La app puede avisar sola a los clientes antes de su cita. Viene desactivado: marca <span class="ui">Enviar automáticamente un aviso a los clientes antes de su cita</span>, ajusta las opciones y guarda.</p>
-  <figure><img src="capturas/a-recordatorios-1.jpg" alt=""><figcaption><b>Figura 12.4</b> · Por dónde se envían los recordatorios</figcaption></figure>
+  <figure><img src="capturas/a-recordatorios-1.jpg" alt=""><figcaption><b>Figura 12.5</b> · Por dónde se envían los recordatorios</figcaption></figure>
   <ul>
     <li><strong>Email:</strong> necesita el servidor de correo (SMTP) configurado.</li>
     <li><strong>WhatsApp:</strong> necesita la API de WhatsApp Business. Para avisar a todos los clientes hace falta además una plantilla aprobada por Meta; su nombre se escribe aquí.</li>
   </ul>
-  <figure><img src="capturas/a-recordatorios-2.jpg" alt=""><figcaption><b>Figura 12.5</b> · Antelación: hasta 3 avisos por cita</figcaption></figure>
+  <figure><img src="capturas/a-recordatorios-2.jpg" alt=""><figcaption><b>Figura 12.6</b> · Antelación: hasta 3 avisos por cita</figcaption></figure>
   <p><strong>Con cuánta antelación:</strong> de 1 a 3 avisos, cada uno entre 15 minutos y 30 días antes de la cita.</p>
-  <figure><img src="capturas/a-recordatorios-3.jpg" alt=""><figcaption><b>Figura 12.6</b> · Texto del recordatorio con vista previa</figcaption></figure>
+  <figure><img src="capturas/a-recordatorios-3.jpg" alt=""><figcaption><b>Figura 12.7</b> · Texto del recordatorio con vista previa</figcaption></figure>
   <p><strong>Mensajes:</strong> cambia los textos y usa <strong>{nombre}</strong>, <strong>{fecha}</strong>, <strong>{hora}</strong>, <strong>{servicio}</strong>, <strong>{peluqueria}</strong>, <strong>{telefono}</strong> y <strong>{direccion}</strong>, que se sustituyen en cada aviso. En <strong>Probar</strong> puedes enviarte uno de ejemplo.</p>
   <ul>
     <li>Se avisa de las citas confirmadas, una vez por cada antelación. Si la cita cambia de hora se vuelve a avisar; las canceladas no se avisan.</li>
@@ -602,20 +643,20 @@
   </ul>
   <p><strong>Cada cliente</strong> elige en su perfil (o tú al editarlo) si recibe el aviso por email y/o por WhatsApp. Siempre se ven las dos opciones, pero solo se pueden activar las que estén activadas aquí.</p>
   <div class="warn"><p><strong>Al desactivar un canal</strong> la app pide confirmación: al guardar, se apaga en todos los perfiles de cliente. Al volver a activarlo se enciende en todos, y cada cliente puede quitarlo después.</p></div>
-  <figure class="sm"><img src="capturas/a-modal-desactivar.jpg" alt=""><figcaption><b>Figura 12.7</b> · Confirmación al desactivar un canal</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-desactivar.jpg" alt=""><figcaption><b>Figura 12.8</b> · Confirmación al desactivar un canal</figcaption></figure>
   <p>En <strong>Últimos avisos</strong> puedes comprobar qué se ha enviado, a quién y, si no se envió, por qué.</p>
-  <figure><img src="capturas/a-recordatorios-log.jpg" alt=""><figcaption><b>Figura 12.8</b> · Últimos avisos</figcaption></figure>
+  <figure><img src="capturas/a-recordatorios-log.jpg" alt=""><figcaption><b>Figura 12.9</b> · Últimos avisos</figcaption></figure>
 
   <h3>Formas de pago</h3>
-  <figure><img src="capturas/a-config-4.jpg" alt=""><figcaption><b>Figura 12.9</b> · Formas de pago</figcaption></figure>
+  <figure><img src="capturas/a-config-4.jpg" alt=""><figcaption><b>Figura 12.10</b> · Formas de pago</figcaption></figure>
   <p>Activa o desactiva el pago en el local y PayPal. Si una forma de pago aparece con «faltan credenciales en el servidor», no se ofrecerá a los clientes hasta que se configure.</p>
 
   <h3>Datos de la peluquería</h3>
-  <figure><img src="capturas/a-config-5.jpg" alt=""><figcaption><b>Figura 12.10</b> · Datos de la peluquería</figcaption></figure>
+  <figure><img src="capturas/a-config-5.jpg" alt=""><figcaption><b>Figura 12.11</b> · Datos de la peluquería</figcaption></figure>
   <p>Nombre, teléfono, email y dirección. Aparecen en la web, en los emails y en los tickets.</p>
 
   <h3>Tickets de compra</h3>
-  <figure><img src="capturas/a-config-6.jpg" alt=""><figcaption><b>Figura 12.11</b> · Datos de los tickets</figcaption></figure>
+  <figure><img src="capturas/a-config-6.jpg" alt=""><figcaption><b>Figura 12.12</b> · Datos de los tickets</figcaption></figure>
   <ul>
     <li><strong>Razón social</strong> (si es distinta del nombre comercial) y <strong>NIF/CIF</strong>.</li>
     <li><strong>IVA incluido en los precios (%):</strong> 21 por defecto. El ticket desglosa la base imponible y el IVA. Pon 0 para no desglosarlo.</li>
@@ -624,7 +665,7 @@
   <div class="warn"><p>Rellena el <strong>NIF</strong> y la razón social antes de entregar tickets a los clientes. Los cambios afectan a los tickets que se emitan a partir de ese momento.</p></div>
 
   <h3>Servicios y precios</h3>
-  <figure><img src="capturas/a-config-7.jpg" alt=""><figcaption><b>Figura 12.12</b> · Servicios y precios</figcaption></figure>
+  <figure><img src="capturas/a-config-7.jpg" alt=""><figcaption><b>Figura 12.13</b> · Servicios y precios</figcaption></figure>
   <ul>
     <li><span class="btn-ref">Precio</span>: cambia el precio de un servicio. Las citas ya reservadas mantienen el precio con el que se reservaron.</li>
     <li><span class="btn-ref">Ocultar</span> / <span class="btn-ref">Activar</span>: un servicio oculto deja de ofrecerse, pero se conserva en el historial.</li>
@@ -633,7 +674,7 @@
   <p>Los servicios se guardan al momento; no hace falta pulsar «Guardar configuración».</p>
 
   <h3>Estado de integraciones</h3>
-  <figure><img src="capturas/a-config-8.jpg" alt=""><figcaption><b>Figura 12.13</b> · Estado de integraciones</figcaption></figure>
+  <figure><img src="capturas/a-config-8.jpg" alt=""><figcaption><b>Figura 12.14</b> · Estado de integraciones</figcaption></figure>
   <p>Al final de Configuración verás si la lectura de la agenda en papel, el email, WhatsApp y cada forma de pago están listos. Un punto <span class="dot" style="background:#2e9b4f"></span>verde indica que funciona; <span class="dot" style="background:#e0a21b"></span>naranja, que falta configurarlo o está en modo prueba; <span class="dot" style="background:#3d7fd1"></span>azul, que funciona en modo básico. Configurarlos es una tarea técnica que se hace una sola vez en el servidor.</p>
   <div class="note"><p>Si el email aparece «en modo prueba», los emails no llegan a los clientes: falta configurar el servidor de correo (SMTP).</p></div>
 </section>
@@ -678,6 +719,10 @@
     <dd>Puede que aún no haya llegado la hora o que la cita esté cobrada en el local, y entonces se da por hecho que vino.</dd>
     <dt>Un cliente dice que no le llegan los recordatorios.</dt>
     <dd>Comprueba en Configuración que el canal está activado, que lo tiene marcado en su perfil y qué dice la lista de últimos avisos.</dd>
+    <dt>Un cliente llama para pedir hora.</dt>
+    <dd>Búscalo en Usuarios y pulsa <span class="btn-ref dark">Reservar cita</span>: verás sus citas y los huecos de cada día.</dd>
+    <dt>Un cliente quiere un día que está completo.</dt>
+    <dd>Apúntalo en la lista de espera desde <span class="btn-ref dark">Reservar cita</span>.</dd>
     <dt>Me voy de vacaciones.</dt>
     <dd>Crea un cierre con las fechas (capítulo 9) y avisa a los clientes con la plantilla de vacaciones de Avisos email.</dd>
     <dt>Quiero cambiar la duración de las citas a 45 minutos.</dt>

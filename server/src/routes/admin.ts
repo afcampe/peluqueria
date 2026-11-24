@@ -7,6 +7,7 @@ import { requireAdmin, requireAuth } from '../lib/auth.js';
 import { avatarData, avatarField } from '../lib/avatar.js';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
+import { addToWaitlist, listWaitlist, removeFromWaitlist } from '../services/waitlist.js';
 import { business, dashboard, integrations } from '../services/dashboard.js';
 import { mergeClient } from '../services/agendaImport.js';
 import { assertReminderPrefs, defaultReminderPrefs, previewEmailReminder, recentReminders, sendEmailReminder, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
@@ -15,7 +16,7 @@ import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
-import { availabilityForDate, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidInShop, previewSeries, refundWithoutCancel, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { availabilityForDate, calendarMonth, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidInShop, previewSeries, refundWithoutCancel, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
 import { getSettings, saveSettings } from '../services/settings.js';
 import { issueTicket } from '../services/tickets.js';
@@ -84,6 +85,25 @@ adminRouter.post('/appointments/series/preview', h(async (req, res) => {
 adminRouter.get('/availability', h(async (req, res) => {
   const { date, excludeId } = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), excludeId: z.string().optional() }).parse(req.query);
   res.json(await availabilityForDate(date, excludeId, true));
+}));
+
+// ---------------------------------------------------------------- Lista de espera
+adminRouter.get('/waitlist', h(async (req, res) => {
+  const { clientId } = z.object({ clientId: z.string().optional() }).parse(req.query);
+  res.json(await listWaitlist(new Date(), clientId));
+}));
+adminRouter.post('/waitlist', h(async (req, res) => {
+  const data = z.object({
+    clientId: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), part: z.enum(['ANY', 'MORNING', 'AFTERNOON']).default('ANY'), notes: z.string().max(300).optional(),
+  }).parse(req.body);
+  res.status(201).json(await addToWaitlist({ ...data, createdBy: req.user!.id }));
+}));
+adminRouter.delete('/waitlist/:id', h(async (req, res) => { await removeFromWaitlist(req.params.id); res.status(204).end(); }));
+
+// Huecos libres de cada día de un mes (calendario para reservar a un cliente).
+adminRouter.get('/calendar', h(async (req, res) => {
+  const { month } = z.object({ month: z.string().regex(/^\d{4}-\d{2}$/) }).parse(req.query);
+  res.json(await calendarMonth(month));
 }));
 
 /** Registra que una cita en efectivo se ha cobrado en el local (y, si se pide, emite su ticket). */
@@ -184,7 +204,7 @@ const userSchema = z.object({
   phone: z.string().trim().optional(),
   role: z.enum(['CLIENT', 'ADMIN']).default('CLIENT'),
   password: z.string().min(8),
-  acceptsEmail: z.boolean().default(true),
+  acceptsEmail: z.boolean().default(false),
   acceptsWhatsapp: z.boolean().optional(),
   remindEmail: z.boolean().optional(),
   remindWhatsapp: z.boolean().optional(),
@@ -413,6 +433,7 @@ const audienceSchema = z.object({
   audience: z.enum(['all', 'selected', 'date']),
   userIds: z.array(z.string()).optional(),
   date: z.string().optional(), // clientes con cita ese día
+  onlyConsent: z.boolean().default(false), // WhatsApp: solo quienes aceptan novedades por WhatsApp
 });
 
 async function resolveAudience(a: z.infer<typeof audienceSchema>, requireEmailConsent: boolean) {
@@ -432,6 +453,13 @@ async function resolveAudience(a: z.infer<typeof audienceSchema>, requireEmailCo
     });
   }
   return prisma.user.findMany({ where: base });
+}
+
+/** Destinatarios de WhatsApp: si es una promoción, solo quienes han aceptado novedades por WhatsApp. */
+async function whatsappAudience(a: z.infer<typeof audienceSchema>) {
+  const users = await resolveAudience(a, false);
+  const ok = a.onlyConsent ? users.filter((u) => u.acceptsWhatsapp) : users;
+  return { users: ok, skipped: users.length - ok.length };
 }
 
 adminRouter.post('/messages/email/preview', h(async (req, res) => {
@@ -465,14 +493,14 @@ adminRouter.get('/whatsapp/status', h(async (_req, res) => {
 /** Devuelve enlaces wa.me personalizados (funciona siempre, sin API). */
 adminRouter.post('/whatsapp/links', h(async (req, res) => {
   const data = audienceSchema.extend({ body: z.string().default('') }).parse(req.body);
-  const users = await resolveAudience(data, false);
-  res.json(users.map((u) => ({ id: u.id, name: u.name, phone: u.phone, link: waLink(u.phone, data.body.replaceAll('{nombre}', u.name)) })));
+  const { users, skipped } = await whatsappAudience(data);
+  res.json({ skipped, rows: users.map((u) => ({ id: u.id, name: u.name, phone: u.phone, link: waLink(u.phone, data.body.replaceAll('{nombre}', u.name)) })) });
 }));
 
 /** Envío automático mediante WhatsApp Cloud API (requiere configuración). */
 adminRouter.post('/whatsapp/send', h(async (req, res) => {
   const data = audienceSchema.extend({ body: z.string().trim().min(1) }).parse(req.body);
-  const users = await resolveAudience(data, false);
+  const { users, skipped } = await whatsappAudience(data);
   let sent = 0;
   const failed: { name: string; error: string }[] = [];
   for (const u of users) {
@@ -485,7 +513,7 @@ adminRouter.post('/whatsapp/send', h(async (req, res) => {
     }
   }
   await prisma.messageLog.create({ data: { channel: 'WHATSAPP', body: data.body, recipients: sent, sentBy: req.user!.id } });
-  res.json({ sent, failed });
+  res.json({ sent, failed, skipped });
 }));
 
 adminRouter.get('/messages', h(async (_req, res) => {

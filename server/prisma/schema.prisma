@@ -35,6 +35,7 @@ model User {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   appointments Appointment[]
+  waitlist     WaitlistEntry[]
   series       AppointmentSeries[]
   tickets      Ticket[]
 }
@@ -227,4 +228,20 @@ model AppointmentReminder {
 
   @@unique([appointmentId, startAt, offsetMinutes, channel])
   @@index([createdAt])
+}
+
+// Lista de espera de un día completo. La lleva el administrador.
+model WaitlistEntry {
+  id         String    @id @default(cuid())
+  clientId   String
+  client     User      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date       String // YYYY-MM-DD, en la zona de la peluquería
+  part       String    @default("ANY") // ANY | MORNING | AFTERNOON
+  notes      String?
+  status     String    @default("WAITING") // WAITING | BOOKED | CANCELLED | EXPIRED
+  notifiedAt DateTime? // avisado de que hay hueco (null si se ha vuelto a llenar)
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, date])
 }

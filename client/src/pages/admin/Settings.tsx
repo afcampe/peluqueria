@@ -67,6 +67,12 @@ export function Settings() {
       </section>
 
       <section className="card">
+        <h2>Lista de espera</h2>
+        <label className="check"><input type="checkbox" checked={s.waitlistEmail} onChange={(e) => setS({ ...s, waitlistEmail: e.target.checked })} /> Avisar por email a quien espera cuando se libera una hora</label>
+        <p className="muted small">Se avisa a todos los que esperan ese día (y esa parte del día), una vez por cada vez que se libera. La hora no queda reservada. Apunta a los clientes desde Usuarios → Reservar cita. Los huecos se ven también en el Resumen.</p>
+      </section>
+
+      <section className="card">
         <h2>Horario semanal</h2>
         <div className="schedule">
           {Object.entries(weekdayNames).map(([d, name]) => {

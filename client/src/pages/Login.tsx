@@ -52,7 +52,7 @@ export function Register() {
   const { register } = useSession();
   const [params] = useSearchParams();
   const nav = useNavigate();
-  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', acceptsEmail: true });
+  const [f, setF] = useState({ name: '', email: '', phone: '', password: '', acceptsEmail: false });
   const [avatar, setAvatar] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);

@@ -9,7 +9,7 @@ export function Alert({ kind = 'error', children }: { kind?: 'error' | 'ok' | 'i
   return <div className={`alert alert-${kind}`} role={kind === 'error' ? 'alert' : 'status'}>{children}</div>;
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ title, onClose, children, size }: { title: string; onClose: () => void; children: ReactNode; size?: 'xl' }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Con ventanas apiladas (p. ej. ticket sobre cita), Escape cierra solo la de arriba.
@@ -22,7 +22,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   }, [onClose]);
   return createPortal(
     <div ref={ref} className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div className={`modal ${size ? `modal-${size}` : ''}`} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h3>{title}</h3>
           <button className="btn-icon" onClick={onClose} aria-label="Cerrar">✕</button>
