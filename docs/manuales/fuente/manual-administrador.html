@@ -33,7 +33,8 @@
   <ol>
     <li><a href="#intro">Introducción al panel</a>
       <ol><li>Entrar</li><li>Secciones</li><li>Reglas básicas</li></ol></li>
-    <li><a href="#resumen">Resumen</a></li>
+    <li><a href="#resumen">Resumen</a>
+      <ol><li>Hoy</li><li>Por resolver</li><li>Cómo va el negocio</li></ol></li>
     <li><a href="#agenda">Agenda</a>
       <ol><li>Vista Lista</li><li>Vista Semana</li><li>Vista Mes</li><li>La tarjeta de una cita</li></ol></li>
     <li><a href="#gestion">Gestionar citas</a>
@@ -49,7 +50,7 @@
     <li><a href="#avisos">Avisos por email</a></li>
     <li><a href="#whatsapp">WhatsApp</a></li>
     <li><a href="#config">Configuración</a>
-      <ol><li>Citas</li><li>Periódicas</li><li>Horario</li><li>Recordatorios</li><li>Formas de pago</li><li>Datos</li><li>Tickets</li><li>Servicios</li></ol></li>
+      <ol><li>Citas</li><li>Periódicas</li><li>Horario</li><li>Recordatorios</li><li>Formas de pago</li><li>Datos</li><li>Tickets</li><li>Servicios</li><li>Integraciones</li></ol></li>
     <li><a href="#chuleta">Resumen de reglas y preguntas frecuentes</a></li>
   </ol>
 </section>
@@ -74,7 +75,7 @@
   <table>
     <thead><tr><th>Pestaña</th><th>Para qué sirve</th></tr></thead>
     <tbody>
-      <tr><td>Resumen</td><td>Cifras del día y del mes y estado de las integraciones (email, WhatsApp, pagos).</td></tr>
+      <tr><td>Resumen</td><td>La próxima cita, el día de un vistazo, lo que hay que resolver y cómo va el negocio.</td></tr>
       <tr><td>Agenda</td><td>Ver las citas en lista, por semana o por mes. Crear, mover, cobrar, emitir tickets y cancelar (con devolución si está pagada).</td></tr>
       <tr><td>Usuarios</td><td>Alta, edición, bloqueo, baja y reactivación de clientes y administradores. Ficha con el historial de cada cliente.</td></tr>
       <tr><td>Importar agenda</td><td>Pasar a la app las citas de la agenda en papel a partir de fotos.</td></tr>
@@ -100,15 +101,42 @@
 <!-- ============================================================ 2 -->
 <section class="chapter" id="resumen">
   <h2><span class="n">02</span>Resumen</h2>
-  <p class="intro">Es la primera pantalla del panel. Da una foto rápida del negocio.</p>
-  <figure><img src="capturas/a-resumen.jpg" alt=""><figcaption><b>Figura 2.1</b> · Resumen del panel</figcaption></figure>
+  <p class="intro">Es la primera pantalla del panel: qué tienes hoy, qué hay que resolver y cómo va el negocio. Se actualiza sola cada minuto.</p>
+
+  <h3>Hoy</h3>
+  <figure><img src="capturas/a-resumen.jpg" alt=""><figcaption><b>Figura 2.1</b> · La próxima cita, las cifras de hoy y el día de un vistazo</figcaption></figure>
   <ul>
-    <li><strong>Citas hoy</strong> y <strong>Citas próximas:</strong> confirmadas para hoy y en adelante.</li>
-    <li><strong>Clientes:</strong> clientes con cuenta activa o bloqueada.</li>
-    <li><strong>Cobrado online este mes</strong> y <strong>Cobrado en el local este mes:</strong> lo cobrado en el mes en curso, ya descontados los reembolsos.</li>
+    <li><strong>Próxima cita:</strong> la hora, cuánto falta, el cliente, el servicio y si está pagada, con <span class="btn-ref green">WhatsApp</span> y <span class="btn-ref">Email</span> para recordársela.</li>
+    <li><strong>Citas hechas hoy</strong> y <strong>Huecos libres hoy.</strong></li>
+    <li><strong>Cobrado hoy:</strong> lo cobrado hoy, en el local y online, descontadas las devoluciones. <strong>Por cobrar hoy:</strong> citas de hoy sin pagar.</li>
+    <li><strong>El día de un vistazo:</strong> todas las horas de hoy. Las citas pasadas salen en gris y las próximas en azul; pulsa el nombre para abrir la ficha. Pulsa una hora <strong>Libre</strong> para crear una cita en ella.</li>
   </ul>
-  <p>En <strong>Estado de integraciones</strong> verás si la lectura de la agenda en papel, el email, WhatsApp y cada forma de pago están listos. Un punto <span class="dot" style="background:#2e9b4f"></span>verde indica que funciona; <span class="dot" style="background:#e0a21b"></span>naranja, que está en modo prueba; <span class="dot" style="background:#3d7fd1"></span>azul, que funciona en modo básico.</p>
-  <div class="note"><p>Si el email aparece «en modo prueba», los emails no llegan a los clientes: falta configurar el servidor de correo (SMTP). Es una tarea técnica que se hace una sola vez en el servidor.</p></div>
+
+  <h3>Por resolver</h3>
+  <figure><img src="capturas/a-resumen-resolver.jpg" alt=""><figcaption><b>Figura 2.2</b> · Tareas pendientes</figcaption></figure>
+  <table>
+    <thead><tr><th>Apartado</th><th>Qué es y qué puedes hacer</th></tr></thead>
+    <tbody>
+      <tr><td>Sin cobrar</td><td>Citas de los últimos 60 días ya pasadas y sin pagar: <span class="btn-ref">Marcar cobrada</span> o <span class="btn-ref">No vino</span>.</td></tr>
+      <tr><td>Huecos por cancelación</td><td>Horas de hoy o mañana canceladas en las últimas 48 horas y que siguen libres: <span class="btn-ref">Dar esta hora</span>.</td></tr>
+      <tr><td>Mañana sin recordatorio</td><td>Si los recordatorios están activados, quién tiene cita mañana y no recibirá el aviso.</td></tr>
+      <tr><td>Avisos que han fallado</td><td>Recordatorios de las últimas 48 horas que no se pudieron enviar.</td></tr>
+      <tr><td>Agenda en papel</td><td>Páginas por revisar o que no se pudieron leer.</td></tr>
+    </tbody>
+  </table>
+  <p>Cada apartado aparece solo si hay algo. Si no hay nada pendiente, verás «Todo al día». Un aviso en amarillo indica que los recordatorios están activados pero falta configurar el correo o WhatsApp en el servidor.</p>
+
+  <h3>Cómo va el negocio</h3>
+  <p>Elige <span class="btn-ref">Últimos 7 días</span>, <span class="btn-ref">Últimos 30 días</span> o <span class="btn-ref">Últimos 12 meses</span>.</p>
+  <figure><img src="capturas/a-resumen-negocio.jpg" alt=""><figcaption><b>Figura 2.3</b> · Ingresos y ocupación</figcaption></figure>
+  <ul>
+    <li><strong>Cobrado:</strong> total del periodo, comparado con el periodo anterior igual de largo. Si entonces no había cobros, no se compara.</li>
+    <li><strong>Ocupación:</strong> horas con cita sobre horas abiertas.</li>
+    <li><strong>Este mes:</strong> lo cobrado en el mes en curso, en el local y online.</li>
+    <li><strong>Ingresos por día o por mes:</strong> pasa por encima de una columna, o tócala, para ver sus importes. Con <span class="ui">Ver tabla</span> los ves en una tabla.</li>
+    <li><strong>Ocupación por día y hora:</strong> el porcentaje de cada hora. Cuanto más intenso el color, más llena. Ayuda a ver cuándo sobran huecos.</li>
+  </ul>
+  <div class="note"><p>Los ingresos cuentan el día en que se cobraron, menos lo devuelto después. La ocupación usa el horario y los sillones actuales también para los días pasados y descuenta los cierres.</p></div>
 </section>
 
 <!-- ============================================================ 3 -->
@@ -593,6 +621,11 @@
     <li>Para añadir un servicio, escribe su nombre y precio abajo y pulsa <span class="btn-ref">Añadir</span>.</li>
   </ul>
   <p>Los servicios se guardan al momento; no hace falta pulsar «Guardar configuración».</p>
+
+  <h3>Estado de integraciones</h3>
+  <figure><img src="capturas/a-config-8.jpg" alt=""><figcaption><b>Figura 12.13</b> · Estado de integraciones</figcaption></figure>
+  <p>Al final de Configuración verás si la lectura de la agenda en papel, el email, WhatsApp y cada forma de pago están listos. Un punto <span class="dot" style="background:#2e9b4f"></span>verde indica que funciona; <span class="dot" style="background:#e0a21b"></span>naranja, que falta configurarlo o está en modo prueba; <span class="dot" style="background:#3d7fd1"></span>azul, que funciona en modo básico. Configurarlos es una tarea técnica que se hace una sola vez en el servidor.</p>
+  <div class="note"><p>Si el email aparece «en modo prueba», los emails no llegan a los clientes: falta configurar el servidor de correo (SMTP).</p></div>
 </section>
 
 <!-- ============================================================ 12 -->

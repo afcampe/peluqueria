@@ -1,41 +1,335 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, Spinner } from '../../components/ui';
+import { EmailReminderButton } from '../../components/EmailReminderButton';
+import { Alert, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
-import { money } from '../../lib/format';
+import { dateLong, dateShort, money, time, weekdayNames } from '../../lib/format';
+import type { Appointment } from '../../lib/types';
+import { CashModal, NewAppointmentModal } from './Agenda';
 
+interface Brief {
+  id: string; startAt: string; endAt: string; status: string; priceCents: number; paymentMethod: string; paid: boolean; service: string;
+  client: { id: string; name: string; email: string | null; phone: string | null };
+}
+interface Cell { start: string; end: string; state: 'booked' | 'free' | 'past' | 'closed'; bookable: boolean; appts: Brief[] }
 interface Data {
-  today: number; upcoming: number; clients: number; onlineRevenueMonthCents: number; cashRevenueMonthCents: number;
-  integrations: { agendaReader: boolean; email: boolean; whatsappApi: boolean; payments: { id: string; label: string; configured: boolean }[] };
+  now: string; today: string;
+  next: (Brief & { isToday: boolean; whatsappLink: string | null }) | null;
+  agenda: Cell[];
+  figures: { done: number; pending: number; free: number; collectedCents: number; toCollectCents: number; monthCashCents: number; monthOnlineCents: number; clients: number; upcoming: number };
+  todo: {
+    unpaid: { count: number; totalCents: number; items: Brief[] };
+    freed: (Brief & { cancelledBy: string })[];
+    noReminder: (Brief & { whatsappLink: string | null })[];
+    failedReminders: { id: string; channel: string; detail: string | null; startAt: string; client: { id: string; name: string } }[];
+    imports: number; warnings: string[];
+  };
 }
 
 export function Dashboard() {
   const [d, setD] = useState<Data | null>(null);
   const [error, setError] = useState('');
-  useEffect(() => { api.get<Data>('/admin/dashboard').then(setD).catch((e) => setError(e.message)); }, []);
-  if (error) return <Alert>{error}</Alert>;
-  if (!d) return <Spinner />;
+  const [flash, setFlash] = useState('');
+  const [newAt, setNewAt] = useState<string | null>(null);
+  const load = useCallback(() => api.get<Data>('/admin/dashboard').then((r) => { setD(r); setError(''); }).catch((e) => setError(e.message)), []);
+  // Se refresca cada minuto: cambian la próxima cita y las horas libres.
+  useEffect(() => { load(); const t = setInterval(load, 60_000); return () => clearInterval(t); }, [load]);
+  const done = (m: string) => { setNewAt(null); setFlash(m); load(); };
+
+  if (!d) return error ? <Alert>{error}</Alert> : <Spinner />;
+  const f = d.figures;
   return (
-    <div>
-      <h1>Resumen</h1>
-      <div className="stats">
-        <Link to="/admin/agenda" className="stat"><strong>{d.today}</strong><span>Citas hoy</span></Link>
-        <div className="stat"><strong>{d.upcoming}</strong><span>Citas próximas</span></div>
-        <Link to="/admin/usuarios" className="stat"><strong>{d.clients}</strong><span>Clientes</span></Link>
-        <div className="stat"><strong>{money(d.onlineRevenueMonthCents)}</strong><span>Cobrado online este mes</span></div>
-        <div className="stat"><strong>{money(d.cashRevenueMonthCents)}</strong><span>Cobrado en el local este mes</span></div>
+    <div className="dash">
+      <div className="page-head">
+        <h1>Resumen</h1>
+        <p className="muted dash-date">{dateLong(`${d.today}T12:00:00Z`)}</p>
       </div>
+      <Alert kind="ok">{flash}</Alert>
+      <Alert>{error}</Alert>
+
+      <div className="dash-top">
+        <NextCard next={d.next} now={d.now} />
+        <div className="stats dash-stats">
+          <div className="stat"><strong>{f.done}<small> de {f.done + f.pending}</small></strong><span>Citas hechas hoy</span></div>
+          <div className="stat"><strong>{f.free}</strong><span>Huecos libres hoy</span></div>
+          <div className="stat"><strong>{money(f.collectedCents)}</strong><span>Cobrado hoy</span></div>
+          <div className="stat"><strong>{money(f.toCollectCents)}</strong><span>Por cobrar hoy</span></div>
+        </div>
+      </div>
+
       <section className="card">
-        <h2>Estado de integraciones</h2>
-        <ul className="status-list">
-          <li><span className={d.integrations.agendaReader ? 'dot ok' : 'dot warn'} /> Lectura de la agenda en papel {d.integrations.agendaReader ? 'configurada' : 'sin configurar: las fotos se revisan a mano. Añade ANTHROPIC_API_KEY en server/.env'}</li>
-          <li><span className={d.integrations.email ? 'dot ok' : 'dot warn'} /> Email {d.integrations.email ? 'configurado' : 'en modo prueba (se muestra en la consola del servidor). Configura SMTP en server/.env'}</li>
-          <li><span className={d.integrations.whatsappApi ? 'dot ok' : 'dot info'} /> WhatsApp {d.integrations.whatsappApi ? 'API conectada' : 'mediante enlaces wa.me (API opcional no configurada)'}</li>
-          {d.integrations.payments.map((p) => (
-            <li key={p.id}><span className={p.configured ? 'dot ok' : 'dot warn'} /> {p.label}: {p.configured ? 'listo' : 'faltan credenciales en server/.env'}</li>
-          ))}
-        </ul>
+        <div className="dash-head"><h2>El día de un vistazo</h2><Link to="/admin/agenda" className="small">Ver la agenda</Link></div>
+        {d.agenda.length === 0 ? <p className="empty">Hoy la peluquería está cerrada y no hay citas.</p> : <DayStrip cells={d.agenda} now={d.now} onFree={setNewAt} />}
       </section>
+
+      <Todo todo={d.todo} onChange={done} onGive={setNewAt} />
+      <Business figures={f} />
+
+      {newAt && <NewAppointmentModal initialStart={newAt} onClose={() => setNewAt(null)} onDone={done} />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- Hoy
+
+const inText = (iso: string, now: string) => {
+  const min = Math.max(0, Math.round((Date.parse(iso) - Date.parse(now)) / 60_000));
+  return min < 1 ? 'ahora' : min < 60 ? `dentro de ${min} min` : `dentro de ${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}`;
+};
+
+function NextCard({ next, now }: { next: Data['next']; now: string }) {
+  if (!next) return <section className="card dash-next"><span className="dash-kicker">Próxima cita</span><p className="empty">No hay citas próximas.</p></section>;
+  return (
+    <section className="card dash-next">
+      <span className="dash-kicker">Próxima cita · {next.isToday ? inText(next.startAt, now) : dateShort(next.startAt)}</span>
+      <p className="dash-next-time">{time(next.startAt)}</p>
+      <p className="dash-next-who"><Link to={`/admin/usuarios/${next.client.id}`}><strong>{next.client.name}</strong></Link><br />
+        <span className="muted">{next.service} · {money(next.priceCents)} · {next.paid ? 'pagada' : 'pendiente de cobro'}</span></p>
+      <div className="actions">
+        {next.whatsappLink && <a className="btn btn-sm btn-wa" href={next.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
+        <EmailReminderButton appointmentId={next.id} disabledReason={next.client.email ? undefined : 'El cliente no tiene email'} />
+      </div>
+    </section>
+  );
+}
+
+function DayStrip({ cells, now, onFree }: { cells: Cell[]; now: string; onFree: (start: string) => void }) {
+  const groups = ([['Mañana', cells.filter((c) => Number(time(c.start).slice(0, 2)) < 14)], ['Tarde', cells.filter((c) => Number(time(c.start).slice(0, 2)) >= 14)]] as const).filter(([, l]) => l.length);
+  return (
+    <>
+      {groups.map(([label, list]) => (
+        <div key={label}>
+          <h3 className="dash-part">{label}</h3>
+          <div className="day-strip">
+            {list.map((c) => {
+              const current = c.start <= now && now < c.end;
+              const cls = `day-cell is-${c.state}${c.end <= now ? ' is-over' : ''}${current ? ' is-now' : ''}`;
+              if (c.bookable) return <button key={c.start} type="button" className={cls} onClick={() => onFree(c.start)} aria-label={`Hueco libre a las ${time(c.start)}: crear cita`}><b>{time(c.start)}</b><span>{c.appts.length ? c.appts.map((a) => a.client.name).join(', ') : 'Libre'}</span><i aria-hidden>+</i></button>;
+              return (
+                <div key={c.start + (c.appts[0]?.id ?? '')} className={cls}>
+                  <b>{time(c.start)}</b>
+                  {c.appts.length ? c.appts.map((a) => (
+                    <span key={a.id} title={`${a.client.name} · ${a.service}`}><Link to={`/admin/usuarios/${a.client.id}`}>{a.client.name}</Link><small>{a.status === 'NO_SHOW' ? 'No vino' : a.paid ? 'Pagada' : a.service}</small></span>
+                  )) : <span>{c.state === 'closed' ? 'Cerrado' : c.state === 'booked' ? 'Ocupada' : '—'}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------- Por resolver
+
+function Todo({ todo: t, onChange, onGive }: { todo: Data['todo']; onChange: (m: string) => void; onGive: (start: string) => void }) {
+  const [cash, setCash] = useState<Appointment | null>(null);
+  const [error, setError] = useState('');
+  const n = t.unpaid.count + t.freed.length + t.noReminder.length + t.failedReminders.length + t.imports + t.warnings.length;
+  if (!n) return <section className="card dash-ok"><span className="dot ok" /> Todo al día: no hay nada por resolver.</section>;
+
+  const noShow = async (a: Brief) => {
+    setError('');
+    try { await api.patch(`/admin/appointments/${a.id}`, { status: 'NO_SHOW' }); onChange(`Apuntado: ${a.client.name} no vino`); } catch (e) { setError(errMsg(e)); }
+  };
+  const who = (a: { client: { id: string; name: string } }) => <Link to={`/admin/usuarios/${a.client.id}`}>{a.client.name}</Link>;
+  return (
+    <section className="card">
+      <h2>Por resolver</h2>
+      <Alert>{error}</Alert>
+      {t.warnings.map((w) => <p key={w} className="todo-warn">{w} <Link to="/admin/configuracion">Configuración</Link></p>)}
+      <div className="todo-grid">
+        {t.unpaid.count > 0 && (
+          <div className="todo">
+            <h3>Sin cobrar <small>{t.unpaid.count} · {money(t.unpaid.totalCents)}</small></h3>
+            <p className="muted small">Citas ya pasadas. Cóbralas o apunta que no vino.</p>
+            <ul>
+              {t.unpaid.items.map((a) => (
+                <li key={a.id}>
+                  <div>{who(a)} <span className="muted small">{dateShort(a.startAt)} {time(a.startAt)} · {money(a.priceCents)}</span></div>
+                  <div className="actions">
+                    {a.paymentMethod === 'cash' && <button className="btn btn-sm" onClick={() => setCash(a as unknown as Appointment)}>Marcar cobrada</button>}
+                    <button className="btn btn-sm" onClick={() => noShow(a)}>No vino</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {t.unpaid.count > t.unpaid.items.length && <p className="small muted">y {t.unpaid.count - t.unpaid.items.length} más en la <Link to="/admin/agenda">agenda</Link>.</p>}
+          </div>
+        )}
+        {t.freed.length > 0 && (
+          <div className="todo">
+            <h3>Huecos por cancelación <small>{t.freed.length}</small></h3>
+            <p className="muted small">Horas de hoy o mañana que han quedado libres.</p>
+            <ul>{t.freed.map((a) => (
+              <li key={a.id}><div><strong>{dateShort(a.startAt)} {time(a.startAt)}</strong> <span className="muted small">canceló {a.cancelledBy === 'CLIENT' ? a.client.name : 'la peluquería'}</span></div>
+                <div className="actions"><button className="btn btn-sm" onClick={() => onGive(a.startAt)}>Dar esta hora</button></div></li>
+            ))}</ul>
+          </div>
+        )}
+        {t.noReminder.length > 0 && (
+          <div className="todo">
+            <h3>Mañana sin recordatorio <small>{t.noReminder.length}</small></h3>
+            <p className="muted small">No recibirán el aviso automático.</p>
+            <ul>{t.noReminder.map((a) => (
+              <li key={a.id}><div>{who(a)} <span className="muted small">{time(a.startAt)}</span></div>
+                <div className="actions">{a.whatsappLink ? <a className="btn btn-sm btn-wa" href={a.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a> : <span className="muted small">sin teléfono</span>}</div></li>
+            ))}</ul>
+          </div>
+        )}
+        {t.failedReminders.length > 0 && (
+          <div className="todo">
+            <h3>Avisos que han fallado <small>{t.failedReminders.length}</small></h3>
+            <ul>{t.failedReminders.map((r) => <li key={r.id}><div>{who(r)} <span className="muted small">{dateShort(r.startAt)} {time(r.startAt)} · {r.channel === 'EMAIL' ? 'email' : 'WhatsApp'}</span></div></li>)}</ul>
+          </div>
+        )}
+        {t.imports > 0 && (
+          <div className="todo">
+            <h3>Agenda en papel <small>{t.imports}</small></h3>
+            <p className="muted small">Páginas por revisar o que no se pudieron leer.</p>
+            <Link className="btn btn-sm" to="/admin/importar">Revisar páginas</Link>
+          </div>
+        )}
+      </div>
+      {cash && <CashModalFor id={cash.id} onClose={() => setCash(null)} onDone={(m) => { setCash(null); onChange(m); }} />}
+    </section>
+  );
+}
+
+/** La ventana de cobro necesita la cita completa. */
+function CashModalFor({ id, onClose, onDone }: { id: string; onClose: () => void; onDone: (m: string) => void }) {
+  const [a, setA] = useState<Appointment | null>(null);
+  useEffect(() => { api.get<Appointment>(`/admin/appointments/${id}`).then(setA).catch(onClose); /* eslint-disable-next-line */ }, [id]);
+  return a ? <CashModal appt={a} onClose={onClose} onDone={onDone} /> : null;
+}
+
+// ---------------------------------------------------------------- Negocio
+
+type Period = '7d' | '30d' | '12m';
+interface Bucket { key: string; label: string; title: string; cashCents: number; onlineCents: number }
+interface Biz {
+  period: Period; buckets: Bucket[]; totalCents: number; cashCents: number; onlineCents: number; previousCents: number | null;
+  occupancy: { percent: number | null; hours: number[]; weekdays: number[]; cells: (number | null)[][] };
+}
+const periods: [Period, string, string][] = [['7d', 'Últimos 7 días', 'los 7 días anteriores'], ['30d', 'Últimos 30 días', 'los 30 días anteriores'], ['12m', 'Últimos 12 meses', 'los 12 meses anteriores']];
+
+function Business({ figures }: { figures: Data['figures'] }) {
+  const [period, setPeriod] = useState<Period>('30d');
+  const [b, setB] = useState<Biz | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true;
+    setBusy(true);
+    api.get<Biz>(`/admin/dashboard/business?period=${period}`).then((r) => { if (live) { setB(r); setError(''); } }).catch((e) => live && setError(errMsg(e))).finally(() => live && setBusy(false));
+    return () => { live = false; };
+  }, [period]);
+  const prevLabel = periods.find(([p]) => p === (b?.period ?? period))![2];
+  const diff = b && b.previousCents ? Math.round(((b.totalCents - b.previousCents) / b.previousCents) * 100) : null;
+  return (
+    <section className="dash-biz">
+      <div className="dash-head">
+        <h2>Cómo va el negocio</h2>
+        <div className="chips" role="group" aria-label="Periodo">
+          {periods.map(([p, l]) => <button key={p} type="button" className={`chip ${p === period ? 'selected' : ''}`} aria-pressed={p === period} onClick={() => setPeriod(p)}>{l}</button>)}
+        </div>
+      </div>
+      <Alert>{error}</Alert>
+      {!b ? !error && <Spinner /> : (
+        <div className={busy ? 'dash-busy' : ''}>
+          <div className="stats">
+            <div className="stat"><strong>{money(b.totalCents)}</strong><span>Cobrado</span>
+              <p className="stat-note">{diff === null ? 'Sin datos anteriores para comparar' : <><b className={diff >= 0 ? 'up' : 'down'}>{diff >= 0 ? '▲' : '▼'} {Math.abs(diff)} %</b> frente a {prevLabel}</>}</p></div>
+            <div className="stat"><strong>{b.occupancy.percent === null ? '—' : `${b.occupancy.percent} %`}</strong><span>Ocupación</span><p className="stat-note">Horas con cita sobre horas abiertas</p></div>
+            <div className="stat"><strong>{money(figures.monthCashCents + figures.monthOnlineCents)}</strong><span>Este mes</span><p className="stat-note">{money(figures.monthCashCents)} en el local · {money(figures.monthOnlineCents)} online</p></div>
+            <Link to="/admin/usuarios" className="stat"><strong>{figures.clients}</strong><span>Clientes</span><p className="stat-note">{figures.upcoming} citas próximas</p></Link>
+          </div>
+          <div className="dash-charts">
+            <RevenueChart b={b} />
+            <Occupancy o={b.occupancy} />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const niceMax = (cents: number) => {
+  const eur = Math.max(cents / 100, 10);
+  const mag = 10 ** Math.floor(Math.log10(eur));
+  return (([1, 2, 4, 5, 8, 10].find((m) => m * mag >= eur) ?? 10) * mag) * 100;
+};
+const eur0 = (cents: number) => `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0, useGrouping: 'always' } as unknown as Intl.NumberFormatOptions).format(cents / 100)} €`;
+
+/** Columnas apiladas: local y online. Cada columna se puede recorrer con el ratón o el teclado. */
+function RevenueChart({ b }: { b: Biz }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [table, setTable] = useState(false);
+  const max = niceMax(Math.max(...b.buckets.map((x) => x.cashCents + x.onlineCents), 0));
+  const every = b.buckets.length > 12 ? 5 : 1;
+  const h = hover === null ? null : b.buckets[hover];
+  return (
+    <section className="card chart-card">
+      <div className="dash-head"><h3>Ingresos por {b.period === '12m' ? 'mes' : 'día'}</h3><button type="button" className="link small" onClick={() => setTable(!table)}>{table ? 'Ver gráfico' : 'Ver tabla'}</button></div>
+      <p className="chart-legend"><span><i className="key-cash" /> En el local {money(b.cashCents)}</span><span><i className="key-online" /> Online {money(b.onlineCents)}</span></p>
+      {table ? (
+        <div className="table-wrap chart-table"><table className="table"><thead><tr><th>Fecha</th><th>Local</th><th>Online</th><th>Total</th></tr></thead>
+          <tbody>{b.buckets.map((x) => <tr key={x.key}><td>{x.title}</td><td>{money(x.cashCents)}</td><td>{money(x.onlineCents)}</td><td>{money(x.cashCents + x.onlineCents)}</td></tr>)}</tbody></table></div>
+      ) : (
+        <div className="bars" onMouseLeave={() => setHover(null)}>
+          <div className="bars-y" aria-hidden>{[1, 0.5, 0].map((r) => <span key={r} style={{ bottom: `${r * 100}%` }}>{eur0(max * r)}</span>)}</div>
+          <div className="bars-plot">
+            {[1, 0.5, 0].map((r) => <hr key={r} style={{ bottom: `${r * 100}%` }} />)}
+            {b.buckets.map((x, i) => {
+              const last = i === b.buckets.length - 1;
+              return (
+                <div key={x.key} className={`bar-slot ${hover === i ? 'on' : ''}`} tabIndex={0} role="img" aria-label={`${x.title}: ${money(x.cashCents + x.onlineCents)}, ${money(x.cashCents)} en el local y ${money(x.onlineCents)} online`}
+                  onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} onTouchStart={() => setHover(i)}>
+                  <div className="bar">
+                    {x.onlineCents > 0 && <i className="key-online" style={{ height: `${(x.onlineCents / max) * 100}%` }} />}
+                    {x.cashCents > 0 && <i className="key-cash" style={{ height: `${(x.cashCents / max) * 100}%` }} />}
+                  </div>
+                  {(i % every === 0 && !(every > 1 && b.buckets.length - 1 - i < every) || last) && <em>{x.label}</em>}
+                </div>
+              );
+            })}
+            {h && hover !== null && (
+              <div className={`tip ${hover > b.buckets.length / 2 ? 'left' : ''}`} style={hover > b.buckets.length / 2 ? { right: `${(1 - hover / b.buckets.length) * 100}%` } : { left: `${((hover + 1) / b.buckets.length) * 100}%` }}>
+                <strong>{money(h.cashCents + h.onlineCents)}</strong><span>{h.title}</span>
+                <span><i className="key-cash" /> {money(h.cashCents)} local</span><span><i className="key-online" /> {money(h.onlineCents)} online</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Mapa de calor: cada casilla lleva su porcentaje, así que no depende solo del color. */
+function Occupancy({ o }: { o: Biz['occupancy'] }) {
+  if (!o.hours.length) return <section className="card chart-card"><h3>Ocupación</h3><p className="empty">No ha habido días abiertos en este periodo.</p></section>;
+  return (
+    <section className="card chart-card">
+      <div className="dash-head"><h3>Ocupación por día y hora</h3></div>
+      <p className="muted small">Porcentaje de horas con cita. Cuanto más intenso el color, más lleno. Según el horario actual.</p>
+      <div className="heat-wrap">
+        <table className="heat">
+          <thead><tr><th><span className="sr-only">Hora</span></th>{o.weekdays.map((w) => <th key={w} scope="col" title={weekdayNames[String(w)]}>{weekdayNames[String(w)].slice(0, 3)}</th>)}</tr></thead>
+          <tbody>
+            {o.hours.map((hr, hi) => (
+              <tr key={hr}><th scope="row">{hr}:00</th>
+                {o.weekdays.map((w, wi) => {
+                  const v = o.cells[wi][hi];
+                  return v === null ? <td key={w} className="off">·</td>
+                    : <td key={w} className={`lv${Math.min(5, Math.floor(v / 17))}`} title={`${weekdayNames[String(w)]}, ${hr}:00–${hr + 1}:00: ${v} % ocupado`}>{v}</td>;
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

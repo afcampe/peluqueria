@@ -13,7 +13,8 @@ import { issueTicket } from './services/tickets.js';
 
 if (process.env.DEMO_DATA !== 'true') process.exit(0);
 if ((await prisma.user.count({ where: { role: 'CLIENT' } })) > 0) {
-  console.log('[demo] ya hay clientes: no se crean datos de ejemplo');
+  await demoHistory();
+  console.log('[demo] ya hay clientes: no se crean más datos de ejemplo');
   process.exit(0);
 }
 
@@ -78,5 +79,59 @@ for (let d = -14; d <= 21; d++) {
     }
   }
 }
+await demoHistory();
 console.log(`[demo] ${clients.length} clientes y ${created} citas de ejemplo creados`);
 await prisma.$disconnect();
+
+/**
+ * Historial de ejemplo para los gráficos del Resumen: unos 7 meses de citas pasadas y
+ * cobradas de los clientes ficticios (@example.com), y los cobros de ejemplo con la fecha
+ * de su cita. Solo se hace una vez (si no hay citas de hace más de 30 días).
+ */
+async function demoHistory() {
+  const s = await getSettings();
+  const now = DateTime.now().setZone(s.timezone);
+  if (await prisma.appointment.count({ where: { startAt: { lt: now.minus({ days: 30 }).toJSDate() } } })) return;
+  const clients = await prisma.user.findMany({ where: { role: 'CLIENT', email: { endsWith: '@example.com' } }, orderBy: { email: 'asc' } });
+  const services = await prisma.service.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } });
+  if (!clients.length || !services.length) return;
+
+  const demoPays = await prisma.payment.findMany({ where: { provider: 'cash', appointment: { client: { email: { endsWith: '@example.com' } }, startAt: { lt: now.toJSDate() } } }, include: { appointment: true } });
+  for (const p of demoPays) if (p.createdAt > p.appointment.endAt) await prisma.payment.update({ where: { id: p.id }, data: { createdAt: p.appointment.endAt } });
+
+  let k = 0;
+  const start = now.minus({ days: 210 }).startOf('day');
+  const end = now.minus({ days: 15 }).startOf('day');
+  for (let day = start; day < end; day = day.plus({ days: 1 })) {
+    const ranges = s.weeklySchedule[String(day.weekday) as keyof typeof s.weeklySchedule] ?? [];
+    const growth = 0.75 + 0.35 * (day.diff(start, 'days').days / 195); // el negocio va creciendo
+    for (const r of ranges) {
+      const [h0, m0] = r.start.split(':').map(Number);
+      const [h1, m1] = r.end.split(':').map(Number);
+      for (let t = h0 * 60 + m0; t + s.slotMinutes <= h1 * 60 + m1; t += s.slotMinutes) {
+        // Más llenos los viernes y las tardes a partir de las 17 h.
+        const rnd = ((k * 7919 + t * 31 + day.ordinal * 17) % 100) / 100;
+        const p = (t >= 17 * 60 ? 0.6 : t >= 11 * 60 ? 0.42 : 0.25) * growth * (day.weekday === 5 ? 1.3 : day.weekday === 2 ? 0.75 : 1);
+        k++;
+        if (rnd >= p) continue;
+        const at = day.set({ hour: Math.floor(t / 60), minute: t % 60 });
+        const svc = services[(k * 3) % services.length];
+        const status = k % 19 === 0 ? 'NO_SHOW' : k % 23 === 0 ? 'CANCELLED' : 'COMPLETED';
+        const online = k % 4 === 0;
+        const paid = at.plus(online ? { days: -2 } : { minutes: s.slotMinutes }).toJSDate();
+        await prisma.appointment.create({
+          data: {
+            clientId: clients[k % clients.length].id, serviceId: svc.id, startAt: at.toJSDate(), endAt: at.plus({ minutes: s.slotMinutes }).toJSDate(),
+            status, paymentMethod: status === 'COMPLETED' && online ? 'paypal' : 'cash', priceCents: svc.priceCents, createdAt: at.minus({ days: 6 }).toJSDate(),
+            ...(status === 'CANCELLED' && { cancelledAt: at.minus({ days: 1 }).toJSDate(), cancelledBy: k % 2 ? 'CLIENT' : 'ADMIN' }),
+            ...(status === 'COMPLETED' && { payments: { create: {
+              provider: online ? 'paypal' : 'cash', amountCents: svc.priceCents, currency: s.currency, status: 'COMPLETED', createdAt: paid,
+              ...(online && { capturedAt: paid, providerOrderId: `DEMO-O-${k}`, providerCaptureId: `DEMO-C-${k}` }),
+            } } }),
+          },
+        });
+      }
+    }
+  }
+  console.log('[demo] historial de ejemplo creado para los gráficos');
+}

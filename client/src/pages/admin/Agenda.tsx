@@ -367,13 +367,13 @@ export function CashModal({ appt, onClose, onDone }: { appt: Appointment; onClos
   );
 }
 
-function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone: (m: string) => void }) {
+export function NewAppointmentModal({ onClose, onDone, initialStart = null }: { onClose: () => void; onDone: (m: string) => void; initialStart?: string | null }) {
   const { config } = useSession();
   const [q, setQ] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [client, setClient] = useState<User | null>(null);
   const [serviceId, setServiceId] = useState(config?.services[0]?.id ?? '');
-  const [start, setStart] = useState<string | null>(null);
+  const [start, setStart] = useState<string | null>(initialStart);
   const [repeat, setRepeat] = useState(false);
   const [plan, setPlan] = useState<SeriesPlan | null>(null);
   const [notes, setNotes] = useState('');
@@ -416,7 +416,7 @@ function NewAppointmentModal({ onClose, onDone }: { onClose: () => void; onDone:
               {config?.services.map((s) => <option key={s.id} value={s.id}>{s.name} — {money(s.priceCents)}</option>)}
             </select>
           </label>
-          <SlotPicker admin value={start} onPick={setStart} />
+          <SlotPicker admin value={start} onPick={setStart} initialDate={initialStart ? isoToLocalDate(initialStart) : undefined} />
           {start && (
             <label className="check"><input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} /> Repetir periódicamente</label>
           )}

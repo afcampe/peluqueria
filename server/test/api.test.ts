@@ -895,4 +895,68 @@ describe('recordatorio por email enviado a mano', () => {
   });
 });
 
+describe('resumen del administrador', () => {
+  it('muestra el día, lo pendiente y los huecos liberados', async () => {
+    const { dashboard } = await import('../src/services/dashboard.js');
+    const me = await prisma.user.findUniqueOrThrow({ where: { email: 'o@o.es' } });
+    // Un lunes lejano a las 10:15, sin otras citas
+    const day = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 70 }).set({ weekday: 1, hour: 0, minute: 0, second: 0, millisecond: 0 });
+    const at = (h: number, m = 0, d = 0) => day.plus({ days: d }).set({ hour: h, minute: m });
+    const now = at(10, 15).toJSDate();
+    const mk = (t: ReturnType<typeof at>, o = {}) => prisma.appointment.create({ data: { clientId: me.id, serviceId, startAt: t.toJSDate(), endAt: t.plus({ minutes: 30 }).toJSDate(), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED', ...o } });
+    const done = await mk(at(9));
+    await prisma.payment.create({ data: { appointmentId: done.id, provider: 'cash', amountCents: 1500, currency: 'EUR', status: 'COMPLETED', createdAt: at(9, 30).toJSDate() } });
+    const unpaid = await mk(at(9, 30));
+    const next = await mk(at(11));
+    const freed = await mk(at(12), { status: 'CANCELLED', cancelledBy: 'CLIENT', cancelledAt: at(9).toJSDate() });
+    const retaken = await mk(at(12, 30), { status: 'CANCELLED', cancelledBy: 'CLIENT', cancelledAt: at(9).toJSDate() });
+    await mk(at(12, 30));
+    const tomorrow = await mk(at(9, 0, 1));
+    const d = await dashboard(now);
+    expect(d.next!.id).toBe(next.id);
+    expect(d.next!.isToday).toBe(true);
+    // 16 huecos: 09:00, 09:30, 11:00 y 12:30 ocupados; 10:00 ya pasado
+    expect(d.figures).toMatchObject({ done: 2, pending: 2, free: 11, collectedCents: 1500, toCollectCents: 4500 });
+    expect(d.agenda).toHaveLength(16);
+    expect(d.agenda.filter((c) => c.state === 'booked')).toHaveLength(4);
+    expect(d.todo.unpaid.items[0].id).toBe(unpaid.id);
+    expect(d.todo.freed.map((x) => x.id)).toEqual([freed.id]);
+    expect(d.todo.freed.map((x) => x.id)).not.toContain(retaken.id);
+    expect(d.todo.noReminder).toEqual([]); // recordatorios desactivados: no se avisa
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [1440] } }, adminToken);
+    const on = await dashboard(now);
+    expect(on.todo.noReminder.map((x) => x.id)).toContain(tomorrow.id); // sin SMTP nadie lo recibe
+    expect(on.todo.warnings).toHaveLength(1);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
+  });
+
+  it('calcula ingresos netos, comparación y ocupación', async () => {
+    const { business } = await import('../src/services/dashboard.js');
+    const me = await prisma.user.findUniqueOrThrow({ where: { email: 'o@o.es' } });
+    const day = DateTime.now().setZone('Europe/Madrid').plus({ weeks: 90 }).set({ weekday: 5, hour: 10, minute: 0, second: 0, millisecond: 0 });
+    const pay = async (daysAgo: number, provider: string, amountCents: number, refundedCents = 0) => {
+      const t = day.minus({ days: daysAgo });
+      const a = await prisma.appointment.create({ data: { clientId: me.id, serviceId, startAt: t.toJSDate(), endAt: t.plus({ minutes: 30 }).toJSDate(), priceCents: amountCents, paymentMethod: provider, status: 'COMPLETED' } });
+      await prisma.payment.create({ data: { appointmentId: a.id, provider, amountCents, refundedCents, currency: 'EUR', status: refundedCents ? 'PARTIALLY_REFUNDED' : 'COMPLETED', createdAt: t.toJSDate(), capturedAt: provider === 'cash' ? null : t.toJSDate() } });
+    };
+    await pay(0, 'cash', 2000);
+    await pay(1, 'paypal', 1500, 500);
+    await pay(8, 'cash', 1000);
+    const b = await business('7d', day.set({ hour: 21 }).toJSDate());
+    expect(b.buckets).toHaveLength(7);
+    expect(b).toMatchObject({ totalCents: 3000, cashCents: 2000, onlineCents: 1000, previousCents: 1000 });
+    expect(b.buckets[6]).toMatchObject({ cashCents: 2000, onlineCents: 0 });
+    // 5 días × 8 h abiertas; 2 medias horas con cita
+    expect(b.occupancy.hours).toEqual([9, 10, 11, 12, 16, 17, 18, 19]);
+    expect(b.occupancy.weekdays).toEqual([1, 2, 3, 4, 5]);
+    expect(b.occupancy.cells[4][1]).toBe(50);
+    expect(b.occupancy.percent).toBe(3);
+    const m = await business('12m', day.set({ hour: 21 }).toJSDate());
+    expect(m.buckets).toHaveLength(12);
+    expect(m.totalCents).toBe(m.buckets.reduce((n, x) => n + x.cashCents + x.onlineCents, 0));
+    expect((await call('GET', '/api/admin/dashboard/business?period=30d', undefined, adminToken)).status).toBe(200);
+    expect((await call('GET', '/api/admin/dashboard/business', undefined, clientToken)).status).toBe(403);
+  });
+});
+
 vi.setConfig({ testTimeout: 20_000 });

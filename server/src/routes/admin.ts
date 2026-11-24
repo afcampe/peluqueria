@@ -7,6 +7,7 @@ import { requireAdmin, requireAuth } from '../lib/auth.js';
 import { avatarData, avatarField } from '../lib/avatar.js';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
+import { business, dashboard, integrations } from '../services/dashboard.js';
 import { mergeClient } from '../services/agendaImport.js';
 import { assertReminderPrefs, defaultReminderPrefs, previewEmailReminder, recentReminders, sendEmailReminder, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
 import { remindersSchema } from '../services/settings.js';
@@ -33,23 +34,15 @@ const localToDate = (s: string, tz: string, endOfDay = false) => {
 };
 
 // ---------------------------------------------------------------- Resumen
-adminRouter.get('/dashboard', h(async (_req, res) => {
-  const s = await getSettings();
-  const now = DateTime.now().setZone(s.timezone);
-  const [today, upcoming, monthPayments, clients] = await Promise.all([
-    prisma.appointment.count({ where: { status: 'CONFIRMED', startAt: { gte: now.startOf('day').toJSDate(), lte: now.endOf('day').toJSDate() } } }),
-    prisma.appointment.count({ where: { status: 'CONFIRMED', startAt: { gte: now.toJSDate() } } }),
-    prisma.payment.findMany({ where: { status: { in: ['COMPLETED', 'PARTIALLY_REFUNDED'] }, createdAt: { gte: now.startOf('month').toJSDate() } } }),
-    prisma.user.count({ where: { role: 'CLIENT', status: { not: 'DELETED' } } }),
-  ]);
-  res.json({
-    today,
-    upcoming,
-    clients,
-    onlineRevenueMonthCents: monthPayments.filter((p) => p.provider !== 'cash').reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
-    cashRevenueMonthCents: monthPayments.filter((p) => p.provider === 'cash').reduce((sum, p) => sum + p.amountCents - p.refundedCents, 0),
-    integrations: { agendaReader: config.anthropicConfigured, email: emailConfigured(), whatsappApi: whatsappApiConfigured(), payments: allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.isConfigured() })) },
-  });
+adminRouter.get('/dashboard', h(async (_req, res) => { res.json(await dashboard()); }));
+
+adminRouter.get('/dashboard/business', h(async (req, res) => {
+  const { period } = z.object({ period: z.enum(['7d', '30d', '12m']).default('30d') }).parse(req.query);
+  res.json(await business(period));
+}));
+
+adminRouter.get('/integrations', h(async (_req, res) => {
+  res.json(integrations(config.anthropicConfigured, allProviders().map((p) => ({ id: p.id, label: p.label, configured: p.isConfigured() }))));
 }));
 
 // ---------------------------------------------------------------- Citas
@@ -69,6 +62,10 @@ adminRouter.get('/appointments', h(async (req, res) => {
     },
   };
   res.json(await prisma.appointment.findMany({ where, include: withRelations, orderBy: { startAt: 'asc' }, take: 3000 }));
+}));
+
+adminRouter.get('/appointments/:id', h(async (req, res) => {
+  res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
 }));
 
 adminRouter.post('/appointments', h(async (req, res) => {

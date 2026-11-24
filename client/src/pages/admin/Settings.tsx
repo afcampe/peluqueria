@@ -130,7 +130,26 @@ export function Settings() {
       <div className="sticky-save"><button className="btn btn-primary btn-lg" onClick={save}>Guardar configuración</button></div>
 
       <Services onChange={reloadConfig} />
+      <Integrations />
     </div>
+  );
+}
+
+/** Qué servicios externos están conectados en el servidor. */
+function Integrations() {
+  const [d, setD] = useState<{ agendaReader: boolean; email: boolean; whatsappApi: boolean; payments: { id: string; label: string; configured: boolean }[] } | null>(null);
+  useEffect(() => { api.get<NonNullable<typeof d>>('/admin/integrations').then(setD).catch(() => {}); }, []);
+  if (!d) return null;
+  return (
+    <section className="card">
+      <h2>Estado de integraciones</h2>
+      <ul className="status-list">
+        <li><span className={d.agendaReader ? 'dot ok' : 'dot warn'} /> Lectura de la agenda en papel {d.agendaReader ? 'configurada' : 'sin configurar: las fotos se revisan a mano. Añade ANTHROPIC_API_KEY en server/.env'}</li>
+        <li><span className={d.email ? 'dot ok' : 'dot warn'} /> Email {d.email ? 'configurado' : 'en modo prueba (se muestra en la consola del servidor). Configura SMTP en server/.env'}</li>
+        <li><span className={d.whatsappApi ? 'dot ok' : 'dot info'} /> WhatsApp {d.whatsappApi ? 'API conectada' : 'mediante enlaces wa.me (API opcional no configurada)'}</li>
+        {d.payments.map((p) => <li key={p.id}><span className={p.configured ? 'dot ok' : 'dot warn'} /> {p.label}: {p.configured ? 'listo' : 'faltan credenciales en server/.env'}</li>)}
+      </ul>
+    </section>
   );
 }
 
