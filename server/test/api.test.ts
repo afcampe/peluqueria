@@ -564,6 +564,30 @@ describe('cobradas con ticket: reembolsar en vez de cancelar', () => {
     expect(row.noShow).toBeGreaterThan(0);
     expect((await call('GET', '/api/admin/reports/incidents', undefined, clientToken)).status).toBe(403);
   });
+
+  it('"no vino" se puede corregir con "sí vino" y las pasadas cuentan como realizadas', async () => {
+    const client = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    const past = new Date(Date.now() - 4 * 86_400_000);
+    const a = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: past, endAt: new Date(past.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED',
+      payments: { create: { provider: 'cash', amountCents: 1500, currency: 'EUR', status: 'COMPLETED' } } } });
+    const noShows = async () => (await call('GET', '/api/admin/reports/incidents', undefined, adminToken)).body.find((x: { client: { id: string } }) => x.client.id === client.id)?.noShow ?? 0;
+    const listed = async (status: string) => (await call('GET', `/api/admin/appointments?status=${status}`, undefined, adminToken)).body.some((x: { id: string }) => x.id === a.id);
+    const set = (status: string) => call('PATCH', `/api/admin/appointments/${a.id}`, { status }, adminToken);
+    const n = await noShows();
+    expect([await listed('COMPLETED'), await listed('CONFIRMED')]).toEqual([true, false]);
+    for (let i = 0; i < 2; i++) {
+      expect((await set('NO_SHOW')).status).toBe(200);
+      expect([await noShows(), await listed('NO_SHOW'), await listed('COMPLETED')]).toEqual([n + 1, true, false]);
+      const back = await set('CONFIRMED');
+      expect(back.body.payments).toMatchObject([{ status: 'COMPLETED', amountCents: 1500 }]);
+      expect([await noShows(), await listed('COMPLETED')]).toEqual([n, true]);
+    }
+    // Una cita futura no se puede marcar como ausencia
+    const fut = new Date(Date.now() + 400 * 86_400_000);
+    const f = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: fut, endAt: new Date(fut.getTime() + 1_800_000), priceCents: 1500, paymentMethod: 'cash', status: 'CONFIRMED' } });
+    expect((await call('PATCH', `/api/admin/appointments/${f.id}`, { status: 'NO_SHOW' }, adminToken)).status).toBe(400);
+    await prisma.appointment.delete({ where: { id: f.id } });
+  });
 });
 
 describe('importar la agenda en papel', () => {

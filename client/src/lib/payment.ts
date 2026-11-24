@@ -8,6 +8,9 @@ const ACTIVE = ['COMPLETED', 'PARTIALLY_REFUNDED'];
 /** Pago vigente: cobrado y no devuelto del todo. */
 export const activePayment = (a: Appointment) => a.payments.find((p) => ACTIVE.includes(p.status));
 
+/** ¿Se puede apuntar (o corregir) si el cliente vino? Solo cuando ya ha llegado la hora. */
+export const canMarkNoShow = (a: Appointment) => ['CONFIRMED', 'COMPLETED'].includes(a.status) && new Date(a.startAt) <= new Date();
+
 /** Resume si una cita está pagada, cómo y si se ha devuelto algo. */
 export function paymentInfo(a: Appointment): { kind: PaymentKind; label: string; method: string } {
   const method = methodLabel(a.paymentMethod);

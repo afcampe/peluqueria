@@ -5,8 +5,8 @@ import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useSession } from '../../lib/session';
-import { contactLine, dateLong, methodLabel, money, statusLabel, time } from '../../lib/format';
-import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
+import { contactLine, dateLong, methodLabel, money, shownStatus, statusLabel, time } from '../../lib/format';
+import { canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
 import { TicketButtons } from '../../components/TicketButton';
 import { CashModal, CashRefundModal, OnlineRefundModal } from './Agenda';
 import type { Appointment, User } from '../../lib/types';
@@ -141,6 +141,11 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
     try { await api.post(`/admin/appointments/${a.id}/${path}`); onChange(); } catch (e) { setError(errMsg(e)); }
   };
 
+  const setStatus = async (status: string) => {
+    setError('');
+    try { await api.patch(`/admin/appointments/${a.id}`, { status }); onChange(); } catch (e) { setError(errMsg(e)); }
+  };
+
   return (
     <article className={`history-item ${future ? 'is-future' : 'is-past'} ${a.status === 'CANCELLED' ? 'is-cancelled' : ''}`}>
       <div className="history-when">
@@ -150,7 +155,7 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
       <div className="history-main">
         <div>{a.service.name} · {money(a.priceCents)} {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}</div>
         <div className="history-tags">
-          <Badge status={a.status}>{statusLabel[a.status]}</Badge>
+          <Badge status={shownStatus(a)}>{statusLabel[shownStatus(a)]}</Badge>
           <span className={`pay pay-${pay.kind}`}>{pay.label}</span>
           <span className="muted small">· {methodLabel(a.paymentMethod)}</span>
         </div>
@@ -159,6 +164,8 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         {error && <div className="error-text small">{error}</div>}
       </div>
       <div className="actions">
+        {canMarkNoShow(a) && <button className="btn btn-sm" onClick={() => setStatus('NO_SHOW')}>No vino</button>}
+        {a.status === 'NO_SHOW' && <button className="btn btn-sm" onClick={() => setStatus('CONFIRMED')}>Sí vino</button>}
         {canMarkPaid && <button className="btn btn-sm" onClick={() => setModal('cash')}>Marcar cobrada</button>}
         {cash && !ticket && <button className="btn btn-sm" onClick={() => run('unmark-paid')}>Deshacer cobro</button>}
         <TicketButtons tickets={ticketsOf(a)} />

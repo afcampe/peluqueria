@@ -5,9 +5,9 @@ import { SlotPicker } from '../../components/SlotPicker';
 import { TicketButtons } from '../../components/TicketButton';
 import { Link } from 'react-router-dom';
 import { Alert, Badge, ErrorAlert, Modal, Spinner, errMsg } from '../../components/ui';
-import { canIssueTicket, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
+import { canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketedPayment, ticketsOf } from '../../lib/payment';
 import { api } from '../../lib/api';
-import { addDays, addMonths, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, statusLabel, time, weekLabel } from '../../lib/format';
+import { addDays, addMonths, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, shownStatus, statusLabel, time, weekLabel } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { Appointment, Closure, PublicConfig, User } from '../../lib/types';
 import { IconChevronLeft, IconChevronRight, IconRepeat, IconTicket } from '../../components/icons';
@@ -59,7 +59,7 @@ export function Agenda() {
   const act: CardActions = {
     open: (kind, a) => setModal({ kind, appt: a }),
     setStatus: async (a, s) => {
-      try { await api.patch(`/admin/appointments/${a.id}`, { status: s }); done(`Marcada como "${statusLabel[s]}"`); } catch (e) { setError(errMsg(e)); }
+      try { await api.patch(`/admin/appointments/${a.id}`, { status: s }); done(s === 'NO_SHOW' ? `Apuntado: ${a.client.name} no vino` : `Corregido: ${a.client.name} sí vino`); } catch (e) { setError(errMsg(e)); }
     },
     undoCash: async (a) => {
       try { await api.post(`/admin/appointments/${a.id}/unmark-paid`); done('Cobro deshecho'); } catch (e) { setError(errMsg(e)); }
@@ -181,7 +181,7 @@ interface CardActions {
 function DayList({ day, appts, act }: { day: string; appts: Appointment[]; act: CardActions }) {
   return (
     <section>
-      <h2 className="day-title">{dateLong(`${day}T12:00:00Z`)} <small className="muted">({appts.filter((a) => a.status === 'CONFIRMED').length} confirmadas)</small></h2>
+      <h2 className="day-title">{dateLong(`${day}T12:00:00Z`)} <small className="muted">({[['CONFIRMED', 'confirmadas'], ['COMPLETED', 'realizadas']].map(([k, l]) => [appts.filter((a) => shownStatus(a) === k).length, l] as const).filter(([n]) => n).map(([n, l]) => `${n} ${n === 1 ? l.slice(0, -1) : l}`).join(' · ') || '0 confirmadas'})</small></h2>
       <div className="agenda">{appts.map((a) => <AppointmentCard key={a.id} a={a} act={act} />)}</div>
     </section>
   );
@@ -192,7 +192,7 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
   const ticket = ticketOf(a);
   const locked = ticketedPayment(a); // cobrada con ticket: se reembolsa en lugar de cancelar
   const online = onlinePayment(a);
-  const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(a.status);
+  const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(shownStatus(a)); // las ya terminadas no se mueven ni se cancelan
   const wa = waUrl(a.client.phone, `Hola ${a.client.name}, te escribimos de la peluquería por tu cita del ${dateShort(a.startAt)} a las ${time(a.startAt)}.`);
   return (
     <article className={`card agenda-item ${a.status === 'CANCELLED' ? 'dim' : ''}`}>
@@ -202,17 +202,13 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
         <div>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} · <span className={`pay pay-${pay.kind}`}>{pay.label}</span></div>
         {a.notes && <div className="muted small">Nota: {a.notes}</div>}
         {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
-        <Badge status={a.status}>{statusLabel[a.status]}</Badge>
+        <Badge status={shownStatus(a)}>{statusLabel[shownStatus(a)]}</Badge>
         {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
       </div>
       <div className="actions">
         {active && <button className="btn btn-sm" onClick={() => act.open('move', a)}>Cambiar hora</button>}
-        {a.status === 'CONFIRMED' && new Date(a.startAt) < new Date() && (
-          <>
-            <button className="btn btn-sm" onClick={() => act.setStatus(a, 'COMPLETED')}>Realizada</button>
-            <button className="btn btn-sm" onClick={() => act.setStatus(a, 'NO_SHOW')}>No vino</button>
-          </>
-        )}
+        {canMarkNoShow(a) && <button className="btn btn-sm" onClick={() => act.setStatus(a, 'NO_SHOW')}>No vino</button>}
+        {a.status === 'NO_SHOW' && <button className="btn btn-sm" onClick={() => act.setStatus(a, 'CONFIRMED')}>Sí vino</button>}
         {a.paymentMethod === 'cash' && a.status !== 'CANCELLED' && !cashPayment(a) && (
           <button className="btn btn-sm" onClick={() => act.open('cash', a)}>Marcar cobrada</button>
         )}
@@ -296,7 +292,7 @@ function WeekView({ start, byDay, config, closures, onOpen }: {
                     {appts.map((a) => {
                       const pay = paymentInfo(a);
                       return (
-                        <button key={a.id} type="button" className={`cal-appt st-${a.status} pay-${pay.kind}`} onClick={() => onOpen(a)}
+                        <button key={a.id} type="button" className={`cal-appt st-${shownStatus(a)} pay-${pay.kind}`} onClick={() => onOpen(a)}
                           title={`${time(a.startAt)}–${time(a.endAt)} · ${a.client.name} · ${a.service.name} · ${pay.label}`}>
                           <strong>{a.client.name}</strong>
                           <span>{a.service.name}</span>
@@ -346,7 +342,7 @@ function MonthView({ anchor, byDay, config, closures, selected, onSelect }: {
               <>
                 <span className="mo-count">{appts.length} {appts.length === 1 ? 'cita' : 'citas'}</span>
                 <ul className="mo-list">
-                  {appts.slice(0, 3).map((a) => <li key={a.id} className={`st-${a.status}`}>{time(a.startAt)} {a.client.name}</li>)}
+                  {appts.slice(0, 3).map((a) => <li key={a.id} className={`st-${shownStatus(a)}`}>{time(a.startAt)} {a.client.name}</li>)}
                   {appts.length > 3 && <li className="muted">+{appts.length - 3} más</li>}
                 </ul>
                 {unpaid > 0 && <span className="mo-unpaid" title={`${unpaid} sin cobrar`}>{unpaid}</span>}

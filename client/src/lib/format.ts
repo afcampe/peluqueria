@@ -1,3 +1,5 @@
+import type { Appointment, AppointmentStatus } from './types';
+
 const TZ = 'Europe/Madrid';
 let tz = TZ;
 let currency = 'EUR';
@@ -30,6 +32,9 @@ export const statusLabel: Record<string, string> = {
   COMPLETED: 'Realizada',
   NO_SHOW: 'No se presentó',
 };
+/** Estado que se muestra: una cita confirmada cuya hora ya ha pasado se ve como realizada. */
+export const shownStatus = (a: Pick<Appointment, 'status' | 'endAt'>): AppointmentStatus =>
+  a.status === 'CONFIRMED' && new Date(a.endAt).getTime() <= Date.now() ? 'COMPLETED' : a.status;
 export const methodLabel = (id: string) => ({ cash: 'Efectivo', paypal: 'PayPal' })[id] ?? id;
 export const weekdayNames: Record<string, string> = { '1': 'Lunes', '2': 'Martes', '3': 'Miércoles', '4': 'Jueves', '5': 'Viernes', '6': 'Sábado', '7': 'Domingo' };
 

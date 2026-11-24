@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { SlotPicker } from '../components/SlotPicker';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../components/ui';
 import { api } from '../lib/api';
-import { canClientChange, dateTime, isoToLocalDate, methodLabel, money, noticeText, statusLabel } from '../lib/format';
+import { canClientChange, dateTime, isoToLocalDate, methodLabel, money, noticeText, shownStatus, statusLabel } from '../lib/format';
 import { useSession } from '../lib/session';
 import { onlinePayment, ticketedPayment, ticketsOf } from '../lib/payment';
 import { TicketButtons } from '../components/TicketButton';
@@ -71,7 +71,7 @@ export function MyAppointments() {
               <div>
                 <h3>{dateTime(a.startAt)}</h3>
                 <p>{a.service.name} · {money(a.priceCents)} · {methodLabel(a.paymentMethod)} {paid(a) && '(pagada)'}</p>
-                <Badge status={a.status}>{statusLabel[a.status]}</Badge>
+                <Badge status={shownStatus(a)}>{statusLabel[shownStatus(a)]}</Badge>
                 {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
                 {ticketsOf(a).length > 0 && <div className="ticket-row"><TicketButtons tickets={ticketsOf(a)} /></div>}
               </div>
@@ -108,7 +108,7 @@ export function MyAppointments() {
                   <tr key={a.id}>
                     <td>{dateTime(a.startAt)}</td>
                     <td>{a.service.name}</td>
-                    <td><Badge status={a.status}>{statusLabel[a.status]}</Badge>{a.payments.some((p) => p.refundedCents > 0) && <small className="muted"> · reembolsada</small>}</td>
+                    <td><Badge status={shownStatus(a)}>{statusLabel[shownStatus(a)]}</Badge>{a.payments.some((p) => p.refundedCents > 0) && <small className="muted"> · reembolsada</small>}</td>
                     <td>{ticketsOf(a).length ? <TicketButtons tickets={ticketsOf(a)} /> : <span className="muted">—</span>}</td>
                   </tr>
                 ))}

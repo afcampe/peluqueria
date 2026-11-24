@@ -58,7 +58,10 @@ adminRouter.get('/appointments', h(async (req, res) => {
   const q = z.object({ from: z.string().optional(), to: z.string().optional(), status: z.string().optional(), clientId: z.string().optional() }).parse(req.query);
   const where: Prisma.AppointmentWhereInput = {
     NOT: { status: 'CANCELLED', cancelledBy: 'SYSTEM' },
-    ...(q.status && { status: q.status }),
+    // Una cita confirmada cuya hora ya ha pasado cuenta como realizada.
+    ...(q.status === 'COMPLETED' ? { OR: [{ status: 'COMPLETED' }, { status: 'CONFIRMED', endAt: { lte: new Date() } }] }
+      : q.status === 'CONFIRMED' ? { status: 'CONFIRMED', endAt: { gt: new Date() } }
+      : q.status && { status: q.status }),
     ...(q.clientId && { clientId: q.clientId }),
     startAt: {
       ...(q.from && { gte: localToDate(q.from, s.timezone) }),
@@ -145,6 +148,7 @@ adminRouter.patch('/appointments/:id', h(async (req, res) => {
   if (data.status) {
     const a = await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id } });
     if (a.status === 'CANCELLED' || a.status === 'PENDING_PAYMENT') throw badRequest('No se puede cambiar el estado de esta cita');
+    if (data.status === 'NO_SHOW' && a.startAt > new Date()) throw badRequest('La hora de la cita aún no ha llegado');
     await prisma.appointment.update({ where: { id: a.id }, data: { status: data.status } });
   }
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
