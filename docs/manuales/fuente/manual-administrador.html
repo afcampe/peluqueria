@@ -89,7 +89,7 @@
 
   <h3>Reglas básicas que conviene conocer</h3>
   <ul>
-    <li>Las citas duran <strong>30 minutos</strong> y el horario es de <strong>9:00 a 13:00 y de 16:00 a 20:00</strong>, de lunes a viernes (sábado y domingo, cerrado). Ambas cosas se cambian en Configuración.</li>
+    <li>Las citas duran <strong>30 minutos</strong> y el horario es de <strong>9:00 a 13:00 y de 16:00 a 20:00</strong>, de lunes a viernes (sábado y domingo, cerrado). Ambas cosas se fijan en Configuración antes de la primera cita y después ya no se pueden cambiar.</li>
     <li>Los clientes pueden reservar hasta <strong>1 año vista</strong> y cambiar o anular hasta <strong>1 hora antes</strong>. El administrador puede hacerlo <strong>en cualquier momento</strong>.</li>
     <li>Las citas se pagan <strong>online con PayPal</strong> al reservar o <strong>en el local</strong> (efectivo). Las que crea el administrador se pagan en el local.</li>
     <li>Al <strong>cancelar</strong> una cita pagada se devuelve el dinero si corresponde. Las citas <strong>ya realizadas</strong> no se cancelan ni se reembolsan, y lo cobrado en el local es definitivo (ver capítulo 5).</li>
@@ -168,11 +168,12 @@
     <li><strong>‹ ›</strong> y <span class="btn-ref">Hoy</span> (en Semana y Mes): pasa a la semana o el mes anterior o siguiente, o vuelve al actual.</li>
     <li><strong>Estado:</strong> muestra solo las citas en un estado (Reservada, Confirmada, No asistirá, Realizada, Cancelada, No se presentó, Pendiente de pago). Las que ya ha pasado su hora cuentan como «Realizada». En Semana y Mes las canceladas no se muestran, salvo que elijas «Cancelada» en este filtro.</li>
     <li><span class="btn-ref dark">Nueva cita</span>: crea una cita para un cliente (ver capítulo 4).</li>
+    <li><span class="btn-ref">Bloquear horas</span>: marca horas que no vas a atender (ver «Bloquear horas», más abajo).</li>
   </ul>
 
   <h3>Vista Lista</h3>
   <p>Muestra las citas agrupadas por día, con todas sus opciones. El título de cada día indica cuántas hay reservadas, confirmadas y realizadas. Usa los botones <span class="btn-ref">Hoy</span>, <span class="btn-ref">Mañana</span> y <span class="btn-ref">7 días</span>, o elige un rango con <span class="ui">Desde</span> y <span class="ui">Hasta</span>.</p>
-  <figure><img src="capturas/a-agenda-lista.jpg" alt=""><figcaption><b>Figura 3.2</b> · Vista Lista con las citas de los próximos 7 días</figcaption></figure>
+  <figure><img src="capturas/a-agenda-lista.jpg" alt=""><figcaption><b>Figura 3.2</b> · Vista Lista</figcaption></figure>
 
   <h3>Vista Semana</h3>
   <p>Una columna por día (de lunes a domingo) y una fila por franja horaria. Cada cita aparece en su hueco con el nombre del cliente y el servicio.</p>
@@ -181,6 +182,7 @@
     <li><strong>✓</strong> delante del nombre: el cliente ha confirmado. <strong>✕</strong> y el nombre tachado: ha dicho que no puede venir.</li>
     <li>Las citas ya pasadas (realizadas o «No vino») aparecen en gris; las pendientes de pago online, con el borde discontinuo.</li>
     <li>Los días y horas en que la peluquería está cerrada aparecen rayados. La línea doble separa la mañana de la tarde.</li>
+    <li>Las horas bloqueadas muestran «Bloqueada» y el motivo. Pulsa una para desbloquearla.</li>
     <li>El día de hoy aparece resaltado en la cabecera, con el número de citas de cada día.</li>
   </ul>
   <figure class="tall"><img src="capturas/a-agenda-semana.jpg" alt=""><figcaption><b>Figura 3.3</b> · Vista Semana</figcaption></figure>
@@ -193,6 +195,24 @@
   <figure><img src="capturas/a-agenda-mes.jpg" alt=""><figcaption><b>Figura 3.5</b> · Vista Mes</figcaption></figure>
   <p><strong>Pulsa un día</strong> para ver debajo todas sus citas con sus botones, igual que en la vista Lista.</p>
   <figure><img src="capturas/a-mes-dia.jpg" alt=""><figcaption><b>Figura 3.6</b> · Citas del día elegido en la vista Mes</figcaption></figure>
+
+  <h3>Bloquear horas</h3>
+  <p>Para no atender unas horas sueltas (un trámite, llegar más tarde, salir antes) sin tocar el horario. Nadie puede reservarlas y los clientes no ven el motivo.</p>
+  <ol class="steps">
+    <li>En la Agenda, pulsa <span class="btn-ref">Bloquear horas</span> y elige el día.</li>
+    <li>Pulsa una o varias horas libres: quedan marcadas en negro.</li>
+    <li>Si una hora tiene cita, sale el nombre del cliente y no se puede marcar. Debajo, en <span class="ui">Citas de ese día</span>, usa <span class="btn-ref">Cambiar hora</span> o <span class="btn-ref red">Cancelar</span>; al terminar vuelves a esta ventana.</li>
+    <li>Escribe el <strong>motivo</strong> si quieres y pulsa <span class="btn-ref dark">Bloquear</span>.</li>
+  </ol>
+  <figure class="sm"><img src="capturas/a-modal-bloquear-horas.jpg" alt=""><figcaption><b>Figura 3.7</b> · Bloquear horas</figcaption></figure>
+  <figure><img src="capturas/a-hora-bloqueada.jpg" alt=""><figcaption><b>Figura 3.8</b> · Horas bloqueadas en la vista Lista</figcaption></figure>
+  <ul>
+    <li>Para que vuelvan a estar libres, pulsa <span class="btn-ref">Desbloquear</span>. Las horas seguidas forman un solo bloque y se desbloquean juntas.</li>
+    <li>Si alguien reserva una de las horas mientras tanto, no se bloquea ninguna y la app te avisa.</li>
+    <li>Con varios sillones, la hora se bloquea para todos.</li>
+    <li>Los bloqueos también aparecen en <span class="ui">Cierres</span>, y los cierres de unas horas de un día se ven aquí como «Bloqueada». Al pasar su hora dejan de verse.</li>
+  </ul>
+  <div class="warn"><p>Si cancelas o mueves una cita para bloquear su hora, bloquéala enseguida: mientras tanto queda libre, otro cliente podría reservarla y se puede avisar a la lista de espera.</p></div>
 
   <h3>La tarjeta de una cita</h3>
   <p>Cada cita muestra la hora, el cliente (su nombre es un enlace a su ficha), su teléfono y email, el servicio, el precio, la forma de pago, el estado del pago y el estado de la cita. Los botones cambian según la situación:</p>
@@ -212,10 +232,10 @@
     </tbody>
   </table>
   <div class="pair">
-    <figure><img src="capturas/a-cita-pendiente.jpg" alt=""><figcaption><b>Figura 3.7</b> · Pendiente de cobro</figcaption></figure>
-    <figure><img src="capturas/a-cita-cobrada.jpg" alt=""><figcaption><b>Figura 3.8</b> · Cobrada en el local con ticket</figcaption></figure>
+    <figure><img src="capturas/a-cita-pendiente.jpg" alt=""><figcaption><b>Figura 3.9</b> · Pendiente de cobro</figcaption></figure>
+    <figure><img src="capturas/a-cita-cobrada.jpg" alt=""><figcaption><b>Figura 3.10</b> · Cobrada en el local con ticket</figcaption></figure>
   </div>
-  <figure><img src="capturas/a-cita-paypal.jpg" alt=""><figcaption><b>Figura 3.9</b> · Pagada con PayPal: ticket, Corregir cobro y Cancelar</figcaption></figure>
+  <figure><img src="capturas/a-cita-paypal.jpg" alt=""><figcaption><b>Figura 3.11</b> · Pagada con PayPal: ticket, Corregir cobro y Cancelar</figcaption></figure>
 </section>
 
 <!-- ============================================================ 4 -->
@@ -570,7 +590,7 @@
   <p class="intro">Vacaciones, festivos, formación o cualquier ausencia. Durante un cierre los clientes no pueden reservar.</p>
   <ol class="steps">
     <li>Abre la pestaña <span class="ui">Cierres</span>.</li>
-    <li>Elige <span class="ui">Desde</span> y <span class="ui">Hasta</span>. Para cerrar solo unas horas, rellena también las horas (opcional); sin horas, se cierran los días completos.</li>
+    <li>Elige <span class="ui">Desde</span> y <span class="ui">Hasta</span>. Para cerrar solo unas horas, rellena también las horas (opcional); sin horas, se cierran los días completos. Para unas horas sueltas es más rápido <span class="btn-ref">Bloquear horas</span> en la Agenda (capítulo 3).</li>
     <li>Escribe el <strong>motivo</strong> (por ejemplo, «Vacaciones de verano»).</li>
     <li>Si ya hay citas en esas fechas, decide si marcar <span class="ui">Cancelar las citas existentes en ese periodo, reembolsar y avisar por email</span>.</li>
     <li>Pulsa <span class="btn-ref dark">Crear cierre</span>.</li>
@@ -579,7 +599,7 @@
   <ul>
     <li>Si no marcas la cancelación y hay citas en el periodo, la app te avisa de cuántas siguen activas para que las revises en la Agenda.</li>
     <li>Los cierres programados aparecen debajo. Pulsa <span class="btn-ref red">Eliminar</span> para quitar uno: las fechas vuelven a estar disponibles.</li>
-    <li>En la Agenda, los días y horas cerrados aparecen rayados.</li>
+    <li>En la Agenda, los días cerrados aparecen rayados y los cierres de unas horas, como «Bloqueada».</li>
   </ul>
   <div class="tip"><p>Después de crear un cierre, usa <span class="ui">Avisos email</span> con la plantilla «Cierre por vacaciones» para avisar a todos los clientes.</p></div>
 </section>
@@ -630,7 +650,7 @@
   <h3>Citas</h3>
   <figure><img src="capturas/a-config-1.jpg" alt=""><figcaption><b>Figura 12.1</b> · Ajustes de las citas</figcaption></figure>
   <ul>
-    <li><strong>Duración de cada cita:</strong> 30 minutos por defecto. Define los huecos de la agenda.</li>
+    <li><strong>Duración de cada cita:</strong> 30 minutos por defecto. Define los huecos de la agenda. Solo se puede cambiar <strong>antes de la primera cita</strong>; después queda bloqueada.</li>
     <li><strong>Citas a la vez (sillones):</strong> cuántos clientes se pueden atender a la misma hora.</li>
     <li><strong>Reservar hasta (días vista):</strong> 365 por defecto.</li>
     <li><strong>Antelación mínima para que el cliente cancele:</strong> 60 minutos por defecto.</li>
@@ -648,8 +668,10 @@
   <h3>Horario semanal</h3>
   <figure><img src="capturas/a-config-3.jpg" alt=""><figcaption><b>Figura 12.4</b> · Horario semanal por tramos</figcaption></figure>
   <ul>
-    <li>Cada día tiene uno o varios <strong>tramos</strong> (por ejemplo, 09:00–13:00 y 16:00–20:00). Cambia las horas directamente.</li>
+    <li>Cada día tiene uno o varios <strong>tramos</strong> (por ejemplo, 09:00–13:00 y 16:00–20:00). Antes de la primera cita, cambia las horas directamente.</li>
     <li><span class="btn-ref">+ tramo</span> añade un tramo; <strong>✕</strong> lo quita. Un día sin tramos queda <em>Cerrado</em>.</li>
+    <li><strong>Desde la primera cita el horario queda fijo:</strong> no se cambian la apertura ni el cierre, ni se añaden o quitan tramos (tampoco para abrir un día cerrado). Cuentan todas las citas, también las pasadas y las canceladas. Déjalo bien puesto antes de empezar.</li>
+    <li>Para no atender unas horas, usa <span class="btn-ref">Bloquear horas</span> en la Agenda; para días enteros, <span class="ui">Cierres</span>.</li>
   </ul>
 
   <h3>Recordatorios de citas</h3>
@@ -726,6 +748,8 @@
       <tr><td>Corregir cobro</td><td>Solo pagos de PayPal de citas que no han terminado. No cancela la cita.</td></tr>
       <tr><td>Tickets rectificativos</td><td>Automáticos al devolver un cobro con ticket. Serie RAAAA-NNNN.</td></tr>
       <tr><td>Numeración de tickets</td><td>AAAA-NNNN, consecutiva, común a todas las formas de pago, empieza cada año.</td></tr>
+      <tr><td>Duración y horario</td><td>Se fijan antes de la primera cita. Después no se cambian: usa «Bloquear horas» o «Cierres».</td></tr>
+      <tr><td>Bloquear horas</td><td>Solo horas sin cita. Se hace y se deshace desde la Agenda.</td></tr>
       <tr><td>Historial</td><td>Las citas y los tickets nunca se borran.</td></tr>
     </tbody>
   </table>
@@ -761,7 +785,9 @@
     <dt>Me voy de vacaciones.</dt>
     <dd>Crea un cierre con las fechas (capítulo 9) y avisa a los clientes con la plantilla de vacaciones de Avisos email.</dd>
     <dt>Quiero cambiar la duración de las citas a 45 minutos.</dt>
-    <dd>Configuración → Citas → Duración de cada cita: 45 → Guardar configuración. Las citas ya reservadas se mantienen y las nuevas nunca se solapan con ellas.</dd>
+    <dd>Solo se puede antes de la primera cita. Después la duración y el horario quedan fijos para que no se descuadre la agenda.</dd>
+    <dt>Un día tengo que hacer un trámite o abrir más tarde.</dt>
+    <dd>En la Agenda, pulsa <span class="btn-ref">Bloquear horas</span> y marca las que no vas a atender (capítulo 3).</dd>
     <dt>¿Dónde están guardados los tickets?</dt>
     <dd>Los PDF se guardan en el servidor, en carpetas por año y mes. Conviene incluir esa carpeta en las copias de seguridad.</dd>
   </dl>
