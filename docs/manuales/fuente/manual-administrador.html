@@ -38,7 +38,7 @@
     <li><a href="#agenda">Agenda</a>
       <ol><li>Vista Lista</li><li>Vista Semana</li><li>Vista Mes</li><li>La tarjeta de una cita</li></ol></li>
     <li><a href="#gestion">Gestionar citas</a>
-      <ol><li>Nueva cita</li><li>Citas periódicas</li><li>Cambiar la hora</li><li>No vino / Sí vino</li><li>Cancelar</li><li>WhatsApp y recordatorio por email</li></ol></li>
+      <ol><li>Nueva cita</li><li>Citas periódicas</li><li>Cambiar la hora</li><li>Confirmar la asistencia</li><li>No vino / Sí vino</li><li>Cancelar</li><li>WhatsApp y recordatorio por email</li></ol></li>
     <li><a href="#cobros">Cobros, tickets y devoluciones</a>
       <ol><li>Cobrar en efectivo</li><li>Generar ticket</li><li>Ver un ticket</li><li>Devoluciones</li><li>Corregir cobro</li><li>Tickets rectificativos</li></ol></li>
     <li><a href="#usuarios">Usuarios</a>
@@ -93,7 +93,8 @@
     <li>Los clientes pueden reservar hasta <strong>1 año vista</strong> y cambiar o anular hasta <strong>1 hora antes</strong>. El administrador puede hacerlo <strong>en cualquier momento</strong>.</li>
     <li>Las citas se pagan <strong>online con PayPal</strong> al reservar o <strong>en el local</strong> (efectivo). Las que crea el administrador se pagan en el local.</li>
     <li>Al <strong>cancelar</strong> una cita pagada se devuelve el dinero si corresponde. Las citas <strong>ya realizadas</strong> no se cancelan ni se reembolsan, y lo cobrado en el local es definitivo (ver capítulo 5).</li>
-    <li>Una cita confirmada pasa sola a <strong>Realizada</strong> cuando termina su hora. Solo hay que marcar las que el cliente <strong>no vino</strong>.</li>
+    <li>Al reservar, la cita queda <strong>Reservada</strong>. Pasa a <strong>Confirmada</strong> cuando el cliente confirma que va a venir.</li>
+    <li>Una cita reservada o confirmada pasa sola a <strong>Realizada</strong> cuando termina su hora. Solo hay que marcar las que el cliente <strong>no vino</strong>.</li>
     <li>Las citas <strong>nunca se borran</strong>: las anuladas se conservan para el historial y las estadísticas.</li>
   </ul>
 </section>
@@ -106,10 +107,10 @@
   <h3>Hoy</h3>
   <figure><img src="capturas/a-resumen.jpg" alt=""><figcaption><b>Figura 2.1</b> · La próxima cita, las cifras de hoy y el día de un vistazo</figcaption></figure>
   <ul>
-    <li><strong>Próxima cita:</strong> la hora, cuánto falta, el cliente, el servicio y si está pagada, con <span class="btn-ref green">WhatsApp</span> y <span class="btn-ref">Email</span> para recordársela.</li>
+    <li><strong>Próxima cita:</strong> la hora, cuánto falta, el cliente, el servicio, si está pagada y si el cliente ha confirmado, con <span class="btn-ref green">WhatsApp</span> y <span class="btn-ref">Email</span> para recordársela.</li>
     <li><strong>Citas hechas hoy</strong> y <strong>Huecos libres hoy.</strong></li>
     <li><strong>Cobrado hoy:</strong> lo cobrado hoy, en el local y online, descontadas las devoluciones. <strong>Por cobrar hoy:</strong> citas de hoy sin pagar.</li>
-    <li><strong>El día de un vistazo:</strong> todas las horas de hoy. Las citas pasadas salen en gris y las próximas en azul; pulsa el nombre para abrir la ficha. Pulsa una hora <strong>Libre</strong> para crear una cita en ella.</li>
+    <li><strong>El día de un vistazo:</strong> todas las horas de hoy. Las citas pasadas salen en gris y las próximas en azul; ✓ indica que el cliente ha confirmado. Pulsa el nombre para abrir la ficha. Pulsa una hora <strong>Libre</strong> para crear una cita en ella.</li>
   </ul>
 
   <h3>Por resolver</h3>
@@ -117,6 +118,8 @@
   <table>
     <thead><tr><th>Apartado</th><th>Qué es y qué puedes hacer</th></tr></thead>
     <tbody>
+      <tr><td>No pueden venir</td><td>Clientes que han respondido que no vienen. La cita sigue ocupando su hora: <span class="btn-ref">Cambiar o cancelar</span>.</td></tr>
+      <tr><td>Mañana sin confirmar</td><td>Citas de mañana sin respuesta, con su teléfono. Si te dicen que vienen, pulsa <span class="btn-ref">Confirmar</span>.</td></tr>
       <tr><td>Sin cobrar</td><td>Citas de los últimos 60 días ya pasadas y sin pagar: <span class="btn-ref">Marcar cobrada</span> o <span class="btn-ref">No vino</span>.</td></tr>
       <tr><td>Huecos en 7 días</td><td>Todas las horas libres de hoy y de los 6 días siguientes. Pulsa una para dar la cita. Las resaltadas vienen de una cancelación; con el ratón encima se ve quién canceló.</td></tr>
       <tr><td>Mañana sin recordatorio</td><td>Si los recordatorios están activados, quién tiene cita mañana y no recibirá el aviso.</td></tr>
@@ -134,7 +137,7 @@
   <p>Elige <span class="btn-ref">Últimos 7 días</span>, <span class="btn-ref">Últimos 30 días</span> o <span class="btn-ref">Últimos 12 meses</span>.</p>
   <figure><img src="capturas/a-resumen-negocio.jpg" alt=""><figcaption><b>Figura 2.4</b> · Ingresos y ocupación</figcaption></figure>
   <ul>
-    <li><strong>Previsto en 7 días:</strong> lo que suman las citas confirmadas de los próximos 7 días. <strong>Ticket medio:</strong> media por cita cobrada. <strong>Devoluciones:</strong> lo devuelto en el periodo.</li>
+    <li><strong>Previsto en 7 días:</strong> lo que suman las citas reservadas de los próximos 7 días. <strong>Ticket medio:</strong> media por cita cobrada. <strong>Devoluciones:</strong> lo devuelto en el periodo.</li>
     <li><strong>Cobrado:</strong> total del periodo, comparado con el periodo anterior igual de largo. Si entonces no había cobros, no se compara.</li>
     <li><strong>Ocupación:</strong> horas con cita sobre horas abiertas.</li>
     <li><strong>Este mes:</strong> lo cobrado en el mes en curso, en el local y online.</li>
@@ -161,18 +164,19 @@
   <ul>
     <li><strong>Lista / Semana / Mes:</strong> cambia la forma de ver las citas.</li>
     <li><strong>‹ ›</strong> y <span class="btn-ref">Hoy</span> (en Semana y Mes): pasa a la semana o el mes anterior o siguiente, o vuelve al actual.</li>
-    <li><strong>Estado:</strong> muestra solo las citas en un estado (Confirmada, Realizada, Cancelada, No se presentó, Pendiente de pago). Las confirmadas cuya hora ya ha pasado cuentan como «Realizada». En Semana y Mes las canceladas no se muestran, salvo que elijas «Cancelada» en este filtro.</li>
+    <li><strong>Estado:</strong> muestra solo las citas en un estado (Reservada, Confirmada, No asistirá, Realizada, Cancelada, No se presentó, Pendiente de pago). Las que ya ha pasado su hora cuentan como «Realizada». En Semana y Mes las canceladas no se muestran, salvo que elijas «Cancelada» en este filtro.</li>
     <li><span class="btn-ref dark">Nueva cita</span>: crea una cita para un cliente (ver capítulo 4).</li>
   </ul>
 
   <h3>Vista Lista</h3>
-  <p>Muestra las citas agrupadas por día, con todas sus opciones. El título de cada día indica cuántas hay confirmadas y realizadas. Usa los botones <span class="btn-ref">Hoy</span>, <span class="btn-ref">Mañana</span> y <span class="btn-ref">7 días</span>, o elige un rango con <span class="ui">Desde</span> y <span class="ui">Hasta</span>.</p>
+  <p>Muestra las citas agrupadas por día, con todas sus opciones. El título de cada día indica cuántas hay reservadas, confirmadas y realizadas. Usa los botones <span class="btn-ref">Hoy</span>, <span class="btn-ref">Mañana</span> y <span class="btn-ref">7 días</span>, o elige un rango con <span class="ui">Desde</span> y <span class="ui">Hasta</span>.</p>
   <figure><img src="capturas/a-agenda-lista.jpg" alt=""><figcaption><b>Figura 3.2</b> · Vista Lista con las citas de los próximos 7 días</figcaption></figure>
 
   <h3>Vista Semana</h3>
   <p>Una columna por día (de lunes a domingo) y una fila por franja horaria. Cada cita aparece en su hueco con el nombre del cliente y el servicio.</p>
   <ul>
     <li>El punto de la esquina indica el pago: <span class="dot" style="background:#066322"></span>verde, pagada; <span class="dot" style="background:#9c0a15"></span>rojo, pendiente de cobro.</li>
+    <li><strong>✓</strong> delante del nombre: el cliente ha confirmado. <strong>✕</strong> y el nombre tachado: ha dicho que no puede venir.</li>
     <li>Las citas ya pasadas (realizadas o «No vino») aparecen en gris; las pendientes de pago online, con el borde discontinuo.</li>
     <li>Los días y horas en que la peluquería está cerrada aparecen rayados. La línea doble separa la mañana de la tarde.</li>
     <li>El día de hoy aparece resaltado en la cabecera, con el número de citas de cada día.</li>
@@ -201,7 +205,8 @@
       <tr><td>Ha llegado su hora y no está cobrada en el local</td><td><span class="btn-ref">No vino</span></td></tr>
       <tr><td>Marcada como «No vino»</td><td><span class="btn-ref">Sí vino</span> (sin Marcar cobrada) y <span class="btn-ref blue">Reembolsar</span> si se pagó con PayPal</td></tr>
       <tr><td>Ya terminada</td><td>Sin Cambiar hora, Cancelar ni Corregir cobro</td></tr>
-      <tr><td>Siempre</td><td><span class="btn-ref green">WhatsApp</span> (si el cliente tiene teléfono) y <span class="btn-ref">Email</span> (activo si el cliente tiene email y la cita está confirmada y no ha empezado)</td></tr>
+      <tr><td>Reservada, sin terminar</td><td>Además, <span class="btn-ref">Confirmar asistencia</span>; si ya está confirmada, <span class="btn-ref">Quitar confirmación</span></td></tr>
+      <tr><td>Siempre</td><td><span class="btn-ref green">WhatsApp</span> (si el cliente tiene teléfono) y <span class="btn-ref">Email</span> (activo si el cliente tiene email y la cita está reservada y no ha empezado)</td></tr>
     </tbody>
   </table>
   <div class="pair">
@@ -222,7 +227,7 @@
     <li>Elige el <strong>servicio</strong>.</li>
     <li>Elige el <strong>día</strong> con las flechas o el calendario y pulsa una <strong>hora libre</strong>.</li>
     <li>Si quieres, escribe una <strong>nota</strong> interna (aparece en la tarjeta de la cita en la Agenda).</li>
-    <li>Pulsa <span class="btn-ref dark">Crear cita</span>. El cliente recibe un email de confirmación.</li>
+    <li>Pulsa <span class="btn-ref dark">Crear cita</span>. El cliente recibe un email con la reserva.</li>
   </ol>
   <div class="pair">
     <figure><img src="capturas/a-nueva-buscar.jpg" alt=""><figcaption><b>Figura 4.1</b> · Buscar al cliente</figcaption></figure>
@@ -249,15 +254,34 @@
   <figure class="sm"><img src="capturas/a-modal-cambiar.jpg" alt=""><figcaption><b>Figura 4.3</b> · Cambiar la hora</figcaption></figure>
   <p>El administrador puede mover una cita en cualquier momento, aunque falte menos de una hora.</p>
 
+  <h3>Confirmar la asistencia</h3>
+  <p>Reservar no es confirmar. Cada cita próxima está en uno de estos estados:</p>
+  <table>
+    <thead><tr><th>Estado</th><th>Qué significa</th></tr></thead>
+    <tbody>
+      <tr><td>Reservada</td><td>Tiene su hora, pero el cliente aún no ha dicho si viene. También si ya está pagada.</td></tr>
+      <tr><td>Confirmada</td><td>El cliente ha dicho que viene.</td></tr>
+      <tr><td>No asistirá</td><td>Ha dicho que no puede. La cita <strong>no se cancela sola</strong>: cámbiala o cancélala tú.</td></tr>
+    </tbody>
+  </table>
+  <p>El cliente puede responder de tres formas:</p>
+  <ul>
+    <li><strong>Email:</strong> con los botones del recordatorio, sin iniciar sesión.</li>
+    <li><strong>WhatsApp:</strong> con los botones Sí y No del recordatorio automático, o escribiendo «sí» o «no». Necesita WhatsApp Business. El botón <span class="btn-ref green">WhatsApp</span> de la app solo abre un chat: si responden ahí, apúntalo tú.</li>
+    <li><strong>Teléfono:</strong> pulsa <span class="btn-ref">Confirmar asistencia</span> en la Agenda o en la ficha del cliente. <span class="btn-ref">Quitar confirmación</span> lo deshace.</li>
+  </ul>
+  <figure><img src="capturas/a-cita-confirmada.jpg" alt=""><figcaption><b>Figura 4.4</b> · Cita confirmada: debajo del estado se ve cómo y cuándo se confirmó</figcaption></figure>
+  <p>Si cambias la hora, la cita vuelve a «Reservada» y los enlaces y botones de los avisos anteriores dejan de valer.</p>
+
   <h3>Realizada, «No vino» y «Sí vino»</h3>
-  <p>No hace falta marcar las citas como realizadas: una cita confirmada se muestra como <strong>Realizada</strong> cuando termina su hora y, desde ese momento, ya no se puede mover ni cancelar. Solo tienes que apuntar las ausencias:</p>
+  <p>No hace falta marcar las citas como realizadas: una cita reservada o confirmada se muestra como <strong>Realizada</strong> cuando termina su hora y, desde ese momento, ya no se puede mover ni cancelar. Solo tienes que apuntar las ausencias:</p>
   <ol class="steps">
     <li>Cuando llegue la hora de la cita y el cliente no se presente, pulsa <span class="btn-ref">No vino</span>. La ausencia cuenta en <span class="ui">Anulaciones</span> y en la ficha del cliente.</li>
     <li>Si te has equivocado, pulsa <span class="btn-ref">Sí vino</span>: la cita vuelve a estar como antes y la ausencia desaparece del histórico. Puedes corregirlo las veces que haga falta.</li>
   </ol>
   <p>Los dos botones están en la Agenda y en la ficha del cliente. No cambian el cobro ni el ticket.</p>
-  <figure><img src="capturas/a-cita-no-vino.jpg" alt=""><figcaption><b>Figura 4.4</b> · Cita pasada sin cobrar, con el botón No vino</figcaption></figure>
-  <figure><img src="capturas/a-cita-si-vino.jpg" alt=""><figcaption><b>Figura 4.5</b> · Cita marcada como «No vino», con el botón Sí vino para corregirla</figcaption></figure>
+  <figure><img src="capturas/a-cita-no-vino.jpg" alt=""><figcaption><b>Figura 4.5</b> · Cita pasada sin cobrar, con el botón No vino</figcaption></figure>
+  <figure><img src="capturas/a-cita-si-vino.jpg" alt=""><figcaption><b>Figura 4.6</b> · Cita marcada como «No vino», con el botón Sí vino para corregirla</figcaption></figure>
   <table>
     <thead><tr><th>La cita está…</th><th>¿Se puede marcar «No vino»?</th></tr></thead>
     <tbody>
@@ -277,8 +301,8 @@
     <li>Si la cita es de una serie, puedes marcar <span class="ui">Cancelar también las siguientes citas de esta serie</span>.</li>
     <li>Pulsa <span class="btn-ref red">Cancelar cita</span> (o <span class="btn-ref red">Cancelar y devolver X €</span>).</li>
   </ol>
-  <figure class="sm"><img src="capturas/a-modal-cancelar.jpg" alt=""><figcaption><b>Figura 4.6</b> · Cancelar una cita</figcaption></figure>
-  <figure class="sm"><img src="capturas/a-modal-cancelar-paypal.jpg" alt=""><figcaption><b>Figura 4.7</b> · Cancelar una cita pagada con PayPal</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-cancelar.jpg" alt=""><figcaption><b>Figura 4.7</b> · Cancelar una cita</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-cancelar-paypal.jpg" alt=""><figcaption><b>Figura 4.8</b> · Cancelar una cita pagada con PayPal</figcaption></figure>
   <ul>
     <li>El dinero de PayPal se devuelve <strong>antes</strong> de cancelar: si PayPal falla, la cita no se cancela y la app te lo dice.</li>
     <li>Si tenía ticket, la devolución genera su <strong>ticket rectificativo</strong> (capítulo 5).</li>
@@ -291,13 +315,13 @@
   <h3>Enviar un recordatorio por email</h3>
   <p>Junto al botón de WhatsApp está <span class="btn-ref">Email</span>, que envía al cliente el recordatorio de su cita. Además de los recordatorios automáticos (capítulo 12), puedes mandarlo a mano cuando quieras:</p>
   <ol class="steps">
-    <li>Pulsa <span class="btn-ref">Email</span>. En la Agenda recuerda esa cita; en la lista de Usuarios y en la ficha del cliente, su próxima cita confirmada.</li>
+    <li>Pulsa <span class="btn-ref">Email</span>. En la Agenda recuerda esa cita; en la lista de Usuarios y en la ficha del cliente, su próxima cita. Si aún no ha respondido, el email lleva la pregunta y los botones para confirmar.</li>
     <li>Revisa el destinatario, el asunto y el texto (se cambian en Configuración → Recordatorios de citas).</li>
     <li>Pulsa <span class="btn-ref dark">Enviar email</span>.</li>
   </ol>
-  <figure class="sm"><img src="capturas/a-modal-email.jpg" alt=""><figcaption><b>Figura 4.8</b> · Recordatorio por email antes de enviarlo</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-email.jpg" alt=""><figcaption><b>Figura 4.9</b> · Recordatorio por email antes de enviarlo</figcaption></figure>
   <ul>
-    <li>El botón aparece desactivado si el cliente no tiene email o la cita no está confirmada o ya ha empezado.</li>
+    <li>El botón aparece desactivado si el cliente no tiene email o la cita no está reservada o ya ha empezado.</li>
     <li>Puedes enviarlo más de una vez y aunque el cliente no reciba los automáticos. No los sustituye ni los anula.</li>
     <li>El último envío a mano de cada cita queda en la lista de últimos avisos de Configuración como «enviado a mano».</li>
   </ul>
@@ -635,28 +659,30 @@
   </ul>
   <figure><img src="capturas/a-recordatorios-2.jpg" alt=""><figcaption><b>Figura 12.6</b> · Antelación: hasta 3 avisos por cita</figcaption></figure>
   <p><strong>Con cuánta antelación:</strong> de 1 a 3 avisos, cada uno entre 15 minutos y 30 días antes de la cita.</p>
-  <figure><img src="capturas/a-recordatorios-3.jpg" alt=""><figcaption><b>Figura 12.7</b> · Texto del recordatorio con vista previa</figcaption></figure>
+  <figure><img src="capturas/a-recordatorios-confirmar.jpg" alt=""><figcaption><b>Figura 12.7</b> · Pedir al cliente que confirme su asistencia</figcaption></figure>
+  <p><strong>Confirmar la asistencia:</strong> con esta casilla marcada, los recordatorios preguntan al cliente si viene. Puedes cambiar la pregunta. Para los enlaces del email el servidor necesita su dirección pública (PUBLIC_URL; en Railway se detecta sola). Para WhatsApp, la plantilla de Meta debe llevar dos botones de respuesta rápida, <strong>Sí y No, en ese orden</strong>, y hay que configurar en Meta el webhook que se indica en pantalla.</p>
+  <figure><img src="capturas/a-recordatorios-3.jpg" alt=""><figcaption><b>Figura 12.8</b> · Texto del recordatorio con vista previa</figcaption></figure>
   <p><strong>Mensajes:</strong> cambia los textos y usa <strong>{nombre}</strong>, <strong>{fecha}</strong>, <strong>{hora}</strong>, <strong>{servicio}</strong>, <strong>{peluqueria}</strong>, <strong>{telefono}</strong> y <strong>{direccion}</strong>, que se sustituyen en cada aviso. En <strong>Probar</strong> puedes enviarte uno de ejemplo.</p>
   <ul>
-    <li>Se avisa de las citas confirmadas, una vez por cada antelación. Si la cita cambia de hora se vuelve a avisar; las canceladas no se avisan.</li>
+    <li>Se avisa de las citas reservadas, una vez por cada antelación. Si la cita cambia de hora se vuelve a avisar; las canceladas y las de quien ya ha dicho que no viene no se avisan.</li>
     <li>Si se reserva cuando ya ha pasado el momento de un aviso, ese aviso no se manda.</li>
   </ul>
   <p><strong>Cada cliente</strong> elige en su perfil (o tú al editarlo) si recibe el aviso por email y/o por WhatsApp. Siempre se ven las dos opciones, pero solo se pueden activar las que estén activadas aquí.</p>
   <div class="warn"><p><strong>Al desactivar un canal</strong> la app pide confirmación: al guardar, se apaga en todos los perfiles de cliente. Al volver a activarlo se enciende en todos, y cada cliente puede quitarlo después.</p></div>
-  <figure class="sm"><img src="capturas/a-modal-desactivar.jpg" alt=""><figcaption><b>Figura 12.8</b> · Confirmación al desactivar un canal</figcaption></figure>
+  <figure class="sm"><img src="capturas/a-modal-desactivar.jpg" alt=""><figcaption><b>Figura 12.9</b> · Confirmación al desactivar un canal</figcaption></figure>
   <p>En <strong>Últimos avisos</strong> puedes comprobar qué se ha enviado, a quién y, si no se envió, por qué.</p>
-  <figure><img src="capturas/a-recordatorios-log.jpg" alt=""><figcaption><b>Figura 12.9</b> · Últimos avisos</figcaption></figure>
+  <figure><img src="capturas/a-recordatorios-log.jpg" alt=""><figcaption><b>Figura 12.10</b> · Últimos avisos</figcaption></figure>
 
   <h3>Formas de pago</h3>
-  <figure><img src="capturas/a-config-4.jpg" alt=""><figcaption><b>Figura 12.10</b> · Formas de pago</figcaption></figure>
+  <figure><img src="capturas/a-config-4.jpg" alt=""><figcaption><b>Figura 12.11</b> · Formas de pago</figcaption></figure>
   <p>Activa o desactiva el pago en el local y PayPal. Si una forma de pago aparece con «faltan credenciales en el servidor», no se ofrecerá a los clientes hasta que se configure.</p>
 
   <h3>Datos de la peluquería</h3>
-  <figure><img src="capturas/a-config-5.jpg" alt=""><figcaption><b>Figura 12.11</b> · Datos de la peluquería</figcaption></figure>
+  <figure><img src="capturas/a-config-5.jpg" alt=""><figcaption><b>Figura 12.12</b> · Datos de la peluquería</figcaption></figure>
   <p>Nombre, teléfono, email y dirección. Aparecen en la web, en los emails y en los tickets.</p>
 
   <h3>Tickets de compra</h3>
-  <figure><img src="capturas/a-config-6.jpg" alt=""><figcaption><b>Figura 12.12</b> · Datos de los tickets</figcaption></figure>
+  <figure><img src="capturas/a-config-6.jpg" alt=""><figcaption><b>Figura 12.13</b> · Datos de los tickets</figcaption></figure>
   <ul>
     <li><strong>Razón social</strong> (si es distinta del nombre comercial) y <strong>NIF/CIF</strong>.</li>
     <li><strong>IVA incluido en los precios (%):</strong> 21 por defecto. El ticket desglosa la base imponible y el IVA. Pon 0 para no desglosarlo.</li>
@@ -665,7 +691,7 @@
   <div class="warn"><p>Rellena el <strong>NIF</strong> y la razón social antes de entregar tickets a los clientes. Los cambios afectan a los tickets que se emitan a partir de ese momento.</p></div>
 
   <h3>Servicios y precios</h3>
-  <figure><img src="capturas/a-config-7.jpg" alt=""><figcaption><b>Figura 12.13</b> · Servicios y precios</figcaption></figure>
+  <figure><img src="capturas/a-config-7.jpg" alt=""><figcaption><b>Figura 12.14</b> · Servicios y precios</figcaption></figure>
   <ul>
     <li><span class="btn-ref">Precio</span>: cambia el precio de un servicio. Las citas ya reservadas mantienen el precio con el que se reservaron.</li>
     <li><span class="btn-ref">Ocultar</span> / <span class="btn-ref">Activar</span>: un servicio oculto deja de ofrecerse, pero se conserva en el historial.</li>
@@ -674,7 +700,7 @@
   <p>Los servicios se guardan al momento; no hace falta pulsar «Guardar configuración».</p>
 
   <h3>Estado de integraciones</h3>
-  <figure><img src="capturas/a-config-8.jpg" alt=""><figcaption><b>Figura 12.14</b> · Estado de integraciones</figcaption></figure>
+  <figure><img src="capturas/a-config-8.jpg" alt=""><figcaption><b>Figura 12.15</b> · Estado de integraciones</figcaption></figure>
   <p>Al final de Configuración verás si la lectura de la agenda en papel, el email, WhatsApp y cada forma de pago están listos. Un punto <span class="dot" style="background:#2e9b4f"></span>verde indica que funciona; <span class="dot" style="background:#e0a21b"></span>naranja, que falta configurarlo o está en modo prueba; <span class="dot" style="background:#3d7fd1"></span>azul, que funciona en modo básico. Configurarlos es una tarea técnica que se hace una sola vez en el servidor.</p>
   <div class="note"><p>Si el email aparece «en modo prueba», los emails no llegan a los clientes: falta configurar el servidor de correo (SMTP).</p></div>
 </section>
@@ -690,6 +716,7 @@
       <tr><td>Pago online</td><td>Queda pagada y con ticket al momento. El cliente la cancela con al menos 1 hora de antelación y se le devuelve todo automáticamente.</td></tr>
       <tr><td>Pago en el local</td><td>Se cobra con «Marcar cobrada»; el ticket es opcional en ese momento. El cobro es definitivo.</td></tr>
       <tr><td>Cancelar una cita pagada</td><td>Solo antes de que termine. PayPal: devolver todo, una parte o nada. En el local: devolver en mano, y solo la cancelas tú.</td></tr>
+      <tr><td>Confirmada</td><td>Solo cuando el cliente dice que viene (email, WhatsApp o teléfono). Al cambiar la hora hay que volver a confirmar.</td></tr>
       <tr><td>Realizada y pagada</td><td>No se cancela ni se reembolsa.</td></tr>
       <tr><td>Realizada</td><td>Automático al terminar la hora. Desde entonces no se mueve ni se cancela.</td></tr>
       <tr><td>No vino / Sí vino</td><td>Desde que llega la hora. No si está cobrada en el local; con PayPal, sí. «Sí vino» lo corrige.</td></tr>
@@ -711,6 +738,10 @@
     <dd>Él ya no puede hacerlo desde la app. Pulsa <span class="btn-ref red">Cancelar</span> y elige devolver todo, una parte o nada, según tu política.</dd>
     <dt>A un cliente se le ha cobrado mal por PayPal.</dt>
     <dd>Pulsa <span class="btn-ref">Corregir cobro</span> en la cita, si aún no ha terminado, y devuelve la diferencia con el motivo.</dd>
+    <dt>Un cliente llama para confirmar que viene.</dt>
+    <dd>Pulsa <span class="btn-ref">Confirmar asistencia</span> en su cita o <span class="btn-ref">Confirmar</span> en el Resumen.</dd>
+    <dt>Un cliente ha respondido que no puede venir.</dt>
+    <dd>Aparece en el Resumen, en «No pueden venir». Llámalo y cambia la hora o cancela: hasta entonces la hora sigue ocupada.</dd>
     <dt>Un cliente no se presenta.</dt>
     <dd>Cuando llegue la hora, pulsa <span class="btn-ref">No vino</span>. Si se repite, revisa la pestaña Anulaciones y, si lo consideras, bloquéalo temporalmente.</dd>
     <dt>He marcado «No vino» por error.</dt>
