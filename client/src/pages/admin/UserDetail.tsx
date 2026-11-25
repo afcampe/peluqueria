@@ -22,7 +22,6 @@ export function UserDetail() {
   const [user, setUser] = useState<User | null>(null);
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [params] = useSearchParams();
-  const [filter, setFilter] = useState<Filter>(params.get('ver') === 'incidencias' ? 'incidents' : 'all');
   const [error, setError] = useState('');
   const [merging, setMerging] = useState(false);
   const [booking, setBooking] = useState(false);
@@ -42,9 +41,6 @@ export function UserDetail() {
   // Próximas: de la más cercana a la más lejana. Pasadas: de la más reciente a la más antigua.
   const future = appts.filter(isFuture).sort((a, b) => a.startAt.localeCompare(b.startAt));
   const past = appts.filter((a) => !isFuture(a)).sort((a, b) => b.startAt.localeCompare(a.startAt));
-  const isIncident = (a: Appointment) => a.status === 'NO_SHOW' || a.status === 'CANCELLED';
-  const incidents = past.filter(isIncident).concat(future.filter(isIncident)).sort((a, b) => b.startAt.localeCompare(a.startAt));
-  const shown = filter === 'future' ? future : filter === 'past' ? past : filter === 'incidents' ? incidents : [...future, ...past];
 
   const active = (a: Appointment) => a.status !== 'CANCELLED';
   const paidCents = appts.reduce((sum, a) => sum + a.payments.filter((p) => p.status !== 'FAILED' && p.status !== 'CREATED').reduce((s, p) => s + p.amountCents - p.refundedCents, 0), 0);
@@ -101,36 +97,72 @@ export function UserDetail() {
             <div className="stat"><strong>{money(pendingCents)}</strong><span>Pendiente de cobro</span></div>
           </div>
 
-          <div className="page-head">
-            <h2>Citas</h2>
-            <div className="chips" role="group" aria-label="Filtrar citas">
-              {([['all', `Todas (${appts.length})`], ['future', `Próximas (${future.length})`], ['past', `Pasadas (${past.length})`], ['incidents', `Anuladas y no vino (${incidents.length})`]] as const).map(([k, label]) => (
-                <button key={k} type="button" className={`chip ${filter === k ? 'selected' : ''}`} onClick={() => setFilter(k)}>{label}</button>
-              ))}
-            </div>
-          </div>
-          <p className="legend">
-            <span><i className="swatch swatch-future" /> Próximas</span>
-            <span><i className="swatch swatch-past" /> Pasadas</span>
-          </p>
-
-          {shown.length === 0 && <p className="empty">No hay citas.</p>}
-          <div className="history">
-            {shown.map((a, i) => {
-              const fut = isFuture(a);
-              // Separador entre próximas y pasadas en la vista "Todas"
-              const divider = filter === 'all' && i > 0 && !fut && isFuture(shown[i - 1]);
-              return (
-                <div key={a.id}>
-                  {divider && <div className="history-divider">Pasadas</div>}
-                  <HistoryRow appt={a} future={fut} onChange={(m) => { if (m) setFlash(m); load(); }} />
-                </div>
-              );
-            })}
-          </div>
+          <AppointmentHistory appts={appts} initialFilter={params.get('ver') === 'incidencias' ? 'incidents' : 'all'} onChange={(m) => { if (m) setFlash(m); load(); }} />
         </>
       )}
     </div>
+  );
+}
+
+/** Citas de un cliente con filtros (próximas, pasadas, anuladas). Se usa en la ficha y en la ventana «Ver citas». */
+export function AppointmentHistory({ appts, initialFilter = 'all', heading = true, onChange }: { appts: Appointment[]; initialFilter?: Filter; heading?: boolean; onChange: (message?: string) => void }) {
+  const [filter, setFilter] = useState<Filter>(initialFilter);
+  const now = Date.now();
+  const isFuture = (a: Appointment) => new Date(a.startAt).getTime() > now;
+  const future = appts.filter(isFuture).sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const past = appts.filter((a) => !isFuture(a)).sort((a, b) => b.startAt.localeCompare(a.startAt));
+  const isIncident = (a: Appointment) => a.status === 'NO_SHOW' || a.status === 'CANCELLED';
+  const incidents = past.filter(isIncident).concat(future.filter(isIncident)).sort((a, b) => b.startAt.localeCompare(a.startAt));
+  const shown = filter === 'future' ? future : filter === 'past' ? past : filter === 'incidents' ? incidents : [...future, ...past];
+  return (
+    <>
+      <div className="page-head">
+        {heading && <h2>Citas</h2>}
+        <div className="chips" role="group" aria-label="Filtrar citas">
+          {([['all', `Todas (${appts.length})`], ['future', `Próximas (${future.length})`], ['past', `Pasadas (${past.length})`], ['incidents', `Anuladas y no vino (${incidents.length})`]] as const).map(([k, label]) => (
+            <button key={k} type="button" className={`chip ${filter === k ? 'selected' : ''}`} onClick={() => setFilter(k)}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <p className="legend">
+        <span><i className="swatch swatch-future" /> Próximas</span>
+        <span><i className="swatch swatch-past" /> Pasadas</span>
+      </p>
+
+      {shown.length === 0 && <p className="empty">No hay citas.</p>}
+      <div className="history">
+        {shown.map((a, i) => {
+          const fut = isFuture(a);
+          // Separador entre próximas y pasadas en la vista "Todas"
+          const divider = filter === 'all' && i > 0 && !fut && isFuture(shown[i - 1]);
+          return (
+            <div key={a.id}>
+              {divider && <div className="history-divider">Pasadas</div>}
+              <HistoryRow appt={a} future={fut} onChange={onChange} />
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/** Ventana con las citas de un cliente, abierta desde la lista de Usuarios. */
+export function AppointmentsModal({ user, onClose, onChanged }: { user: Pick<User, 'id' | 'name'>; onClose: () => void; onChanged?: () => void }) {
+  const [appts, setAppts] = useState<Appointment[] | null>(null);
+  const [error, setError] = useState('');
+  const [flash, setFlash] = useState('');
+  const load = useCallback(() => {
+    api.get<Appointment[]>(`/admin/appointments?clientId=${user.id}`).then(setAppts).catch((e) => setError(e.message));
+  }, [user.id]);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <Modal title={`Citas · ${user.name}`} onClose={onClose} size="xl">
+      <Alert>{error}</Alert>
+      <Alert kind="ok">{flash}</Alert>
+      {!appts && !error && <Spinner />}
+      {appts && <AppointmentHistory appts={appts} heading={false} onChange={(m) => { if (m) setFlash(m); load(); onChanged?.(); }} />}
+    </Modal>
   );
 }
 

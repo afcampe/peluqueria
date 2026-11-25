@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { dateLong } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { User } from '../../lib/types';
+import { AppointmentsModal } from './UserDetail';
 import { IconCalendar } from '../../components/icons';
 
 const statusText = { ACTIVE: 'Activo', BLOCKED: 'Bloqueado', DELETED: 'De baja' };
@@ -21,7 +22,7 @@ export function Users() {
   const [list, setList] = useState<User[] | null>(null);
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
-  const [modal, setModal] = useState<{ kind: 'edit' | 'block' | 'delete' | 'book'; user?: User } | null>(null);
+  const [modal, setModal] = useState<{ kind: 'edit' | 'block' | 'delete' | 'book' | 'appts'; user?: User } | null>(null);
 
   const load = useCallback(() => {
     const p = new URLSearchParams({ ...(q && { q }), ...(status && { status }), ...(role && { role }) });
@@ -77,7 +78,7 @@ export function Users() {
                   </td>
                   <td className="td-actions"><div className="actions">
                     {u.role === 'CLIENT' && u.status !== 'DELETED' && <button className="btn btn-sm btn-primary" onClick={() => setModal({ kind: 'book', user: u })}>Reservar cita</button>}
-                    {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}><IconCalendar size={14} /> Ver citas</Link>}
+                    {u.role === 'CLIENT' && <button className="btn btn-sm" onClick={() => setModal({ kind: 'appts', user: u })}><IconCalendar size={14} /> Ver citas</button>}
                     {u.whatsappLink && <a className="btn btn-sm btn-wa" href={u.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
                     {u.role === 'CLIENT' && u.status !== 'DELETED' && <EmailReminderButton clientId={u.id} disabledReason={u.email ? undefined : 'El cliente no tiene email'} />}
                     <button className="btn btn-sm" onClick={() => setModal({ kind: 'edit', user: u })}>{u.status === 'DELETED' ? 'Reactivar' : 'Editar'}</button>
@@ -94,6 +95,7 @@ export function Users() {
       )}
       {modal?.kind === 'edit' && <UserForm user={modal.user} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'book' && <BookForClient user={modal.user!} onChanged={load} onClose={() => setModal(null)} onDone={done} />}
+      {modal?.kind === 'appts' && <AppointmentsModal user={modal.user!} onChanged={load} onClose={() => setModal(null)} />}
       {modal?.kind === 'block' && <BlockForm user={modal.user!} onClose={() => setModal(null)} onDone={done} />}
       {modal?.kind === 'delete' && (
         <Modal title="Dar de baja" onClose={() => setModal(null)}>
