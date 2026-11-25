@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { MyUpcoming } from '../components/MyUpcoming';
 import { PayPalCheckout } from '../components/PayPalCheckout';
 import { RecurrencePlanner, type SeriesPlan } from '../components/RecurrencePlanner';
 import { SlotPicker } from '../components/SlotPicker';
@@ -157,7 +158,7 @@ export function Book() {
           </button>
         </section>
       )}
-      <p className="muted"><Link to="/mis-citas">Ver mis citas</Link></p>
+      <MyUpcoming refresh={pending} />
     </div>
   );
 }

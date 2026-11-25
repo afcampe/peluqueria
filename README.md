@@ -31,6 +31,7 @@ Tests: `npm test`. Cubren los huecos, el horario, el cambio de hora, la regla de
 - Reserva: servicio → día y hora → forma de pago (PayPal o en el local)
 - Se puede reservar hasta 1 año vista
 - **Citas periódicas**: reservar varias de una vez cada X días (1 semana, 15 días, 4 semanas o cualquier número), hasta una fecha o un número de citas. Antes de confirmar se ven todas las fechas. Si alguna cae en día cerrado u ocupado, se propone el hueco libre más cercano, y cada fecha se puede cambiar o quitar. Se reservan todas o ninguna, se pagan en un solo pago (PayPal) o en el local, y luego se pueden cancelar una a una (con reembolso de su parte) o todas a la vez
+- En *Reservar cita*, debajo de los servicios, ven sus citas actuales y futuras con sus detalles
 - Mis citas: cambiar la hora o cancelar. No se puede hacer con menos de 1 h de antelación
 - Si la cita está pagada online, al pulsar *Cancelar* se avisa de que el dinero se devuelve automáticamente a su cuenta de PayPal. Solo con al menos 1 h de antelación; después, únicamente la peluquería
 - Si la cita ya se cobró en el local, el cliente no la puede cancelar desde la app

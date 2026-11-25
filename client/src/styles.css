@@ -770,3 +770,11 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .gap-times button:hover { border-color: var(--text); }
 .gap-times button.is-freed, .gap-key { background: var(--warn-bg); color: var(--warn-text); border-color: var(--accent); font-weight: 600; } .gap-key { padding: 0 .3rem; border-radius: 3px; }
 @media (max-width: 480px) { .week-gaps li { grid-template-columns: minmax(0, 1fr); gap: .35rem; } .gap-day { display: flex; gap: .6rem; align-items: baseline; } .gap-times button { padding: .4rem .6rem; } }
+
+/* -------------------------------------------------------------- Citas del cliente en Reservar */
+.my-upcoming { margin-top: 1.5rem; } .my-upcoming h2 { margin: 0; }
+.my-upcoming ul { list-style: none; margin: 0 0 .4rem; padding: 0; }
+.my-upcoming li { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: .5rem 1rem; align-items: center; padding: .65rem 0; border-top: 1px solid var(--border); }
+.mu-when span, .mu-what span { display: block; } .mu-when span { font-variant-numeric: tabular-nums; }
+.mu-tickets { margin-bottom: .75rem; }
+@media (max-width: 560px) { .my-upcoming li { grid-template-columns: minmax(0, 1fr) auto; } .mu-what { grid-column: 1; } .my-upcoming li .btn { grid-column: 2; grid-row: 1 / span 2; } }
