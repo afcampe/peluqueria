@@ -83,7 +83,7 @@ async function assertSlotBookable(tx: Tx, settings: Settings, start: Date, exclu
     const msg = {
       PAST: 'Esa hora ya ha pasado',
       OUT_OF_RANGE: `Solo se puede reservar con ${settings.bookingHorizonDays} días de antelación como máximo`,
-      CLOSED: 'La peluquería está cerrada en esa fecha',
+      CLOSED: 'La peluquería no atiende a esa hora',
       BOOKED: 'Ese hueco acaba de ser reservado por otra persona',
     }[slot.reason!];
     // El administrador ve para quién está reservada la hora; un cliente nunca ve datos de otros.
@@ -95,6 +95,43 @@ async function assertSlotBookable(tx: Tx, settings: Settings, start: Date, exclu
     throw conflict(msg, `SLOT_${slot.reason}`);
   }
   return { startAt: new Date(slot.start), endAt: new Date(slot.end) };
+}
+
+/**
+ * Bloquea huecos para que nadie los reserve. Si alguno tiene cita no se bloquea ninguno:
+ * antes hay que mover o cancelar la cita.
+ */
+export async function blockSlots(starts: string[], reason?: string) {
+  const settings = await getSettings();
+  const times = [...new Set(starts.map((s) => new Date(s).getTime()))].sort((a, b) => a - b);
+  return prisma.$transaction(async (tx) => {
+    const merged: Interval[] = [];
+    for (const t of times) {
+      const date = localDate(new Date(t), settings.timezone);
+      const day = DateTime.fromISO(date, { zone: settings.timezone });
+      const closures = await tx.closure.findMany({ where: { startAt: { lt: day.endOf('day').toJSDate() }, endAt: { gt: day.startOf('day').toJSDate() } } });
+      const slot = computeSlots({ date, settings, appointments: [], closures }).find((s) => new Date(s.start).getTime() === t);
+      if (!slot) throw badRequest('Esa hora no está dentro del horario de la peluquería', 'INVALID_SLOT');
+      if (slot.reason === 'PAST') throw conflict('Esa hora ya ha pasado', 'SLOT_PAST');
+      if (slot.reason === 'CLOSED') throw conflict('Esa hora ya está bloqueada o cerrada', 'SLOT_CLOSED');
+      if (slot.reason) throw badRequest('Esa hora está fuera del plazo de reserva', `SLOT_${slot.reason}`);
+      const startAt = new Date(slot.start);
+      const endAt = new Date(slot.end);
+      // También cuentan las pendientes de pago: el cliente puede estar pagando.
+      const appts = await tx.appointment.findMany({
+        where: { status: { in: ['CONFIRMED', 'PENDING_PAYMENT', 'COMPLETED', 'NO_SHOW'] }, startAt: { lt: endAt }, endAt: { gt: startAt } },
+        select: { id: true, startAt: true, endAt: true, client: { select: { id: true, name: true } } },
+      });
+      const owners = ownersAt(appts, startAt.getTime(), endAt.getTime());
+      if (owners.length) throw conflict(`Esa hora tiene cita de ${owners.map((o) => o.clientName).join(', ')}. Antes muévela o cancélala.`, 'SLOT_BOOKED', { bookedBy: owners });
+      const last = merged.at(-1);
+      if (last && last.endAt.getTime() === t) last.endAt = endAt;
+      else merged.push({ startAt, endAt });
+    }
+    const created = [];
+    for (const m of merged) created.push(await tx.closure.create({ data: { ...m, reason: reason || null } }));
+    return created;
+  }, { isolationLevel: 'Serializable' });
 }
 
 const canClientChange = (settings: Settings, startAt: Date) =>
@@ -511,7 +548,7 @@ export interface Occurrence {
 
 const reasonText: Record<string, string> = {
   BOOKED: 'Ocupado a esa hora',
-  CLOSED: 'La peluquería está cerrada',
+  CLOSED: 'No se atiende a esa hora',
   PAST: 'Hora ya pasada',
   OUT_OF_RANGE: 'Fuera del plazo de reserva',
 };

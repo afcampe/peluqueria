@@ -1,13 +1,15 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { BlockModal } from '../../components/BlockModal';
 import { RecurrencePlanner, type SeriesPlan } from '../../components/RecurrencePlanner';
 import { EmailReminderButton } from '../../components/EmailReminderButton';
 import { SlotPicker } from '../../components/SlotPicker';
 import { TicketButtons } from '../../components/TicketButton';
 import { Link } from 'react-router-dom';
-import { Alert, Badge, ErrorAlert, Modal, Spinner, errMsg } from '../../components/ui';
+import { Alert, Badge, ErrorAlert, Modal, Spinner, confirmDialog, errMsg } from '../../components/ui';
 import { canCorrectCharge, canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketsOf } from '../../lib/payment';
 import { api } from '../../lib/api';
 import { addDays, addMonths, attendanceText, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, isBooked, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, shownStatus, statusLabel, time, weekLabel } from '../../lib/format';
+import { isBlock } from '../../lib/blocks';
 import { useSession } from '../../lib/session';
 import type { Appointment, Closure, PublicConfig, User } from '../../lib/types';
 import { IconChevronLeft, IconChevronRight, IconRepeat, IconTicket } from '../../components/icons';
@@ -36,6 +38,8 @@ export function Agenda() {
   const [error, setError] = useState('');
   const [flash, setFlash] = useState('');
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [blockDay, setBlockDay] = useState<string | null>(null); // ventana «Bloquear horas»
+  const [blockVersion, setBlockVersion] = useState(0);
 
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* sin almacenamiento */ } };
 
@@ -53,9 +57,19 @@ export function Agenda() {
     api.get<Appointment[]>(`/admin/appointments?${q}`).then(setList).catch((e) => setError(e.message));
   }, [range.from, range.to, status]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { api.get<Closure[]>('/admin/closures').then(setClosures).catch(() => {}); }, []);
+  const loadClosures = useCallback(() => { api.get<Closure[]>('/admin/closures').then(setClosures).catch(() => {}); }, []);
+  useEffect(() => { loadClosures(); }, [loadClosures]);
 
-  const done = (msg: string) => { setModal(null); setFlash(msg); load(true); };
+  const done = (msg: string) => { setModal(null); setError(''); setFlash(msg); load(true); setBlockVersion((v) => v + 1); };
+  const unblock = async (c: Closure) => {
+    const ok = await confirmDialog({
+      title: 'Desbloquear', confirmLabel: 'Desbloquear',
+      message: `${dateShort(c.startAt)}, de ${time(c.startAt)} a ${time(c.endAt)}${c.reason ? ` (${c.reason})` : ''}. Los clientes podrán volver a reservar.`,
+    });
+    if (!ok) return;
+    try { await api.del(`/admin/closures/${c.id}`); done('Horas desbloqueadas'); } catch (e) { setError(errMsg(e)); }
+    loadClosures();
+  };
   const act: CardActions = {
     open: (kind, a) => setModal({ kind, appt: a }),
     setStatus: async (a, s) => {
@@ -78,6 +92,10 @@ export function Agenda() {
   const byDay = new Map<string, Appointment[]>();
   shown.forEach((a) => { const k = isoToLocalDate(a.startAt); byDay.set(k, [...(byDay.get(k) ?? []), a]); });
 
+  // Horas bloqueadas por día (si se filtra por estado, en las listas solo salen citas).
+  const blocksOn = (d: string) => (status ? [] : closures.filter((c) => isBlock(c) && isoToLocalDate(c.startAt) === d));
+  const listDays = [...new Set([...byDay.keys(), ...(status ? [] : closures.filter(isBlock).map((c) => isoToLocalDate(c.startAt)).filter((d) => d >= range.from && d <= range.to))])].sort();
+
   const step = (dir: 1 | -1) => setAnchor(view === 'week' ? addDays(anchor, 7 * dir) : addMonths(anchor, dir));
   const goToday = () => { setAnchor(localISODate()); setSelectedDay(localISODate()); };
   const title = view === 'week' ? weekLabel(startOfWeek(anchor)) : monthLabel(anchor);
@@ -86,7 +104,10 @@ export function Agenda() {
     <div>
       <div className="page-head">
         <h1>Agenda</h1>
-        <button className="btn btn-primary" onClick={() => setModal({ kind: 'new' })}>Nueva cita</button>
+        <div className="actions">
+          <button className="btn" onClick={() => setBlockDay(view === 'list' ? from : view === 'month' ? selectedDay : anchor)}>Bloquear horas</button>
+          <button className="btn btn-primary" onClick={() => setModal({ kind: 'new' })}>Nueva cita</button>
+        </div>
       </div>
 
       <div className="agenda-toolbar">
@@ -127,13 +148,13 @@ export function Agenda() {
 
       {list && view === 'list' && (
         <>
-          {shown.length === 0 && <p className="empty">No hay citas en este periodo.</p>}
-          {[...byDay.entries()].map(([day, appts]) => <DayList key={day} day={day} appts={appts} act={act} />)}
+          {listDays.length === 0 && <p className="empty">No hay citas en este periodo.</p>}
+          {listDays.map((day) => <DayList key={day} day={day} appts={byDay.get(day) ?? []} blocks={blocksOn(day)} onUnblock={unblock} act={act} />)}
         </>
       )}
 
       {list && view === 'week' && config && (
-        <WeekView start={startOfWeek(anchor)} byDay={byDay} config={config} closures={closures} onOpen={(a) => setModal({ kind: 'detail', appt: a })} />
+        <WeekView start={startOfWeek(anchor)} byDay={byDay} config={config} closures={closures} onOpen={(a) => setModal({ kind: 'detail', appt: a })} onUnblock={unblock} />
       )}
 
       {list && view === 'month' && config && (
@@ -146,13 +167,17 @@ export function Agenda() {
             <span className="muted">Pulsa un día para ver sus citas.</span>
           </p>
           <div id="dia-seleccionado">
-            {(byDay.get(selectedDay)?.length ?? 0) > 0
-              ? <DayList day={selectedDay} appts={byDay.get(selectedDay)!} act={act} />
+            {(byDay.get(selectedDay)?.length ?? 0) + blocksOn(selectedDay).length > 0
+              ? <DayList day={selectedDay} appts={byDay.get(selectedDay) ?? []} blocks={blocksOn(selectedDay)} onUnblock={unblock} act={act} />
               : <><h2 className="day-title">{dateLong(`${selectedDay}T12:00:00Z`)}</h2><p className="empty">No hay citas este día.</p></>}
           </div>
         </>
       )}
 
+      {blockDay && (
+        <BlockModal initialDate={blockDay} version={blockVersion} onAppt={(kind, appt) => setModal({ kind, appt })}
+          onClose={() => setBlockDay(null)} onDone={(m) => { setBlockDay(null); done(m); loadClosures(); }} />
+      )}
       {modal?.kind === 'detail' && (
         <Modal title={`Cita de ${modal.appt!.client.name}`} onClose={() => setModal(null)}>
           <p className="muted">{dateLong(modal.appt!.startAt)}</p>
@@ -177,12 +202,23 @@ interface CardActions {
   issueTicket: (a: Appointment) => void;
 }
 
-function DayList({ day, appts, act }: { day: string; appts: Appointment[]; act: CardActions }) {
+function DayList({ day, appts, blocks, onUnblock, act }: { day: string; appts: Appointment[]; blocks: Closure[]; onUnblock: (c: Closure) => void; act: CardActions }) {
+  const rows = [...appts.map((a) => ({ at: a.startAt, a, c: null })), ...blocks.map((c) => ({ at: c.startAt, a: null, c }))].sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
   return (
     <section>
       <h2 className="day-title">{dateLong(`${day}T12:00:00Z`)} <small className="muted">({[['RESERVED', 'reservadas'], ['CONFIRMED', 'confirmadas'], ['COMPLETED', 'realizadas']].map(([k, l]) => [appts.filter((a) => shownStatus(a) === k).length, l] as const).filter(([n]) => n).map(([n, l]) => `${n} ${n === 1 ? l.slice(0, -1) : l}`).join(' · ') || 'sin citas activas'})</small></h2>
-      <div className="agenda">{appts.map((a) => <AppointmentCard key={a.id} a={a} act={act} />)}</div>
+      <div className="agenda">{rows.map(({ a, c }) => a ? <AppointmentCard key={a.id} a={a} act={act} /> : <BlockCard key={c!.id} c={c!} onUnblock={onUnblock} />)}</div>
     </section>
+  );
+}
+
+function BlockCard({ c, onUnblock }: { c: Closure; onUnblock: (c: Closure) => void }) {
+  return (
+    <article className="card agenda-item agenda-block">
+      <div className="agenda-time">{time(c.startAt)}<small>{time(c.endAt)}</small></div>
+      <div className="agenda-main"><strong>Bloqueada</strong>{c.reason && ` · ${c.reason}`}</div>
+      <div className="actions"><button className="btn btn-sm" onClick={() => onUnblock(c)}>Desbloquear</button></div>
+    </article>
   );
 }
 
@@ -240,15 +276,18 @@ const inClosure = (closures: Closure[], day: string, hhmm: string) => {
   return closures.some((c) => `${isoToLocalDate(c.startAt)} ${time(c.startAt)}` <= k && k < `${isoToLocalDate(c.endAt)} ${time(c.endAt)}`);
 };
 const dayClosed = (closures: Closure[], day: string) =>
-  closures.some((c) => isoToLocalDate(c.startAt) <= day && day <= isoToLocalDate(c.endAt));
+  closures.some((c) => !isBlock(c) && isoToLocalDate(c.startAt) <= day && day <= isoToLocalDate(c.endAt));
 
-function WeekView({ start, byDay, config, closures, onOpen }: {
-  start: string; byDay: Map<string, Appointment[]>; config: PublicConfig; closures: Closure[]; onOpen: (a: Appointment) => void;
+function WeekView({ start, byDay, config, closures, onOpen, onUnblock }: {
+  start: string; byDay: Map<string, Appointment[]>; config: PublicConfig; closures: Closure[]; onOpen: (a: Appointment) => void; onUnblock: (c: Closure) => void;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const step = config.slotMinutes;
   const isOpen = (day: string, hhmm: string) =>
     (config.weeklySchedule[String(isoWeekday(day))] ?? []).some((r) => r.start <= hhmm && hhmm < r.end) && !inClosure(closures, day, hhmm);
+
+  const blockOn = (day: string, m: number) =>
+    closures.find((c) => isBlock(c) && isoToLocalDate(c.startAt) === day && toMin(time(c.startAt)) < m + step && m < toMin(time(c.endAt)));
 
   // Filas: todas las franjas del horario semanal más las horas de citas que no encajen (p. ej. si cambió la duración).
   const rows = new Set<number>();
@@ -282,6 +321,8 @@ function WeekView({ start, byDay, config, closures, onOpen }: {
               <div className={`wk-time ${gap ? 'gap' : ''}`}>{hhmm}</div>
               {days.map((d) => {
                 const appts = cell.get(`${d} ${hhmm}`) ?? [];
+                const inHours = (config.weeklySchedule[String(isoWeekday(d))] ?? []).some((r) => r.start <= hhmm && hhmm < r.end);
+                const block = inHours ? blockOn(d, m) : undefined;
                 return (
                   <div key={d} className={`wk-cell ${isOpen(d, hhmm) ? '' : 'closed'} ${gap ? 'gap' : ''} ${d === today ? 'is-today' : ''}`}>
                     {appts.map((a) => {
@@ -295,6 +336,11 @@ function WeekView({ start, byDay, config, closures, onOpen }: {
                         </button>
                       );
                     })}
+                    {block && !appts.length && (
+                      <button type="button" className="wk-block" onClick={() => onUnblock(block)} title={`${time(block.startAt)}–${time(block.endAt)} · Bloqueada${block.reason ? ` · ${block.reason}` : ''}`}>
+                        <strong>Bloqueada</strong>{block.reason && <span>{block.reason}</span>}
+                      </button>
+                    )}
                   </div>
                 );
               })}

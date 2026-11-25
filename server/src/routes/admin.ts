@@ -17,9 +17,9 @@ import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
 import { sendWhatsApp, waLink, whatsappApiConfigured, whatsappRepliesConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
-import { availabilityForDate, calendarMonth, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidInShop, previewSeries, refundWithoutCancel, rescheduleAppointment, withRelations } from '../services/appointments.js';
+import { availabilityForDate, blockSlots, calendarMonth, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidInShop, previewSeries, refundWithoutCancel, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
-import { getSettings, saveSettings } from '../services/settings.js';
+import { getSettings, saveSettings, settingsSchema, type Settings } from '../services/settings.js';
 import { issueTicket } from '../services/tickets.js';
 import { actor, h, publicUser } from './util.js';
 
@@ -376,6 +376,14 @@ adminRouter.post('/closures', h(async (req, res) => {
   res.status(201).json({ closure, affected: affected.length, ...result });
 }));
 
+/** Bloquea horas sueltas desde la Agenda. Por debajo son cierres (las contiguas, en uno). */
+adminRouter.post('/blocks', h(async (req, res) => {
+  const { starts, reason } = z.object({
+    starts: z.array(z.string().datetime()).min(1, 'Elige al menos una hora').max(100), reason: z.string().trim().max(300).optional(),
+  }).parse(req.body);
+  res.status(201).json(await blockSlots(starts, reason));
+}));
+
 adminRouter.delete('/closures/:id', h(async (req, res) => {
   await prisma.closure.delete({ where: { id: req.params.id } });
   res.status(204).end();
@@ -407,9 +415,20 @@ adminRouter.post('/reminders/test', h(async (req, res) => {
   }
 }));
 
+/** La duración de las citas y el horario semanal reparten toda la agenda: solo se cambian antes de la primera cita. */
+const gridLocked = async () => (await prisma.appointment.count()) > 0;
+
+/** ¿Cambia el horario semanal (tramos, apertura o cierre)? */
+const changesSchedule = (before: Settings['weeklySchedule'], after: Settings['weeklySchedule']) =>
+  (['1', '2', '3', '4', '5', '6', '7'] as const).some((d) => {
+    const key = (s: Settings['weeklySchedule']) => (s[d] ?? []).map((r) => `${r.start}-${r.end}`).sort().join();
+    return key(before) !== key(after);
+  });
+
 adminRouter.get('/settings', h(async (_req, res) => {
   res.json({
     settings: await getSettings(),
+    gridLocked: await gridLocked(),
     providers: allProviders().map((p) => ({ id: p.id, label: p.label, online: p.online, configured: p.isConfigured() })),
     channels: {
       email: emailConfigured(), whatsappApi: whatsappApiConfigured(), whatsappReplies: whatsappRepliesConfigured(),
@@ -420,6 +439,12 @@ adminRouter.get('/settings', h(async (_req, res) => {
 
 adminRouter.put('/settings', h(async (req, res) => {
   const before = await getSettings();
+  const next = settingsSchema.parse({ ...before, ...req.body });
+  const minutes = next.slotMinutes !== before.slotMinutes;
+  if ((minutes || changesSchedule(before.weeklySchedule, next.weeklySchedule)) && (await gridLocked()))
+    throw minutes
+      ? conflict('La duración de las citas no se puede cambiar porque ya hay citas reservadas', 'SLOT_MINUTES_LOCKED')
+      : conflict('El horario semanal no se puede cambiar porque ya hay citas reservadas', 'SCHEDULE_LOCKED');
   const after = await saveSettings(req.body);
   await syncReminderPrefs(before, after);
   res.json(after);

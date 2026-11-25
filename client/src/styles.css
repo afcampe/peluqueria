@@ -812,3 +812,10 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
   .mc-actions { grid-column: 1 / -1; justify-content: flex-start; max-width: none; } .mc-note { max-width: none; }
   .mc-row .mc-actions { grid-column: 2; } .mc-row .btn-sm { padding: .25rem .55rem; font-size: .7rem; }
 }
+
+/* Horas bloqueadas */
+.agenda-block { border-style: dashed; background: var(--surface-2); }
+.wk-block { display: flex; flex-direction: column; gap: 1px; padding: .3rem .4rem; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--surface-2); color: var(--muted); font: inherit; font-size: .75rem; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.wk-block:hover { border-color: var(--text); color: var(--text); }
+.block-appts { list-style: none; padding: 0; margin: 0 0 .75rem; }
+.block-appts li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .4rem .75rem; padding: .4rem 0; border-bottom: 1px solid var(--border); }

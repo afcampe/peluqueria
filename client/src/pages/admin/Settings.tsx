@@ -9,18 +9,21 @@ import { Reminders } from './Reminders';
 
 interface ProviderInfo { id: string; label: string; online: boolean; configured: boolean }
 
+const lockedStyle = { opacity: .55, cursor: 'not-allowed' };
+
 export function Settings() {
   const { reloadConfig } = useSession();
   const [s, setS] = useState<S | null>(null);
   const [saved, setSaved] = useState<S | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
   const [channels, setChannels] = useState({ email: false, whatsappApi: false, whatsappReplies: false, publicUrl: '', webhookUrl: '' });
+  const [gridLocked, setGridLocked] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get<{ settings: S; providers: ProviderInfo[]; channels: typeof channels }>('/admin/settings')
-      .then((r) => { setS(r.settings); setSaved(r.settings); setProviders(r.providers); setChannels(r.channels); })
+    api.get<{ settings: S; gridLocked: boolean; providers: ProviderInfo[]; channels: typeof channels }>('/admin/settings')
+      .then((r) => { setS(r.settings); setSaved(r.settings); setGridLocked(r.gridLocked); setProviders(r.providers); setChannels(r.channels); })
       .catch((e) => setError(e.message));
   }, []);
 
@@ -49,12 +52,17 @@ export function Settings() {
       <section className="card">
         <h2>Citas</h2>
         <div className="row">
-          <label>Duración de cada cita (min)<input type="number" min={5} max={240} step={5} value={s.slotMinutes} onChange={num('slotMinutes')} /></label>
+          <label>Duración de cada cita (min)<input type="number" min={5} max={240} step={5} value={s.slotMinutes} onChange={num('slotMinutes')} disabled={gridLocked} style={gridLocked ? lockedStyle : undefined} /></label>
           <label>Citas a la vez (sillones)<input type="number" min={1} max={50} value={s.capacity} onChange={num('capacity')} /></label>
           <label>Reservar hasta (días vista)<input type="number" min={1} max={730} value={s.bookingHorizonDays} onChange={num('bookingHorizonDays')} /></label>
           <label>Antelación mínima para que el cliente cancele (min)<input type="number" min={0} step={15} value={s.clientCancelMinNoticeMinutes} onChange={num('clientCancelMinNoticeMinutes')} /></label>
           <label>Tiempo para completar el pago online (min)<input type="number" min={5} max={120} value={s.paymentHoldMinutes} onChange={num('paymentHoldMinutes')} /></label>
         </div>
+        <p className="muted small">
+          {gridLocked
+            ? 'La duración de las citas no se puede cambiar porque ya hay citas reservadas.'
+            : 'Elige bien la duración de las citas: no se podrá cambiar después de la primera reserva.'}
+        </p>
       </section>
 
       <section className="card">
@@ -84,18 +92,23 @@ export function Settings() {
                   {ranges.length === 0 && <span className="muted">Cerrado</span>}
                   {ranges.map((r, i) => (
                     <span key={i} className="range">
-                      <input type="time" value={r.start} onChange={(e) => setDay(d, ranges.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
+                      <input type="time" value={r.start} disabled={gridLocked} style={gridLocked ? lockedStyle : undefined} onChange={(e) => setDay(d, ranges.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)))} />
                       –
-                      <input type="time" value={r.end} onChange={(e) => setDay(d, ranges.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
-                      <button className="btn-icon" aria-label="Quitar tramo" onClick={() => setDay(d, ranges.filter((_, j) => j !== i))}>✕</button>
+                      <input type="time" value={r.end} disabled={gridLocked} style={gridLocked ? lockedStyle : undefined} onChange={(e) => setDay(d, ranges.map((x, j) => (j === i ? { ...x, end: e.target.value } : x)))} />
+                      {!gridLocked && <button className="btn-icon" aria-label="Quitar tramo" onClick={() => setDay(d, ranges.filter((_, j) => j !== i))}>✕</button>}
                     </span>
                   ))}
-                  <button className="btn btn-sm" onClick={() => setDay(d, [...ranges, { start: ranges.length ? '16:00' : '09:00', end: ranges.length ? '20:00' : '13:00' }])}>+ tramo</button>
+                  {!gridLocked && <button className="btn btn-sm" onClick={() => setDay(d, [...ranges, { start: ranges.length ? '16:00' : '09:00', end: ranges.length ? '20:00' : '13:00' }])}>+ tramo</button>}
                 </div>
               </div>
             );
           })}
         </div>
+        <p className="muted small">
+          {gridLocked
+            ? 'El horario no se puede cambiar porque ya hay citas reservadas. Para no atender unas horas usa Agenda → Bloquear horas; para días enteros, Cierres.'
+            : 'Elige bien el horario: no se podrá cambiar después de la primera reserva.'}
+        </p>
       </section>
 
       <Reminders value={s.reminders} saved={(saved ?? s).reminders} channels={channels} onChange={(reminders) => setS({ ...s, reminders })} />

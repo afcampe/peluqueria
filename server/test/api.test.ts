@@ -83,6 +83,37 @@ afterAll(async () => {
 });
 
 describe('reservas', () => {
+  it('la duración de las citas y la hora de apertura solo se cambian antes de la primera cita', async () => {
+    const locked = async () => (await call('GET', '/api/admin/settings', undefined, adminToken)).body.gridLocked;
+    const put = (body: unknown) => call('PUT', '/api/admin/settings', body, adminToken);
+    expect(await locked()).toBe(false);
+    expect((await put({ slotMinutes: 20 })).status).toBe(200);
+    expect((await put({ slotMinutes: 30 })).status).toBe(200);
+
+    const client = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    const at = new Date(Date.now() + 86_400_000);
+    const a = await prisma.appointment.create({ data: { clientId: client.id, serviceId, startAt: at, endAt: at, priceCents: 1500, paymentMethod: 'cash' } });
+    expect(await locked()).toBe(true);
+    const r = await put({ slotMinutes: 45 });
+    expect(r.status).toBe(409);
+    expect(r.body.code).toBe('SLOT_MINUTES_LOCKED');
+    const week = (await call('GET', '/api/admin/settings', undefined, adminToken)).body.settings.weeklySchedule;
+    const day = (ranges: unknown) => put({ weeklySchedule: { ...week, 1: ranges } });
+    const late = await day([{ start: '09:15', end: '13:00' }, week[1][1]]);
+    expect(late.status).toBe(409);
+    expect(late.body.code).toBe('SCHEDULE_LOCKED');
+    expect((await day([{ start: '09:00', end: '12:00' }, week[1][1]])).status).toBe(409); // cerrar antes
+    expect((await day([week[1][0]])).status).toBe(409); // quitar un tramo
+    expect((await day([...week[1], { start: '20:30', end: '21:30' }])).status).toBe(409); // añadirlo
+    expect((await put({ weeklySchedule: { ...week, 6: [{ start: '10:00', end: '13:00' }] } })).status).toBe(409); // abrir un día cerrado
+    expect((await put({ weeklySchedule: week })).status).toBe(200);
+    // El resto de la configuración se sigue guardando
+    const ok = await put({ slotMinutes: 30, capacity: 1 });
+    expect(ok.status).toBe(200);
+    expect(ok.body.slotMinutes).toBe(30);
+    await prisma.appointment.delete({ where: { id: a.id } });
+  });
+
   it('reserva en efectivo, impide doble reserva y permite modificar y cancelar', async () => {
     const start = await slotIn(2);
     const r = await call('POST', '/api/appointments', { serviceId, startAt: start, paymentMethod: 'cash' }, clientToken);
@@ -100,6 +131,37 @@ describe('reservas', () => {
     const cancel = await call('POST', `/api/appointments/${r.body.id}/cancel`, {}, clientToken);
     expect(cancel.status).toBe(200);
     expect(cancel.body.appointment.status).toBe('CANCELLED');
+  });
+
+  it('bloquea horas desde la agenda, no si tienen cita, y se desbloquean', async () => {
+    const block = (starts: string[], token = adminToken, reason?: string) => call('POST', '/api/admin/blocks', { starts, reason }, token);
+    const book = (startAt: string) => call('POST', '/api/appointments', { serviceId, startAt, paymentMethod: 'cash' }, clientToken);
+    const [a, b, c] = [await slotIn(6, 0), await slotIn(6, 1), await slotIn(6, 3)];
+    expect((await block([a], clientToken)).status).toBe(403);
+    expect((await block([new Date(Date.parse(a) + 600_000).toISOString()])).status).toBe(400); // fuera de la rejilla
+
+    const appt = await book(b);
+    const busy = await block([a, b]);
+    expect(busy.status).toBe(409);
+    expect(busy.body.error).toContain('Cliente');
+    expect(await prisma.closure.count()).toBe(0); // o todas o ninguna
+    await call('POST', `/api/appointments/${appt.body.id}/cancel`, {}, clientToken);
+
+    const r = await block([c, b, a], adminToken, 'Trámite');
+    expect(r.status).toBe(201);
+    expect(r.body).toHaveLength(2); // las contiguas, en uno
+    expect(r.body[0]).toMatchObject({ startAt: a, reason: 'Trámite' });
+    expect((await block([a])).status).toBe(409);
+    expect((await book(a)).status).toBe(409);
+    const pub = (await call('GET', `/api/public/availability?date=${DateTime.fromISO(a).setZone('Europe/Madrid').toISODate()}`)).body;
+    expect(pub.find((s: { start: string }) => s.start === a).available).toBe(false);
+    expect(JSON.stringify(pub)).not.toContain('Trámite');
+
+    for (const x of r.body) expect((await call('DELETE', `/api/admin/closures/${x.id}`, undefined, adminToken)).status).toBe(204);
+    expect((await call('POST', '/api/appointments/series/preview', { firstStart: a, intervalDays: 7, count: 2 }, clientToken)).status).toBe(200);
+    const ok = await book(a);
+    expect(ok.status).toBe(201);
+    await call('POST', `/api/appointments/${ok.body.id}/cancel`, {}, clientToken);
   });
 
   it('rechaza horas fuera de horario y más allá de 1 año', async () => {
