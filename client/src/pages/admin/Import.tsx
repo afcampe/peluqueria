@@ -159,14 +159,14 @@ export function ImportList() {
                     {i.uncertain > 0 && i.status !== 'IMPORTED' && <div className="small warn-text">{i.uncertain} dudosa(s)</div>}
                     {i.failed > 0 && <div className="small err-text">{i.failed} con error</div>}
                   </td>
-                  <td className="actions">
+                  <td className="td-actions"><div className="actions">
                     {(i.status === 'READY' || i.status === 'ERROR' || i.status === 'IMPORTED') && (
                       <Link className={`btn btn-sm ${i.status === 'READY' ? 'btn-primary' : ''}`} to={`/admin/importar/${i.id}`}>{i.status === 'IMPORTED' ? 'Ver' : 'Revisar'}</Link>
                     )}
                     {i.status === 'ERROR' && i.hasImage && (
                       <button className="btn btn-sm" onClick={() => api.post(`/admin/imports/${i.id}/retry`).then(load).catch((e) => setError(errMsg(e)))}>Volver a leer</button>
                     )}
-                  </td>
+                  </div></td>
                 </tr>
               ))}
             </tbody>

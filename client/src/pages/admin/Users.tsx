@@ -75,7 +75,7 @@ export function Users() {
                     <Badge status={u.status}>{statusText[u.status]}</Badge>
                     {u.status === 'BLOCKED' && <div className="muted small">{u.blockedUntil ? `hasta ${dateLong(u.blockedUntil)}` : 'indefinido'}{u.blockReason && ` · ${u.blockReason}`}</div>}
                   </td>
-                  <td className="actions">
+                  <td className="td-actions"><div className="actions">
                     {u.role === 'CLIENT' && u.status !== 'DELETED' && <button className="btn btn-sm btn-primary" onClick={() => setModal({ kind: 'book', user: u })}>Reservar cita</button>}
                     {u.role === 'CLIENT' && <Link className="btn btn-sm" to={`/admin/usuarios/${u.id}`}><IconCalendar size={14} /> Ver citas</Link>}
                     {u.whatsappLink && <a className="btn btn-sm btn-wa" href={u.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
@@ -84,7 +84,7 @@ export function Users() {
                     {u.id !== me?.id && u.status === 'ACTIVE' && <button className="btn btn-sm" onClick={() => setModal({ kind: 'block', user: u })}>Bloquear</button>}
                     {u.status === 'BLOCKED' && <button className="btn btn-sm" onClick={() => unblock(u)}>Desbloquear</button>}
                     {u.id !== me?.id && u.status !== 'DELETED' && <button className="btn btn-sm btn-danger" onClick={() => setModal({ kind: 'delete', user: u })}>Baja</button>}
-                  </td>
+                  </div></td>
                 </tr>
               ))}
             </tbody>

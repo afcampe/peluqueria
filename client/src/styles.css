@@ -185,7 +185,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .table th, .table td { padding: .65rem .8rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
 .table th { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; background: var(--surface-2); }
 .actions { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
-td.actions { justify-content: flex-end; }
+.td-actions > .actions { justify-content: flex-end; }
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .page-head h1, .page-head h2 { margin: 0; }
 .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 1rem; align-items: end; }
@@ -749,7 +749,7 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .book-save { width: 100%; }
 @media (max-width: 860px) { .book-grid { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; } }
 @media (max-width: 480px) { .book-day { min-height: 54px; padding: .2rem; font-size: .6rem; align-items: center; text-align: center; } .book-day em { font-size: .58rem; padding: 0 .1rem; } }
-.table td.actions .btn-sm { padding-left: .55rem; padding-right: .55rem; }
+.table .td-actions .btn-sm { padding-left: .55rem; padding-right: .55rem; }
 .book-mine li { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .5rem; } .book-mine li .actions { margin-left: auto; } .book-mine { max-height: 190px; }
 .book-mine .btn-sm { padding: .2rem .5rem; font-size: .68rem; }
 .book-wait { margin: .6rem 0; padding: .7rem .85rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 4px; } .book-wait p { margin: 0 0 .4rem; font-size: .9rem; } .book-wait p:last-child { margin: 0; } .book-wait select { width: auto; }

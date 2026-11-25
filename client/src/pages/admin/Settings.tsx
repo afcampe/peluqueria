@@ -191,10 +191,10 @@ function Services({ onChange }: { onChange: () => Promise<void> }) {
             <tr key={s.id} className={s.active ? '' : 'dim'}>
               <td>{s.name}</td>
               <td>{money(s.priceCents)}</td>
-              <td className="actions">
+              <td className="td-actions"><div className="actions">
                 <button className="btn btn-sm" onClick={() => { const p = prompt('Nuevo precio (€)', (s.priceCents / 100).toFixed(2)); if (p) update(s, { priceCents: Math.round(Number(p.replace(',', '.')) * 100) }); }}>Precio</button>
                 <button className="btn btn-sm" onClick={() => update(s, { active: !s.active })}>{s.active ? 'Ocultar' : 'Activar'}</button>
-              </td>
+              </div></td>
             </tr>
           ))}
         </tbody>
