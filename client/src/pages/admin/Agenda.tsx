@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { Alert, Badge, ErrorAlert, Modal, Spinner, errMsg } from '../../components/ui';
 import { canCorrectCharge, canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketOf, ticketsOf } from '../../lib/payment';
 import { api } from '../../lib/api';
-import { addDays, addMonths, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, shownStatus, statusLabel, time, weekLabel } from '../../lib/format';
+import { addDays, addMonths, attendanceText, contactLine, dateLong, dateShort, isoToLocalDate, isoWeekday, isBooked, localISODate, methodLabel, money, monthLabel, startOfMonth, startOfWeek, shownStatus, statusLabel, time, weekLabel } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import type { Appointment, Closure, PublicConfig, User } from '../../lib/types';
 import { IconChevronLeft, IconChevronRight, IconRepeat, IconTicket } from '../../components/icons';
@@ -60,6 +60,9 @@ export function Agenda() {
     open: (kind, a) => setModal({ kind, appt: a }),
     setStatus: async (a, s) => {
       try { await api.patch(`/admin/appointments/${a.id}`, { status: s }); done(s === 'NO_SHOW' ? `Apuntado: ${a.client.name} no vino` : `Corregido: ${a.client.name} sí vino`); } catch (e) { setError(errMsg(e)); }
+    },
+    attendance: async (a, answer) => {
+      try { await api.post(`/admin/appointments/${a.id}/attendance`, { answer }); done(answer === 'YES' ? `Asistencia de ${a.client.name} confirmada` : `Confirmación de ${a.client.name} quitada`); } catch (e) { setError(errMsg(e)); }
     },
     issueTicket: async (a) => {
       try {
@@ -170,13 +173,14 @@ export function Agenda() {
 interface CardActions {
   open: (kind: 'move' | 'cancel' | 'refund' | 'cash', a: Appointment) => void;
   setStatus: (a: Appointment, s: string) => void;
+  attendance: (a: Appointment, answer: 'YES' | 'NO' | null) => void;
   issueTicket: (a: Appointment) => void;
 }
 
 function DayList({ day, appts, act }: { day: string; appts: Appointment[]; act: CardActions }) {
   return (
     <section>
-      <h2 className="day-title">{dateLong(`${day}T12:00:00Z`)} <small className="muted">({[['CONFIRMED', 'confirmadas'], ['COMPLETED', 'realizadas']].map(([k, l]) => [appts.filter((a) => shownStatus(a) === k).length, l] as const).filter(([n]) => n).map(([n, l]) => `${n} ${n === 1 ? l.slice(0, -1) : l}`).join(' · ') || '0 confirmadas'})</small></h2>
+      <h2 className="day-title">{dateLong(`${day}T12:00:00Z`)} <small className="muted">({[['RESERVED', 'reservadas'], ['CONFIRMED', 'confirmadas'], ['COMPLETED', 'realizadas']].map(([k, l]) => [appts.filter((a) => shownStatus(a) === k).length, l] as const).filter(([n]) => n).map(([n, l]) => `${n} ${n === 1 ? l.slice(0, -1) : l}`).join(' · ') || 'sin citas activas'})</small></h2>
       <div className="agenda">{appts.map((a) => <AppointmentCard key={a.id} a={a} act={act} />)}</div>
     </section>
   );
@@ -185,7 +189,7 @@ function DayList({ day, appts, act }: { day: string; appts: Appointment[]; act: 
 function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
   const pay = paymentInfo(a);
   const online = onlinePayment(a);
-  const active = ['CONFIRMED', 'PENDING_PAYMENT'].includes(shownStatus(a)); // las ya terminadas no se mueven ni se cancelan
+  const active = isBooked(a) || (a.status === 'PENDING_PAYMENT' && new Date(a.endAt) > new Date()); // las ya terminadas no se mueven ni se cancelan
   const wa = waUrl(a.client.phone, `Hola ${a.client.name}, te escribimos de la peluquería por tu cita del ${dateShort(a.startAt)} a las ${time(a.startAt)}.`);
   return (
     <article className={`card agenda-item ${a.status === 'CANCELLED' ? 'dim' : ''}`}>
@@ -196,9 +200,13 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
         {a.notes && <div className="muted small">Nota: {a.notes}</div>}
         {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
         <Badge status={shownStatus(a)}>{statusLabel[shownStatus(a)]}</Badge>
+        {a.attendance && a.status === 'CONFIRMED' && <div className="muted small">{attendanceText(a)}</div>}
         {a.series && <span className="series-badge"><IconRepeat size={14} /> cada {a.series.intervalDays} días</span>}
       </div>
       <div className="actions">
+        {isBooked(a) && (a.attendance === 'YES'
+          ? <button className="btn btn-sm" onClick={() => act.attendance(a, null)}>Quitar confirmación</button>
+          : <button className="btn btn-sm btn-ok" onClick={() => act.attendance(a, 'YES')}>Confirmar asistencia</button>)}
         {active && <button className="btn btn-sm" onClick={() => act.open('move', a)}>Cambiar hora</button>}
         {canMarkNoShow(a) && <button className="btn btn-sm" onClick={() => act.setStatus(a, 'NO_SHOW')}>No vino</button>}
         {a.status === 'NO_SHOW' && <button className="btn btn-sm" onClick={() => act.setStatus(a, 'CONFIRMED')}>Sí vino</button>}
@@ -214,7 +222,7 @@ function AppointmentCard({ a, act }: { a: Appointment; act: CardActions }) {
         {active && <button className="btn btn-sm btn-danger" onClick={() => act.open('cancel', a)}>Cancelar</button>}
         {wa && <a className="btn btn-sm btn-wa" href={wa} target="_blank" rel="noreferrer">WhatsApp</a>}
         <EmailReminderButton appointmentId={a.id} disabledReason={!a.client.email ? 'El cliente no tiene email'
-          : a.status !== 'CONFIRMED' || new Date(a.startAt) <= new Date() ? 'Solo para citas confirmadas que aún no han pasado' : undefined} />
+          : a.status !== 'CONFIRMED' || new Date(a.startAt) <= new Date() ? 'Solo para citas reservadas que aún no han pasado' : undefined} />
       </div>
     </article>
   );
@@ -280,8 +288,8 @@ function WeekView({ start, byDay, config, closures, onOpen }: {
                       const pay = paymentInfo(a);
                       return (
                         <button key={a.id} type="button" className={`cal-appt st-${shownStatus(a)} pay-${pay.kind}`} onClick={() => onOpen(a)}
-                          title={`${time(a.startAt)}–${time(a.endAt)} · ${a.client.name} · ${a.service.name} · ${pay.label}`}>
-                          <strong>{a.client.name}</strong>
+                          title={`${time(a.startAt)}–${time(a.endAt)} · ${a.client.name} · ${a.service.name} · ${pay.label} · ${statusLabel[shownStatus(a)]}`}>
+                          <strong>{shownStatus(a) === 'CONFIRMED' ? '✓ ' : shownStatus(a) === 'DECLINED' ? '✕ ' : ''}{a.client.name}</strong>
                           <span>{a.service.name}</span>
                           <i className="pay-dot" aria-label={pay.label} />
                         </button>

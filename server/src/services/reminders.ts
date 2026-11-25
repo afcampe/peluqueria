@@ -2,8 +2,9 @@ import { DateTime } from 'luxon';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
-import { normalizePhone, sendWhatsApp, sendWhatsAppTemplate, whatsappApiConfigured } from '../notifications/whatsapp.js';
+import { normalizePhone, sendWhatsApp, sendWhatsAppButtons, sendWhatsAppTemplate, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { HttpError, badRequest } from '../lib/errors.js';
+import { attendanceUrl, buttonPayload } from './attendance.js';
 import { getSettings, type Settings } from './settings.js';
 
 /**
@@ -48,19 +49,41 @@ export const offsetLabel = (m: number) =>
 
 type Channel = 'EMAIL' | 'WHATSAPP';
 
-async function sendOne(channel: Channel, a: ReminderAppt & { client: { name: string; email: string | null; phone: string | null } }, s: Settings) {
+type Sendable = ReminderAppt & { id?: string; attendance?: string | null; client: { name: string; email: string | null; phone: string | null } };
+
+/** Pregunta que acompaña al aviso: nada si no se pide confirmar o si ya ha respondido que sí. */
+const asks = (a: Sendable, s: Settings) => s.reminders.askConfirmation && a.attendance !== 'YES';
+
+/** Texto y enlaces que se añaden al email para confirmar la asistencia. */
+function emailConfirm(a: Sendable, s: Settings) {
+  if (!s.reminders.askConfirmation) return { text: '', actions: [] };
+  if (a.attendance === 'YES') return { text: '\n\nYa has confirmado tu asistencia. ¡Gracias!', actions: [] };
+  const yes = a.id ? attendanceUrl({ id: a.id, startAt: a.startAt }, 'YES') : null;
+  const no = a.id ? attendanceUrl({ id: a.id, startAt: a.startAt }, 'NO') : null;
+  if (!yes || !no) return { text: '', actions: [] }; // sin dirección pública (o en la prueba) no hay enlaces
+  return { text: `\n\n${s.reminders.confirmQuestion}`, actions: [{ label: 'Sí, confirmo que voy', url: yes, primary: true }, { label: 'No puedo ir', url: no }] };
+}
+
+async function sendOne(channel: Channel, a: Sendable, s: Settings) {
   const r = s.reminders;
   if (channel === 'EMAIL') {
     if (!a.client.email) return { status: 'SKIPPED', detail: 'El cliente no tiene email' };
-    await sendEmail(a.client.email, renderReminder(r.emailSubject, a, s), renderReminder(r.emailBody, a, s));
+    const c = emailConfirm(a, s);
+    await sendEmail(a.client.email, renderReminder(r.emailSubject, a, s), renderReminder(r.emailBody, a, s) + c.text, c.actions);
     return { status: 'SENT', detail: a.client.email };
   }
   if (!whatsappApiConfigured()) return { status: 'SKIPPED', detail: 'La API de WhatsApp no está configurada' };
   const phone = normalizePhone(a.client.phone);
   if (!phone) return { status: 'SKIPPED', detail: 'El cliente no tiene un teléfono válido' };
+  const ref = a.id ? { id: a.id, startAt: a.startAt } : null;
   if (r.whatsappTemplate) {
     const v = reminderVars(a, s);
-    await sendWhatsAppTemplate(phone, r.whatsappTemplate, r.whatsappTemplateLang, [v.nombre, v.fecha, v.hora, v.servicio]);
+    // Si la plantilla lleva los botones Sí / No hay que mandar siempre sus identificadores.
+    const buttons = r.askConfirmation ? (ref ? [buttonPayload(ref, 'YES'), buttonPayload(ref, 'NO')] : ['PRUEBA_SI', 'PRUEBA_NO']) : [];
+    await sendWhatsAppTemplate(phone, r.whatsappTemplate, r.whatsappTemplateLang, [v.nombre, v.fecha, v.hora, v.servicio], buttons);
+  } else if (asks(a, s)) {
+    await sendWhatsAppButtons(phone, `${renderReminder(r.whatsappBody, a, s)}\n\n${r.confirmQuestion}`, [
+      { id: ref ? buttonPayload(ref, 'YES') : 'PRUEBA_SI', title: 'Sí' }, { id: ref ? buttonPayload(ref, 'NO') : 'PRUEBA_NO', title: 'No' }]);
   } else {
     await sendWhatsApp(phone, renderReminder(r.whatsappBody, a, s));
   }
@@ -92,6 +115,7 @@ export async function runReminders(now = new Date()) {
     let sent = 0;
     for (const a of appts) {
       if (a.client.status !== 'ACTIVE') continue;
+      if (a.attendance === 'NO') continue; // ya ha dicho que no viene
       // Antelaciones que ya han llegado, sin contar las que vencieron antes de reservar
       // (para eso ya está el email de confirmación).
       const due = offsets.filter((o) => {
@@ -149,7 +173,8 @@ export async function previewEmailReminder(by: { appointmentId: string } | { cli
   const s = await getSettings();
   return {
     appointmentId: a.id, to, simulated: !emailConfigured(),
-    subject: renderReminder(s.reminders.emailSubject, a, s), body: renderReminder(s.reminders.emailBody, a, s),
+    subject: renderReminder(s.reminders.emailSubject, a, s), body: renderReminder(s.reminders.emailBody, a, s) + emailConfirm(a, s).text,
+    actions: emailConfirm(a, s).actions.map((x) => x.label),
   };
 }
 

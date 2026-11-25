@@ -8,13 +8,14 @@ import { avatarData, avatarField } from '../lib/avatar.js';
 import { config } from '../config.js';
 import { prisma } from '../lib/db.js';
 import { addToWaitlist, listWaitlist, removeFromWaitlist } from '../services/waitlist.js';
+import { answerByAdmin } from '../services/attendance.js';
 import { business, dashboard, integrations } from '../services/dashboard.js';
 import { mergeClient } from '../services/agendaImport.js';
 import { assertReminderPrefs, defaultReminderPrefs, previewEmailReminder, recentReminders, sendEmailReminder, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
 import { remindersSchema } from '../services/settings.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
-import { sendWhatsApp, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
+import { sendWhatsApp, waLink, whatsappApiConfigured, whatsappRepliesConfigured } from '../notifications/whatsapp.js';
 import { allProviders } from '../payments/registry.js';
 import { availabilityForDate, calendarMonth, cancelAppointment, cancelSeries, createAppointment, createSeries, isPaidInShop, previewSeries, refundWithoutCancel, rescheduleAppointment, withRelations } from '../services/appointments.js';
 import { seriesCreateSchema, seriesPreviewSchema } from './appointments.js';
@@ -54,7 +55,10 @@ adminRouter.get('/appointments', h(async (req, res) => {
     NOT: { status: 'CANCELLED', cancelledBy: 'SYSTEM' },
     // Una cita confirmada cuya hora ya ha pasado cuenta como realizada.
     ...(q.status === 'COMPLETED' ? { OR: [{ status: 'COMPLETED' }, { status: 'CONFIRMED', endAt: { lte: new Date() } }] }
-      : q.status === 'CONFIRMED' ? { status: 'CONFIRMED', endAt: { gt: new Date() } }
+      // Reservada, confirmada y no asistirá son la misma cita reservada según lo que haya respondido el cliente.
+      : q.status === 'CONFIRMED' ? { status: 'CONFIRMED', endAt: { gt: new Date() }, attendance: 'YES' }
+      : q.status === 'DECLINED' ? { status: 'CONFIRMED', endAt: { gt: new Date() }, attendance: 'NO' }
+      : q.status === 'RESERVED' ? { status: 'CONFIRMED', endAt: { gt: new Date() }, attendance: null }
       : q.status && { status: q.status }),
     ...(q.clientId && { clientId: q.clientId }),
     startAt: {
@@ -166,6 +170,13 @@ adminRouter.patch('/appointments/:id', h(async (req, res) => {
     const refunded = a.paymentMethod !== 'cash' && a.payments.some((p) => p.status === 'REFUNDED') && !a.payments.some((p) => ['COMPLETED', 'PARTIALLY_REFUNDED'].includes(p.status));
     await prisma.appointment.update({ where: { id: a.id }, data: { status: data.status, ...(data.status === 'CONFIRMED' && refunded && { paymentMethod: 'cash' }) } });
   }
+  res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
+}));
+
+/** Asistencia que el cliente ha dicho por teléfono (null = quitar la respuesta). */
+adminRouter.post('/appointments/:id/attendance', h(async (req, res) => {
+  const { answer } = z.object({ answer: z.enum(['YES', 'NO']).nullable() }).parse(req.body);
+  await answerByAdmin(req.params.id, answer);
   res.json(await prisma.appointment.findUniqueOrThrow({ where: { id: req.params.id }, include: withRelations }));
 }));
 
@@ -400,7 +411,10 @@ adminRouter.get('/settings', h(async (_req, res) => {
   res.json({
     settings: await getSettings(),
     providers: allProviders().map((p) => ({ id: p.id, label: p.label, online: p.online, configured: p.isConfigured() })),
-    channels: { email: emailConfigured(), whatsappApi: whatsappApiConfigured() },
+    channels: {
+      email: emailConfigured(), whatsappApi: whatsappApiConfigured(), whatsappReplies: whatsappRepliesConfigured(),
+      publicUrl: config.publicUrl, webhookUrl: config.publicUrl ? `${config.publicUrl}/api/webhooks/whatsapp` : '',
+    },
   });
 }));
 

@@ -29,6 +29,9 @@ export const remindersSchema = z.object({
   /** Plantilla aprobada en Meta (obligatoria para escribir a quien no ha escrito en las últimas 24 h). */
   whatsappTemplate: z.string().trim().max(100).default(''),
   whatsappTemplateLang: z.string().trim().max(10).default('es'),
+  /** Pide al cliente que confirme su asistencia (enlace en el email, botones Sí / No en WhatsApp). */
+  askConfirmation: z.boolean().default(true),
+  confirmQuestion: z.string().trim().min(1).max(200).default('Confirme su asistencia contestando a la pregunta: ¿vendrá a su cita?'),
 });
 export type ReminderSettings = z.infer<typeof remindersSchema>;
 

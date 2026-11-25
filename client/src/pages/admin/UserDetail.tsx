@@ -6,7 +6,7 @@ import { Avatar } from '../../components/Avatar';
 import { Alert, Badge, Modal, Spinner, errMsg } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useSession } from '../../lib/session';
-import { contactLine, dateLong, methodLabel, money, shownStatus, statusLabel, time } from '../../lib/format';
+import { attendanceText, contactLine, dateLong, isBooked, methodLabel, money, shownStatus, statusLabel, time } from '../../lib/format';
 import { canCorrectCharge, canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketsOf } from '../../lib/payment';
 import { TicketButtons } from '../../components/TicketButton';
 import { CashModal, OnlineRefundModal } from './Agenda';
@@ -83,7 +83,7 @@ export function UserDetail() {
         {user.whatsappLink && <a className="btn btn-wa" href={user.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
         {user.role === 'CLIENT' && user.status !== 'DELETED' && (
           <EmailReminderButton small={false} clientId={user.id} disabledReason={!user.email ? 'El cliente no tiene email'
-            : future.some((a) => a.status === 'CONFIRMED') ? undefined : 'No tiene ninguna cita próxima confirmada'} />
+            : future.some((a) => a.status === 'CONFIRMED') ? undefined : 'No tiene ninguna cita próxima'} />
         )}
       </section>
 
@@ -145,6 +145,10 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
     try { await api.post(`/admin/appointments/${a.id}/${path}`); onChange(); } catch (e) { setError(errMsg(e)); }
   };
 
+  const attend = async (answer: 'YES' | null) => {
+    setError('');
+    try { await api.post(`/admin/appointments/${a.id}/attendance`, { answer }); onChange(); } catch (e) { setError(errMsg(e)); }
+  };
   const setStatus = async (status: string) => {
     setError('');
     try { await api.patch(`/admin/appointments/${a.id}`, { status }); onChange(); } catch (e) { setError(errMsg(e)); }
@@ -163,11 +167,13 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
           <span className={`pay pay-${pay.kind}`}>{pay.label}</span>
           <span className="muted small">· {methodLabel(a.paymentMethod)}</span>
         </div>
+        {a.attendance && a.status === 'CONFIRMED' && <div className="muted small">{attendanceText(a)}</div>}
         {a.notes && <div className="muted small">Nota: {a.notes}</div>}
         {a.cancelReason && <div className="muted small">Motivo: {a.cancelReason} ({a.cancelledBy === 'CLIENT' ? 'cliente' : 'peluquería'})</div>}
         {error && <div className="error-text small">{error}</div>}
       </div>
       <div className="actions">
+        {isBooked(a) && (a.attendance === 'YES' ? <button className="btn btn-sm" onClick={() => attend(null)}>Quitar confirmación</button> : <button className="btn btn-sm btn-ok" onClick={() => attend('YES')}>Confirmar asistencia</button>)}
         {canMarkNoShow(a) && <button className="btn btn-sm" onClick={() => setStatus('NO_SHOW')}>No vino</button>}
         {a.status === 'NO_SHOW' && <button className="btn btn-sm" onClick={() => setStatus('CONFIRMED')}>Sí vino</button>}
         {canMarkPaid && <button className="btn btn-sm" onClick={() => setModal('cash')}>Marcar cobrada</button>}

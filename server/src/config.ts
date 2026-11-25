@@ -32,6 +32,8 @@ export const config = {
   importDir: path.resolve(serverRoot, process.env.IMPORT_DIR ?? 'storage/import'),
   /** Web compilada (client/dist) que sirve el propio servidor; así web y API van en la misma dirección. */
   clientDist: path.resolve(serverRoot, process.env.CLIENT_DIST ?? '../client/dist'),
+  /** Dirección pública, para los enlaces de los emails (en Railway se detecta sola). Vacía = sin enlaces. */
+  publicUrl: (process.env.PUBLIC_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')).replace(/\/$/, ''),
   /** Contraseña para entrar en la web mientras es un borrador (vacía = acceso libre). */
   sitePassword: process.env.SITE_PASSWORD ?? '',
   /** Pide a los buscadores que no indexen la web (demostraciones). */
@@ -41,5 +43,8 @@ export const config = {
   whatsapp: {
     token: process.env.WHATSAPP_TOKEN ?? '',
     phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? '',
+    /** Para recibir las respuestas de los clientes (webhook de Meta). */
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? '',
+    appSecret: process.env.WHATSAPP_APP_SECRET ?? '',
   },
 };

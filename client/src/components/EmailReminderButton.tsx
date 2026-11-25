@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { Alert, Modal, Spinner, errMsg } from './ui';
 
-interface Preview { appointmentId: string; to: string; subject: string; body: string; simulated: boolean }
+interface Preview { appointmentId: string; to: string; subject: string; body: string; simulated: boolean; actions: string[] }
 
 /**
  * Envía a mano el recordatorio por email de una cita o, con clientId, de la
- * próxima cita confirmada del cliente. Muestra el texto antes de enviarlo.
+ * próxima cita del cliente. Muestra el texto antes de enviarlo.
  */
 export function EmailReminderButton({ appointmentId, clientId, disabledReason, small = true }: {
   appointmentId?: string; clientId?: string; disabledReason?: string; small?: boolean;
@@ -45,7 +45,7 @@ export function EmailReminderButton({ appointmentId, clientId, disabledReason, s
             <>
               {preview.simulated && <Alert kind="info">El SMTP no está configurado: el email no llegará al cliente.</Alert>}
               <p><span className="muted">Para:</span> {preview.to}<br /><span className="muted">Asunto:</span> {preview.subject}</p>
-              <div className="mail-preview">{preview.body}</div>
+              <div className="mail-preview">{preview.body}{preview.actions.length > 0 && <p className="mail-actions">{preview.actions.map((x) => <span key={x}>{x}</span>)}</p>}</div>
             </>
           )}
           <div className="confirm-actions">

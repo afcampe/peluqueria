@@ -31,7 +31,7 @@ const statusText = { SENDING: 'Enviando', SENT: 'Enviado', FAILED: 'Falló', SKI
 const statusClass = { SENDING: 'pending_payment', SENT: 'confirmed', FAILED: 'cancelled', SKIPPED: 'warn' };
 
 export function Reminders({ value: r, saved, channels, onChange }: {
-  value: ReminderSettings; saved: ReminderSettings; channels: { email: boolean; whatsappApi: boolean }; onChange: (r: ReminderSettings) => void;
+  value: ReminderSettings; saved: ReminderSettings; channels: { email: boolean; whatsappApi: boolean; whatsappReplies: boolean; publicUrl: string; webhookUrl: string }; onChange: (r: ReminderSettings) => void;
 }) {
   const { config, user } = useSession();
   const set = (patch: Partial<ReminderSettings>) => onChange({ ...r, ...patch });
@@ -99,7 +99,7 @@ export function Reminders({ value: r, saved, channels, onChange }: {
     <section className="card reminders">
       <h2>Recordatorios de citas</h2>
       <label className="check"><input type="checkbox" checked={r.enabled} onChange={(e) => toggle({ enabled: e.target.checked })} /> Enviar automáticamente un aviso a los clientes antes de su cita</label>
-      <p className="muted small">Se envía a las citas confirmadas, una vez por cada antelación. Si se cambia la hora de la cita, se vuelve a avisar con la nueva hora; las canceladas no se avisan. Si la cita se reserva cuando ya ha pasado el momento del aviso (p. ej. con menos de 1 día), ese aviso no se manda porque el cliente ya recibe la confirmación.</p>
+      <p className="muted small">Se envía a las citas reservadas, una vez por cada antelación. Si se cambia la hora de la cita, se vuelve a avisar con la nueva hora; las canceladas y las de quien ya ha dicho que no viene no se avisan. Si la cita se reserva cuando ya ha pasado el momento del aviso (p. ej. con menos de 1 día), ese aviso no se manda porque el cliente ya recibe la confirmación.</p>
 
       {lostNow.length > 0 && <Alert>Al guardar se desactivará el aviso {label(lostNow)} en todos los perfiles de cliente.</Alert>}
       {gained.length > 0 && <Alert kind="info">Al guardar se activará el aviso {label(gained)} en todos los perfiles de cliente. Después cada cliente (o tú desde su ficha) puede quitarlo.</Alert>}
@@ -166,6 +166,25 @@ export function Reminders({ value: r, saved, channels, onChange }: {
                 <label>Texto del WhatsApp<textarea rows={3} maxLength={1000} value={r.whatsappBody} onChange={(e) => set({ whatsappBody: e.target.value })} /></label>
                 <div className="preview"><span className="muted small">Vista previa</span><p>{sample(r.whatsappBody)}</p></div>
                 <p className="small warn-text">Sin plantilla, WhatsApp solo entrega el texto libre a clientes que te hayan escrito en las últimas 24 h. Para avisar a todos, crea una plantilla en Meta (categoría «Utilidad») y pon aquí su nombre.</p>
+              </>
+            )}
+          </>
+        )}
+      </fieldset>
+
+      <fieldset className="reminder-block" disabled={!r.enabled}>
+        <legend>Confirmar la asistencia</legend>
+        <label className="check"><input type="checkbox" checked={r.askConfirmation} onChange={(e) => set({ askConfirmation: e.target.checked })} /> Pedir al cliente que confirme si viene</label>
+        <p className="muted small">Una cita queda «Reservada» al reservar y pasa a «Confirmada» cuando el cliente responde que sí, o cuando lo apuntas tú si llama. Si responde que no, sale en el Resumen; no se cancela sola.</p>
+        {r.askConfirmation && (
+          <>
+            <label>Pregunta<input maxLength={200} value={r.confirmQuestion} onChange={(e) => set({ confirmQuestion: e.target.value })} /></label>
+            {r.email && <p className={`small ${channels.publicUrl ? 'muted' : 'warn-text'}`}>{channels.publicUrl ? 'Email: lleva dos botones, «Sí, confirmo que voy» y «No puedo ir», que abren una página para responder sin iniciar sesión.' : 'Email: falta la dirección pública del servidor (PUBLIC_URL), así que los emails van sin el enlace.'}</p>}
+            {r.whatsapp && (
+              <>
+                <p className="muted small">WhatsApp: el mensaje lleva los botones «Sí» y «No». También vale contestar «sí» o «no» por escrito.</p>
+                {r.whatsappTemplate && <p className="muted small">La plantilla de Meta tiene que terminar con la pregunta y llevar <strong>dos botones de respuesta rápida, en este orden: Sí y No</strong>. Si no los lleva, desmarca esta opción o WhatsApp rechazará el envío.</p>}
+                {!channels.whatsappReplies && <p className="small warn-text">Para recibir las respuestas, configura en el servidor WHATSAPP_VERIFY_TOKEN y WHATSAPP_APP_SECRET y, en Meta, el webhook (campo «messages»){channels.webhookUrl && <>: <code>{channels.webhookUrl}</code></>}.</p>}
               </>
             )}
           </>

@@ -18,7 +18,10 @@ rmSync('storage/test-tickets', { recursive: true, force: true });
 rmSync('storage/test-import', { recursive: true, force: true });
 execSync('npx prisma db push --skip-generate', { stdio: 'ignore', env: process.env });
 
+process.env.PUBLIC_URL = 'https://citas.test';
+for (const k of ['WHATSAPP_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_VERIFY_TOKEN', 'WHATSAPP_APP_SECRET']) process.env[k] = '';
 const { createApp } = await import('../src/app.js');
+const cfg = await import('../src/config.js');
 const { prisma } = await import('../src/lib/db.js');
 const { paypalProvider } = await import('../src/payments/paypal.js');
 const { saveSettings } = await import('../src/services/settings.js');
@@ -978,6 +981,109 @@ describe('lista de espera y consentimiento', () => {
     expect((await links(false)).body.rows).toHaveLength(2);
     // Editar otro dato no cambia el consentimiento
     expect((await call('PATCH', `/api/admin/users/${si.body.user.id}`, { name: 'Marcada 2' }, adminToken)).body).toMatchObject({ acceptsEmail: true, acceptsWhatsapp: true });
+  });
+});
+
+describe('confirmación de asistencia', () => {
+  const att = async (id: string) => prisma.appointment.findUniqueOrThrow({ where: { id }, select: { attendance: true, attendanceBy: true, status: true } });
+  const book = async (d: number) => (await call('POST', '/api/appointments', { serviceId, startAt: await slotIn(d), paymentMethod: 'cash' }, clientToken)).body as { id: string; startAt: string };
+  const { config } = cfg;
+
+  it('al reservar no está confirmada; el enlace del email solo cambia al pulsar, y deja de valer si cambia la hora', async () => {
+    const { attendanceToken, attendanceUrl } = await import('../src/services/attendance.js');
+    const a = await book(64);
+    expect(await att(a.id)).toEqual({ attendance: null, attendanceBy: null, status: 'CONFIRMED' });
+    const token = attendanceToken({ id: a.id, startAt: new Date(a.startAt) });
+    expect(attendanceUrl({ id: a.id, startAt: new Date(a.startAt) }, 'YES')).toBe(`https://citas.test/api/public/asistencia/${token}?r=si`);
+    const url = `${base}/api/public/asistencia/${token}`;
+    const post = (u: string, r: string) => fetch(u, { method: 'POST', body: new URLSearchParams({ r }) });
+    const page = await fetch(url);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain('Confirme su asistencia');
+    expect((await att(a.id)).attendance).toBeNull(); // abrir el enlace no confirma
+    expect((await post(url, 'otra')).status).toBe(400);
+    expect((await post(url, 'si')).status).toBe(200);
+    expect(await att(a.id)).toMatchObject({ attendance: 'YES', attendanceBy: 'EMAIL' });
+    expect((await call('GET', '/api/appointments', undefined, clientToken)).body.find((x: { id: string }) => x.id === a.id).attendance).toBe('YES');
+    expect((await post(url, 'no')).status).toBe(200);
+    expect(await att(a.id)).toMatchObject({ attendance: 'NO', status: 'CONFIRMED' }); // no se cancela sola
+    // Código manipulado o de otra cita
+    expect((await post(url.slice(0, -1) + (url.endsWith('A') ? 'B' : 'A'), 'si')).status).toBe(404);
+    expect((await fetch(`${base}/api/public/asistencia/x.y.z`)).status).toBe(404);
+    // Al cambiar la hora se pierde la respuesta y el enlace antiguo no vale
+    await post(url, 'si');
+    await call('PATCH', `/api/admin/appointments/${a.id}`, { startAt: await slotIn(66) }, adminToken);
+    expect((await att(a.id)).attendance).toBeNull();
+    expect((await post(url, 'si')).status).toBe(410);
+    expect((await att(a.id)).attendance).toBeNull();
+  });
+
+  it('el administrador la apunta por teléfono y se puede filtrar', async () => {
+    const a = await book(67);
+    const set = (answer: string | null, token = adminToken) => call('POST', `/api/admin/appointments/${a.id}/attendance`, { answer }, token);
+    const has = async (status: string) => (await call('GET', `/api/admin/appointments?status=${status}`, undefined, adminToken)).body.some((x: { id: string }) => x.id === a.id);
+    expect([await has('RESERVED'), await has('CONFIRMED')]).toEqual([true, false]);
+    expect((await set('YES', clientToken)).status).toBe(403);
+    expect((await set('YES')).body).toMatchObject({ attendance: 'YES', attendanceBy: 'ADMIN' });
+    expect([await has('RESERVED'), await has('CONFIRMED')]).toEqual([false, true]);
+    await set('NO');
+    expect(await has('DECLINED')).toBe(true);
+    expect((await call('GET', '/api/admin/dashboard', undefined, adminToken)).body.todo.declined.map((x: { id: string }) => x.id)).toContain(a.id);
+    expect((await set(null)).body.attendance).toBeNull();
+    await call('POST', `/api/admin/appointments/${a.id}/cancel`, { notify: false }, adminToken);
+    expect((await set('YES')).status).toBe(400);
+  });
+
+  it('WhatsApp: solo con firma válida y desde el teléfono del cliente; botones y texto', async () => {
+    const { buttonPayload } = await import('../src/services/attendance.js');
+    const { createHmac } = await import('node:crypto');
+    const a = await book(68);
+    const ref = { id: a.id, startAt: new Date(a.startAt) };
+    expect(buttonPayload(ref, 'YES').length).toBeLessThanOrEqual(128); // límite de Meta
+    const send = (messages: unknown[], secret = 'secreto-app', id = '') => {
+      const body = JSON.stringify({ entry: [{ changes: [{ value: { metadata: { phone_number_id: id }, messages } }] }] });
+      return fetch(`${base}/api/webhooks/whatsapp`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Hub-Signature-256': `sha256=${createHmac('sha256', secret).update(body).digest('hex')}` }, body });
+    };
+    const yes = { from: '34600111222', type: 'button', button: { payload: buttonPayload(ref, 'YES') } };
+    expect((await send([yes])).status).toBe(503); // sin secreto configurado no se acepta nada
+    config.whatsapp.appSecret = 'secreto-app'; config.whatsapp.verifyToken = 'verifica';
+    expect((await send([yes], 'otro')).status).toBe(401);
+    expect((await send([{ ...yes, from: '34699999999' }])).status).toBe(200);
+    expect((await att(a.id)).attendance).toBeNull(); // otro teléfono
+    expect((await send([yes])).status).toBe(200);
+    expect(await att(a.id)).toMatchObject({ attendance: 'YES', attendanceBy: 'WHATSAPP' });
+    await send([{ from: '34600111222', type: 'interactive', interactive: { button_reply: { id: buttonPayload(ref, 'NO') } } }]);
+    expect((await att(a.id)).attendance).toBe('NO');
+    // Texto: solo si se le ha preguntado por una única cita
+    await send([{ from: '34600111222', type: 'text', text: { body: 'Sí' } }]);
+    expect((await att(a.id)).attendance).toBe('NO');
+    await prisma.appointmentReminder.create({ data: { appointmentId: a.id, startAt: ref.startAt, offsetMinutes: 1440, channel: 'WHATSAPP', status: 'SENT' } });
+    await send([{ from: '34600111222', type: 'text', text: { body: 'no sé si podré' } }]);
+    expect((await att(a.id)).attendance).toBe('NO');
+    await send([{ from: '34600111222', type: 'text', text: { body: '¡Sí!' } }]);
+    expect((await att(a.id)).attendance).toBe('YES');
+    // Verificación de Meta
+    const v = (t: string) => fetch(`${base}/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=${t}&hub.challenge=123`);
+    expect(await (await v('verifica')).text()).toBe('123');
+    expect((await v('mala')).status).toBe(403);
+    config.whatsapp.appSecret = ''; config.whatsapp.verifyToken = '';
+  });
+
+  it('el recordatorio pregunta solo si hace falta y no se manda a quien dijo que no viene', async () => {
+    const { runReminders, previewEmailReminder } = await import('../src/services/reminders.js');
+    const a = await book(70);
+    const p = await previewEmailReminder({ appointmentId: a.id });
+    expect(p.body).toContain('Confirme su asistencia');
+    expect(p.actions).toEqual(['Sí, confirmo que voy', 'No puedo ir']);
+    await call('POST', `/api/admin/appointments/${a.id}/attendance`, { answer: 'YES' }, adminToken);
+    const done = await previewEmailReminder({ appointmentId: a.id });
+    expect(done.actions).toEqual([]);
+    expect(done.body).toContain('Ya has confirmado');
+    await call('POST', `/api/admin/appointments/${a.id}/attendance`, { answer: 'NO' }, adminToken);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [120] } }, adminToken);
+    await runReminders(new Date(new Date(a.startAt).getTime() - 100 * 60_000));
+    expect(await prisma.appointmentReminder.count({ where: { appointmentId: a.id } })).toBe(0);
+    await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
   });
 });
 

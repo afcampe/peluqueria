@@ -1,4 +1,4 @@
-import type { Appointment, AppointmentStatus } from './types';
+import type { Appointment, ShownStatus } from './types';
 
 const TZ = 'Europe/Madrid';
 let tz = TZ;
@@ -27,14 +27,26 @@ export const isoToLocalDate = (iso: string) => localISODate(new Date(iso));
 
 export const statusLabel: Record<string, string> = {
   PENDING_PAYMENT: 'Pendiente de pago',
+  RESERVED: 'Reservada',
   CONFIRMED: 'Confirmada',
+  DECLINED: 'No asistirá',
   CANCELLED: 'Cancelada',
   COMPLETED: 'Realizada',
   NO_SHOW: 'No se presentó',
 };
-/** Estado que se muestra: una cita confirmada cuya hora ya ha pasado se ve como realizada. */
-export const shownStatus = (a: Pick<Appointment, 'status' | 'endAt'>): AppointmentStatus =>
-  a.status === 'CONFIRMED' && new Date(a.endAt).getTime() <= Date.now() ? 'COMPLETED' : a.status;
+/**
+ * Estado que se muestra. Al reservar, la cita queda "Reservada"; es "Confirmada" solo cuando el
+ * cliente confirma que va a venir. Cuando pasa su hora se ve como realizada.
+ */
+export const shownStatus = (a: Pick<Appointment, 'status' | 'endAt' | 'attendance'>): ShownStatus =>
+  a.status !== 'CONFIRMED' ? a.status
+    : new Date(a.endAt).getTime() <= Date.now() ? 'COMPLETED'
+    : a.attendance === 'YES' ? 'CONFIRMED' : a.attendance === 'NO' ? 'DECLINED' : 'RESERVED';
+/** Reservada y aún sin terminar: se puede mover, cancelar o apuntar la asistencia. */
+export const isBooked = (a: Pick<Appointment, 'status' | 'endAt'>) => a.status === 'CONFIRMED' && new Date(a.endAt).getTime() > Date.now();
+/** "por WhatsApp, mar 24 nov 10:30" */
+export const attendanceText = (a: Pick<Appointment, 'attendance' | 'attendanceBy' | 'attendanceAt'>) =>
+  !a.attendance || !a.attendanceAt ? '' : `${a.attendance === 'YES' ? 'Confirmó' : 'Dijo que no puede venir'} ${a.attendanceBy === 'EMAIL' ? 'por email' : a.attendanceBy === 'WHATSAPP' ? 'por WhatsApp' : '(lo apuntó la peluquería)'}, ${dateShort(a.attendanceAt)} ${time(a.attendanceAt)}`;
 export const methodLabel = (id: string) => ({ cash: 'Efectivo', paypal: 'PayPal' })[id] ?? id;
 export const weekdayNames: Record<string, string> = { '1': 'Lunes', '2': 'Martes', '3': 'Miércoles', '4': 'Jueves', '5': 'Viernes', '6': 'Sábado', '7': 'Domingo' };
 

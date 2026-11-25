@@ -19,9 +19,12 @@ export interface Payment {
 }
 export interface TicketRef { id: string; number: string; issuedAt: string }
 export type AppointmentStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'NO_SHOW';
+/** Lo que se muestra: una cita reservada (CONFIRMED) es Reservada, Confirmada o No asistirá según responda el cliente. */
+export type ShownStatus = AppointmentStatus | 'RESERVED' | 'DECLINED';
 export interface Appointment {
   id: string; startAt: string; endAt: string; status: AppointmentStatus; paymentMethod: string; priceCents: number;
   notes: string | null; cancelledBy: string | null; cancelReason: string | null; holdExpiresAt: string | null;
+  attendance: 'YES' | 'NO' | null; attendanceAt: string | null; attendanceBy: 'EMAIL' | 'WHATSAPP' | 'ADMIN' | null;
   client: { id: string; name: string; email: string | null; phone: string | null };
   service: Service; payments: Payment[];
   series: { id: string; intervalDays: number } | null;
@@ -51,6 +54,7 @@ export interface Settings {
 export interface ReminderSettings {
   enabled: boolean; email: boolean; whatsapp: boolean; offsetsMinutes: number[];
   emailSubject: string; emailBody: string; whatsappBody: string; whatsappTemplate: string; whatsappTemplateLang: string;
+  askConfirmation: boolean; confirmQuestion: string;
 }
 
 export interface Occurrence { requested: string; start: string | null; status: 'OK' | 'MOVED' | 'UNAVAILABLE'; reason?: string; bookedBy?: Owner[] }

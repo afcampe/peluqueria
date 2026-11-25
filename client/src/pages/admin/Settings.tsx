@@ -14,12 +14,12 @@ export function Settings() {
   const [s, setS] = useState<S | null>(null);
   const [saved, setSaved] = useState<S | null>(null);
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [channels, setChannels] = useState({ email: false, whatsappApi: false });
+  const [channels, setChannels] = useState({ email: false, whatsappApi: false, whatsappReplies: false, publicUrl: '', webhookUrl: '' });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get<{ settings: S; providers: ProviderInfo[]; channels: { email: boolean; whatsappApi: boolean } }>('/admin/settings')
+    api.get<{ settings: S; providers: ProviderInfo[]; channels: typeof channels }>('/admin/settings')
       .then((r) => { setS(r.settings); setSaved(r.settings); setProviders(r.providers); setChannels(r.channels); })
       .catch((e) => setError(e.message));
   }, []);

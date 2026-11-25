@@ -8,6 +8,7 @@ import { config } from './config.js';
 import { HttpError } from './lib/errors.js';
 import { adminRouter } from './routes/admin.js';
 import { appointmentsRouter } from './routes/appointments.js';
+import { attendanceRouter, whatsappWebhook } from './routes/attendance.js';
 import { authRouter } from './routes/auth.js';
 import { publicRouter } from './routes/public.js';
 import { ticketsRouter } from './routes/tickets.js';
@@ -18,6 +19,8 @@ export function createApp() {
   app.use(cors({ origin: (origin, cb) => cb(null, !origin || origin === 'null' || config.corsOrigins.includes(origin)) }));
   // Va antes del parser general porque admite fotos de varios MB.
   app.use('/api/admin/imports', importsRouter);
+  // Meta firma el cuerpo tal cual: se lee sin interpretar.
+  app.use('/api/webhooks/whatsapp', whatsappWebhook);
   app.use(express.json({ limit: '600kb' }) /* admite la foto de perfil */);
 
   if (config.noindex) {
@@ -27,6 +30,7 @@ export function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
+  app.use('/api/public/asistencia', attendanceRouter);
   app.use('/api/public', publicRouter);
   app.use('/api/appointments', appointmentsRouter);
   app.use('/api/tickets', ticketsRouter);

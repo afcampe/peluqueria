@@ -78,6 +78,10 @@ model Appointment {
   cancelledAt   DateTime?
   cancelledBy   String? // CLIENT | ADMIN | SYSTEM
   cancelReason  String?
+  // Asistencia confirmada por el cliente: null (sin respuesta) | YES | NO
+  attendance    String?
+  attendanceAt  DateTime?
+  attendanceBy  String? // EMAIL | WHATSAPP | ADMIN
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   payments      Payment[]

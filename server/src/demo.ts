@@ -15,6 +15,7 @@ if (process.env.DEMO_DATA !== 'true') process.exit(0);
 if ((await prisma.user.count({ where: { role: 'CLIENT' } })) > 0) {
   await demoHistory();
   await demoClients();
+  await demoAttendance();
   console.log('[demo] ya hay clientes: no se crean más datos de ejemplo');
   process.exit(0);
 }
@@ -82,6 +83,7 @@ for (let d = -14; d <= 21; d++) {
 }
 await demoHistory();
 await demoClients();
+await demoAttendance();
 console.log(`[demo] ${clients.length} clientes y ${created} citas de ejemplo creados`);
 await prisma.$disconnect();
 
@@ -180,4 +182,15 @@ async function demoClients() {
     }
   }
   console.log('[demo] clientes de ejemplo creados para el Resumen');
+}
+
+/** Respuestas de asistencia de ejemplo en citas próximas de los clientes ficticios. Solo si no hay ninguna. */
+async function demoAttendance() {
+  if (await prisma.appointment.count({ where: { attendance: { not: null } } })) return;
+  const list = await prisma.appointment.findMany({ where: { status: 'CONFIRMED', startAt: { gt: new Date() }, client: { email: { endsWith: '@example.com' } } }, orderBy: { startAt: 'asc' }, take: 30 });
+  for (const [i, a] of list.entries()) {
+    if (i % 5 > 2 || (i > 0 && i % 11 === 0)) continue;
+    await prisma.appointment.update({ where: { id: a.id }, data: { attendance: i === 4 || i === 12 ? 'NO' : 'YES', attendanceAt: new Date(), attendanceBy: (['WHATSAPP', 'EMAIL', 'ADMIN'] as const)[i % 3] } });
+  }
+  if (list[6]) await prisma.appointment.update({ where: { id: list[6].id }, data: { attendance: 'NO', attendanceAt: new Date(), attendanceBy: 'WHATSAPP' } });
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
-import { addDays, addMonths, contactLine, dateLong, dateShort, dateTime, isoToLocalDate, localISODate, money, monthLabel, startOfMonth, startOfWeek, statusLabel, time, waitPartLabel } from '../lib/format';
+import { addDays, addMonths, contactLine, dateLong, dateShort, dateTime, isoToLocalDate, localISODate, money, monthLabel, startOfMonth, startOfWeek, shownStatus, statusLabel, time, waitPartLabel } from '../lib/format';
 import { useSession } from '../lib/session';
 import type { Appointment, Slot, WaitEntry, WaitPart } from '../lib/types';
 import { CancelModal } from '../pages/admin/Agenda';
@@ -183,7 +183,7 @@ export function BookForClient({ user, onClose, onDone, initialDate, onChanged }:
           {!mine ? <Spinner /> : upcoming.length === 0 ? <p className="muted small">No tiene ninguna.</p> : (
             <ul className="book-mine">
               {upcoming.map((a) => (
-                <li key={a.id}><button type="button" className="link" onClick={() => goTo(isoToLocalDate(a.startAt))}>{dateShort(a.startAt)} · {time(a.startAt)}</button> <span className="muted small">{a.service.name}{a.status !== 'CONFIRMED' && ` · ${statusLabel[a.status]}`}{a.series && ` · cada ${a.series.intervalDays} días`}</span>
+                <li key={a.id}><button type="button" className="link" onClick={() => goTo(isoToLocalDate(a.startAt))}>{dateShort(a.startAt)} · {time(a.startAt)}</button> <span className="muted small">{a.service.name} · {statusLabel[shownStatus(a)]}{a.series && ` · cada ${a.series.intervalDays} días`}</span>
                   {a.status === 'CONFIRMED' && <span className="actions"><button type="button" className="btn btn-sm" aria-pressed={moving?.id === a.id} onClick={() => { setFlash(''); setMoving(a); goTo(isoToLocalDate(a.startAt)); }}>Cambiar</button><button type="button" className="btn btn-sm btn-danger" onClick={() => { setFlash(''); setCancelling(a); }}>Cancelar</button></span>}</li>
               ))}
             </ul>

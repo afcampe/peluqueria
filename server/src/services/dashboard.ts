@@ -27,7 +27,7 @@ const dayAppointments = (from: Date, to: Date) =>
 
 const brief = (a: Appt) => ({
   id: a.id, startAt: a.startAt, endAt: a.endAt, status: a.status, priceCents: a.priceCents, paymentMethod: a.paymentMethod,
-  client: { id: a.client.id, name: a.client.name, email: a.client.email, phone: a.client.phone }, service: a.service.name, paid: isPaid(a),
+  client: { id: a.client.id, name: a.client.name, email: a.client.email, phone: a.client.phone }, service: a.service.name, paid: isPaid(a), attendance: a.attendance,
 });
 
 export async function dashboard(now = new Date()) {
@@ -126,7 +126,7 @@ async function weekGaps(s: Settings, now: Date) {
 async function pendingTasks(s: Settings, now: Date) {
   const local = DateTime.fromJSDate(now).setZone(s.timezone);
   const tomorrow = local.plus({ days: 1 });
-  const [past, tomorrowAppts, failed, imports] = await Promise.all([
+  const [past, tomorrowAppts, failed, imports, declined] = await Promise.all([
     // Ya pasadas (60 días) sin cobrar ni marcar como ausencia.
     prisma.appointment.findMany({
       where: { status: { in: ['CONFIRMED', 'COMPLETED'] }, endAt: { lte: now }, startAt: { gte: local.minus({ days: 60 }).toJSDate() }, payments: { none: { status: { in: PAID } } } },
@@ -138,6 +138,8 @@ async function pendingTasks(s: Settings, now: Date) {
       include: { appointment: { select: { startAt: true, client: { select: { id: true, name: true } } } } }, orderBy: { createdAt: 'desc' },
     }),
     prisma.agendaImport.count({ where: { status: { in: ['READY', 'ERROR'] } } }),
+    // Han dicho que no pueden venir y la cita sigue en pie.
+    prisma.appointment.findMany({ where: { status: 'CONFIRMED', attendance: 'NO', startAt: { gt: now } }, include, orderBy: { startAt: 'asc' } }),
   ]);
 
   // Solo si los recordatorios están activados: quién tiene cita mañana y no lo recibirá.
@@ -153,6 +155,8 @@ async function pendingTasks(s: Settings, now: Date) {
 
   return {
     unpaid: { count: past.length, totalCents: past.reduce((n, a) => n + a.priceCents, 0), items: past.slice(0, 5).map(brief) },
+    declined: declined.map((a) => ({ ...brief(a), by: a.attendanceBy })),
+    unconfirmed: tomorrowAppts.filter((a) => a.status === 'CONFIRMED' && !a.attendance).map(brief),
     noReminder: noReminder.map((a) => ({ ...brief(a), whatsappLink: waLink(a.client.phone, `Hola ${a.client.name}, te recordamos tu cita de mañana a las ${DateTime.fromJSDate(a.startAt).setZone(s.timezone).toFormat('HH:mm')} en ${s.shopName}.`) })),
     failedReminders: failed.map((f) => ({ id: f.id, channel: f.channel, detail: f.detail, startAt: f.appointment.startAt, client: f.appointment.client })),
     imports, warnings,

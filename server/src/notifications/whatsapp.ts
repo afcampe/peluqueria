@@ -35,12 +35,23 @@ export async function sendWhatsApp(phone: string, body: string) {
  * que se mandan sin que el cliente haya escrito antes). Los parámetros
  * rellenan {{1}}, {{2}}... del cuerpo de la plantilla, en orden.
  */
-export async function sendWhatsAppTemplate(phone: string, name: string, lang: string, params: string[]) {
+export async function sendWhatsAppTemplate(phone: string, name: string, lang: string, params: string[], buttons: string[] = []) {
   return post(phone, {
     type: 'template',
-    template: { name, language: { code: lang || 'es' }, components: [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text })) }] },
+    template: { name, language: { code: lang || 'es' }, components: [
+      { type: 'body', parameters: params.map((text) => ({ type: 'text', text })) },
+      // Botones de respuesta rápida de la plantilla (en el mismo orden: Sí, No).
+      ...buttons.map((payload, i) => ({ type: 'button', sub_type: 'quick_reply', index: String(i), parameters: [{ type: 'payload', payload }] })),
+    ] },
   });
 }
+
+/** Texto libre con botones de respuesta (solo a quien ha escrito en las últimas 24 h). */
+export async function sendWhatsAppButtons(phone: string, body: string, buttons: { id: string; title: string }[]) {
+  return post(phone, { type: 'interactive', interactive: { type: 'button', body: { text: body }, action: { buttons: buttons.map((b) => ({ type: 'reply', reply: b })) } } });
+}
+
+export const whatsappRepliesConfigured = () => Boolean(config.whatsapp.appSecret && config.whatsapp.verifyToken);
 
 async function post(phone: string, message: Record<string, unknown>) {
   if (!whatsappApiConfigured()) throw new HttpError(400, 'La API de WhatsApp no está configurada');

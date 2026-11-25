@@ -176,7 +176,7 @@ function notifyConfirmed(a: { startAt: Date; client: { email: string | null; nam
   const pago = a.paymentMethod === 'cash' ? 'Pagarás en el local.' : 'El pago se ha realizado correctamente.';
   sendEmailSafe(
     a.client.email,
-    'Cita confirmada',
+    'Cita reservada',
     `Hola ${a.client.name},\n\nTu cita de ${a.service.name} es el ${fmt(a.startAt, settings.timezone)}.\n${pago}\n\nPuedes modificarla o cancelarla desde la app hasta ${settings.clientCancelMinNoticeMinutes} minutos antes.`,
   );
 }
@@ -210,7 +210,8 @@ export async function rescheduleAppointment(actor: Actor, id: string, input: { s
     }
     return tx.appointment.update({
       where: { id },
-      data: { startAt, endAt, priceCents, serviceId: input.serviceId ?? current.serviceId, notes: input.notes ?? current.notes },
+      // Con la hora nueva hay que volver a confirmar la asistencia.
+      data: { startAt, endAt, priceCents, serviceId: input.serviceId ?? current.serviceId, notes: input.notes ?? current.notes, attendance: null, attendanceAt: null, attendanceBy: null },
       include: withRelations,
     });
   }, { isolationLevel: 'Serializable' });
@@ -645,7 +646,7 @@ function notifySeriesConfirmed(appts: { startAt: Date; client: { email: string |
   const pago = a.paymentMethod === 'cash' ? 'Pagarás cada cita en el local.' : 'El pago se ha realizado correctamente.';
   sendEmailSafe(
     a.client.email,
-    `${appts.length} citas confirmadas`,
+    `${appts.length} citas reservadas`,
     `Hola ${a.client.name},\n\nHemos reservado ${appts.length} citas de ${a.service.name}:\n\n${list}\n\n${pago}\nPuedes cambiar o cancelar cada una desde la app hasta ${settings.clientCancelMinNoticeMinutes} minutos antes.`,
   );
 }

@@ -9,7 +9,7 @@ import type { Appointment, WaitEntry } from '../../lib/types';
 import { CashModal, NewAppointmentModal } from './Agenda';
 
 interface Brief {
-  id: string; startAt: string; endAt: string; status: string; priceCents: number; paymentMethod: string; paid: boolean; service: string;
+  id: string; startAt: string; endAt: string; status: string; priceCents: number; paymentMethod: string; paid: boolean; service: string; attendance: 'YES' | 'NO' | null;
   client: { id: string; name: string; email: string | null; phone: string | null };
 }
 interface Cell { start: string; end: string; state: 'booked' | 'free' | 'past' | 'closed'; bookable: boolean; appts: Brief[] }
@@ -20,6 +20,8 @@ interface Data {
   figures: { done: number; pending: number; free: number; collectedCents: number; toCollectCents: number; monthCashCents: number; monthOnlineCents: number; clients: number; upcoming: number };
   todo: {
     unpaid: { count: number; totalCents: number; items: Brief[] };
+    declined: (Brief & { by: string | null })[];
+    unconfirmed: Brief[];
     noReminder: (Brief & { whatsappLink: string | null })[];
     failedReminders: { id: string; channel: string; detail: string | null; startAt: string; client: { id: string; name: string } }[];
     imports: number; warnings: string[];
@@ -90,7 +92,7 @@ function NextCard({ next, now }: { next: Data['next']; now: string }) {
       <span className="dash-kicker">Próxima cita · {next.isToday ? inText(next.startAt, now) : dateShort(next.startAt)}</span>
       <p className="dash-next-time">{time(next.startAt)}</p>
       <p className="dash-next-who"><Link to={`/admin/usuarios/${next.client.id}`}><strong>{next.client.name}</strong></Link><br />
-        <span className="muted">{next.service} · {money(next.priceCents)} · {next.paid ? 'pagada' : 'pendiente de cobro'}</span></p>
+        <span className="muted">{next.service} · {money(next.priceCents)} · {next.paid ? 'pagada' : 'pendiente de cobro'} · {next.attendance === 'YES' ? 'asistencia confirmada' : next.attendance === 'NO' ? 'ha dicho que no puede venir' : 'sin confirmar'}</span></p>
       <div className="actions">
         {next.whatsappLink && <a className="btn btn-sm btn-wa" href={next.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}
         <EmailReminderButton appointmentId={next.id} disabledReason={next.client.email ? undefined : 'El cliente no tiene email'} />
@@ -115,7 +117,7 @@ function DayStrip({ cells, now, onFree }: { cells: Cell[]; now: string; onFree: 
                 <div key={c.start + (c.appts[0]?.id ?? '')} className={cls}>
                   <b>{time(c.start)}</b>
                   {c.appts.length ? c.appts.map((a) => (
-                    <span key={a.id} title={`${a.client.name} · ${a.service}`}><Link to={`/admin/usuarios/${a.client.id}`}>{a.client.name}</Link><small>{a.status === 'NO_SHOW' ? 'No vino' : a.paid ? 'Pagada' : a.service}</small></span>
+                    <span key={a.id} title={`${a.client.name} · ${a.service}`}><Link to={`/admin/usuarios/${a.client.id}`}>{a.client.name}</Link><small>{a.status === 'NO_SHOW' ? 'No vino' : a.attendance === 'NO' ? 'No asistirá' : `${a.attendance === 'YES' ? '✓ ' : ''}${a.paid ? 'Pagada' : a.service}`}</small></span>
                   )) : <span>{c.state === 'closed' ? 'Cerrado' : c.state === 'booked' ? 'Ocupada' : '—'}</span>}
                 </div>
               );
@@ -131,9 +133,14 @@ function DayStrip({ cells, now, onFree }: { cells: Cell[]; now: string; onFree: 
 
 function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; week: Data['week']; today: string; onChange: (m: string) => void; onGive: (start: string) => void }) {
   const [cash, setCash] = useState<Appointment | null>(null);
+  const [booking, setBooking] = useState<Brief['client'] | null>(null);
   const [error, setError] = useState('');
-  const n = t.unpaid.count + t.noReminder.length + t.failedReminders.length + t.imports + t.warnings.length;
+  const n = t.unpaid.count + t.declined.length + t.unconfirmed.length + t.noReminder.length + t.failedReminders.length + t.imports + t.warnings.length;
 
+  const confirm = async (a: Brief) => {
+    setError('');
+    try { await api.post(`/admin/appointments/${a.id}/attendance`, { answer: 'YES' }); onChange(`Asistencia de ${a.client.name} confirmada`); } catch (e) { setError(errMsg(e)); }
+  };
   const noShow = async (a: Brief) => {
     setError('');
     try { await api.patch(`/admin/appointments/${a.id}`, { status: 'NO_SHOW' }); onChange(`Apuntado: ${a.client.name} no vino`); } catch (e) { setError(errMsg(e)); }
@@ -146,6 +153,26 @@ function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; 
       {!n && <p className="dash-ok"><span className="dot ok" /> Todo al día: no hay nada por resolver.</p>}
       {t.warnings.map((w) => <p key={w} className="todo-warn">{w} <Link to="/admin/configuracion">Configuración</Link></p>)}
       {n > t.warnings.length && <div className="todo-grid">
+        {t.declined.length > 0 && (
+          <div className="todo">
+            <h3>No pueden venir <small>{t.declined.length}</small></h3>
+            <p className="muted small">La cita sigue ocupando su hora: cancélala o cámbiala.</p>
+            <ul>{t.declined.map((a) => (
+              <li key={a.id}><div>{who(a)} <span className="muted small">{dateShort(a.startAt)} {time(a.startAt)}{a.by === 'EMAIL' ? ' · por email' : a.by === 'WHATSAPP' ? ' · por WhatsApp' : ''}</span></div>
+                <div className="actions"><button className="btn btn-sm" onClick={() => setBooking(a.client)}>Cambiar o cancelar</button></div></li>
+            ))}</ul>
+          </div>
+        )}
+        {t.unconfirmed.length > 0 && (
+          <div className="todo">
+            <h3>Mañana sin confirmar <small>{t.unconfirmed.length}</small></h3>
+            <p className="muted small">No han confirmado que vienen. Si llaman, apúntalo aquí.</p>
+            <ul>{t.unconfirmed.map((a) => (
+              <li key={a.id}><div>{who(a)} <span className="muted small">{time(a.startAt)}{a.client.phone && <> · <a href={`tel:${a.client.phone}`}>{a.client.phone}</a></>}</span></div>
+                <div className="actions"><button className="btn btn-sm btn-ok" onClick={() => confirm(a)}>Confirmar</button></div></li>
+            ))}</ul>
+          </div>
+        )}
         {t.unpaid.count > 0 && (
           <div className="todo">
             <h3>Sin cobrar <small>{t.unpaid.count} · {money(t.unpaid.totalCents)}</small></h3>
@@ -189,6 +216,7 @@ function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; 
         )}
       </div>}
       <WeekGaps week={week} today={today} onGive={onGive} />
+      {booking && <BookForClient user={booking} onClose={() => { setBooking(null); onChange(''); }} onDone={(m) => { setBooking(null); onChange(m); }} />}
       {cash && <CashModalFor id={cash.id} onClose={() => setCash(null)} onDone={(m) => { setCash(null); onChange(m); }} />}
     </section>
   );
