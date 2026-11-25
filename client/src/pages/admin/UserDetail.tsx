@@ -9,7 +9,7 @@ import { useSession } from '../../lib/session';
 import { attendanceText, contactLine, dateLong, isBooked, methodLabel, money, shownStatus, statusLabel, time } from '../../lib/format';
 import { canCorrectCharge, canIssueTicket, canMarkNoShow, cashPayment, onlinePayment, paymentInfo, ticketsOf } from '../../lib/payment';
 import { TicketButtons } from '../../components/TicketButton';
-import { CashModal, OnlineRefundModal } from './Agenda';
+import { CancelModal, CashModal, OnlineRefundModal } from './Agenda';
 import type { Appointment, User } from '../../lib/types';
 import { IconRepeat, IconTicket } from '../../components/icons';
 
@@ -123,7 +123,7 @@ export function UserDetail() {
               return (
                 <div key={a.id}>
                   {divider && <div className="history-divider">Pasadas</div>}
-                  <HistoryRow appt={a} future={fut} onChange={load} />
+                  <HistoryRow appt={a} future={fut} onChange={(m) => { if (m) setFlash(m); load(); }} />
                 </div>
               );
             })}
@@ -134,9 +134,9 @@ export function UserDetail() {
   );
 }
 
-function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: boolean; onChange: () => void }) {
+function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: boolean; onChange: (message?: string) => void }) {
   const [error, setError] = useState('');
-  const [modal, setModal] = useState<'cash' | 'refund' | null>(null);
+  const [modal, setModal] = useState<'cash' | 'refund' | 'cancel' | null>(null);
   const pay = paymentInfo(a);
   const cash = cashPayment(a);
   const canMarkPaid = a.paymentMethod === 'cash' && !['CANCELLED', 'PENDING_PAYMENT', 'NO_SHOW'].includes(a.status) && !cash;
@@ -145,6 +145,8 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
     try { await api.post(`/admin/appointments/${a.id}/${path}`); onChange(); } catch (e) { setError(errMsg(e)); }
   };
 
+  // Igual que en la Agenda: las ya terminadas no se cancelan.
+  const cancellable = isBooked(a) || (a.status === 'PENDING_PAYMENT' && new Date(a.endAt) > new Date());
   const attend = async (answer: 'YES' | null) => {
     setError('');
     try { await api.post(`/admin/appointments/${a.id}/attendance`, { answer }); onChange(); } catch (e) { setError(errMsg(e)); }
@@ -183,10 +185,12 @@ function HistoryRow({ appt: a, future, onChange }: { appt: Appointment; future: 
         )}
         {canCorrectCharge(a) && <button className="btn btn-sm" onClick={() => setModal('refund')}>Corregir cobro</button>}
         {a.status === 'NO_SHOW' && onlinePayment(a) && <button className="btn btn-sm btn-refund" onClick={() => setModal('refund')}>Reembolsar</button>}
+        {cancellable && <button className="btn btn-sm btn-danger" onClick={() => setModal('cancel')}>Cancelar</button>}
       </div>
       {modal && (() => {
         const close = () => setModal(null);
         const done = () => { setModal(null); onChange(); };
+        if (modal === 'cancel') return <CancelModal appt={a} onClose={close} onDone={(m) => { setModal(null); onChange(m); }} />;
         if (modal === 'cash') return <CashModal appt={a} onClose={close} onDone={done} />;
         return <OnlineRefundModal appt={a} onClose={close} onDone={done} />;
       })()}

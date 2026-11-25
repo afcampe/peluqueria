@@ -67,7 +67,8 @@ export function Dashboard() {
         {d.agenda.length === 0 ? <p className="empty">Hoy la peluquería está cerrada y no hay citas.</p> : <DayStrip cells={d.agenda} now={d.now} onFree={setNewAt} />}
       </section>
 
-      <Todo todo={d.todo} week={d.week} today={d.today} onChange={done} onGive={setNewAt} />
+      <Todo todo={d.todo} onChange={done} />
+      <WeekGaps week={d.week} today={d.today} onGive={setNewAt} />
       <Waitlist list={d.waitlist} onGive={setGive} onChange={done} />
       <Business figures={f} />
 
@@ -130,7 +131,7 @@ function DayStrip({ cells, now, onFree }: { cells: Cell[]; now: string; onFree: 
 
 // ---------------------------------------------------------------- Por resolver
 
-function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; week: Data['week']; today: string; onChange: (m: string) => void; onGive: (start: string) => void }) {
+function Todo({ todo: t, onChange }: { todo: Data['todo']; onChange: (m: string) => void }) {
   const [cash, setCash] = useState<Appointment | null>(null);
   const [booking, setBooking] = useState<Brief['client'] | null>(null);
   const [error, setError] = useState('');
@@ -208,7 +209,6 @@ function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; 
           </div>
         )}
       </div>}
-      <WeekGaps week={week} today={today} onGive={onGive} />
       {booking && <BookForClient user={booking} onClose={() => { setBooking(null); onChange(''); }} onDone={(m) => { setBooking(null); onChange(m); }} />}
       {cash && <CashModalFor id={cash.id} onClose={() => setCash(null)} onDone={(m) => { setCash(null); onChange(m); }} />}
     </section>
@@ -220,8 +220,8 @@ function WeekGaps({ week, today, onGive }: { week: Data['week']; today: string; 
   const total = week.reduce((n, d) => n + d.gaps.length, 0);
   const freed = week.reduce((n, d) => n + d.gaps.filter((g) => g.cancelledBy).length, 0);
   return (
-    <div className="week-gaps">
-      <h3>Huecos en 7 días <small>{total}{freed > 0 && ` · ${freed} por cancelación`}</small></h3>
+    <section className="card week-gaps">
+      <h2>Huecos en 7 días <small>{total}{freed > 0 && ` · ${freed} por cancelación`}</small></h2>
       <p className="muted small">Pulsa una hora para dar la cita.{freed > 0 && <> Las <span className="gap-key">resaltadas</span> vienen de una cancelación.</>}</p>
       <ul>
         {week.map((d, i) => (
@@ -237,7 +237,7 @@ function WeekGaps({ week, today, onGive }: { week: Data['week']; today: string; 
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 

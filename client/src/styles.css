@@ -763,7 +763,7 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .consent-note { margin: -.2rem 0 .8rem; }
 
 .dash-ok { margin: .6rem 0 0; }
-.week-gaps { margin-top: 1.3rem; } .week-gaps h3 { margin: 0; } .week-gaps h3 small { color: var(--muted); font-weight: 400; } .week-gaps > p { margin: .15rem 0 .5rem; }
+.week-gaps h2 small { color: var(--muted); font-weight: 400; font-size: .75em; } .week-gaps > p { margin: .15rem 0 .5rem; }
 .week-gaps ul { list-style: none; margin: 0; padding: 0; } .week-gaps li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: .75rem; padding: .5rem 0; border-top: 1px solid var(--border); }
 .gap-day span { display: block; }
 .gap-times { display: flex; flex-wrap: wrap; gap: .3rem; align-content: center; }
@@ -785,3 +785,4 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .cal-appt.st-DECLINED { border-left-color: var(--danger); } .cal-appt.st-DECLINED strong { text-decoration: line-through; }
 .mo-list li.st-DECLINED { color: var(--danger); }
 .mail-actions { margin: .8rem 0 0; display: flex; flex-wrap: wrap; gap: .5rem; } .mail-actions span { border: 1px solid var(--text); border-radius: 4px; padding: .3rem .7rem; font-weight: 600; font-size: .85rem; } .mail-actions span:first-child { background: var(--primary); color: var(--primary-text); }
+@media (min-width: 721px) { .history-item > .actions { justify-content: flex-end; max-width: 430px; } }

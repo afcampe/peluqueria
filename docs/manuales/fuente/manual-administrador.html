@@ -34,7 +34,7 @@
     <li><a href="#intro">Introducción al panel</a>
       <ol><li>Entrar</li><li>Secciones</li><li>Reglas básicas</li></ol></li>
     <li><a href="#resumen">Resumen</a>
-      <ol><li>Hoy</li><li>Por resolver</li><li>Lista de espera</li><li>Cómo va el negocio</li></ol></li>
+      <ol><li>Hoy</li><li>Por resolver</li><li>Huecos en 7 días</li><li>Lista de espera</li><li>Cómo va el negocio</li></ol></li>
     <li><a href="#agenda">Agenda</a>
       <ol><li>Vista Lista</li><li>Vista Semana</li><li>Vista Mes</li><li>La tarjeta de una cita</li></ol></li>
     <li><a href="#gestion">Gestionar citas</a>
@@ -121,20 +121,23 @@
       <tr><td>No pueden venir</td><td>Clientes que han respondido que no vienen. La cita sigue ocupando su hora: <span class="btn-ref">Cambiar o cancelar</span>.</td></tr>
       <tr><td>Mañana sin confirmar</td><td>Citas de mañana sin respuesta, con su teléfono. <span class="btn-ref green">WhatsApp</span> para escribirle y <span class="btn-ref">Confirmar</span> si te dice que viene. Si los recordatorios están activados y a ese cliente no le llegará, se indica.</td></tr>
       <tr><td>Sin cobrar</td><td>Citas de los últimos 60 días ya pasadas y sin pagar: <span class="btn-ref">Marcar cobrada</span> o <span class="btn-ref">No vino</span>.</td></tr>
-      <tr><td>Huecos en 7 días</td><td>Todas las horas libres de hoy y de los 6 días siguientes. Pulsa una para dar la cita. Las resaltadas vienen de una cancelación; con el ratón encima se ve quién canceló.</td></tr>
       <tr><td>Avisos que han fallado</td><td>Recordatorios de las últimas 48 horas que no se pudieron enviar, con el motivo. Avisa al cliente con <span class="btn-ref green">WhatsApp</span> o llamándolo.</td></tr>
       <tr><td>Agenda en papel</td><td>Páginas por revisar o que no se pudieron leer.</td></tr>
     </tbody>
   </table>
-  <p>Los huecos se ven siempre; el resto de apartados, solo si hay algo. Si no hay nada más pendiente, verás «Todo al día». Las horas que un cliente está pagando online en ese momento no salen como libres. Un aviso en amarillo indica que los recordatorios están activados pero falta configurar el correo o WhatsApp en el servidor.</p>
+  <p>Cada apartado sale solo si hay algo. Si no hay nada pendiente, verás «Todo al día». Un aviso en amarillo indica que los recordatorios están activados pero falta configurar el correo o WhatsApp en el servidor.</p>
+
+  <h3>Huecos en 7 días</h3>
+  <figure class="tall"><img src="capturas/a-resumen-huecos.jpg" alt=""><figcaption><b>Figura 2.3</b> · Huecos en 7 días</figcaption></figure>
+  <p>Todas las horas libres de hoy y de los 6 días siguientes. Pulsa una para dar la cita. Las <strong>resaltadas</strong> vienen de una cancelación; con el ratón encima se ve quién canceló. Las horas que un cliente está pagando online en ese momento no salen como libres.</p>
 
   <h3>Lista de espera</h3>
-  <figure><img src="capturas/a-resumen-espera.jpg" alt=""><figcaption><b>Figura 2.3</b> · Clientes en lista de espera</figcaption></figure>
+  <figure><img src="capturas/a-resumen-espera.jpg" alt=""><figcaption><b>Figura 2.4</b> · Clientes en lista de espera</figcaption></figure>
   <p>Aparece si hay alguien esperando. Primero salen los que ya tienen hueco, con las horas libres: <span class="btn-ref dark">Reservar</span> abre la reserva en ese día, <span class="btn-ref green">WhatsApp</span> abre un mensaje ofreciéndole la hora y <span class="btn-ref">Quitar</span> lo saca de la lista. Cómo apuntar a un cliente: capítulo 6.</p>
 
   <h3>Cómo va el negocio</h3>
   <p>Elige <span class="btn-ref">Últimos 7 días</span>, <span class="btn-ref">Últimos 30 días</span> o <span class="btn-ref">Últimos 12 meses</span>.</p>
-  <figure><img src="capturas/a-resumen-negocio.jpg" alt=""><figcaption><b>Figura 2.4</b> · Ingresos y ocupación</figcaption></figure>
+  <figure><img src="capturas/a-resumen-negocio.jpg" alt=""><figcaption><b>Figura 2.5</b> · Ingresos y ocupación</figcaption></figure>
   <ul>
     <li><strong>Previsto en 7 días:</strong> lo que suman las citas reservadas de los próximos 7 días. <strong>Ticket medio:</strong> media por cita cobrada. <strong>Devoluciones:</strong> lo devuelto en el periodo.</li>
     <li><strong>Cobrado:</strong> total del periodo, comparado con el periodo anterior igual de largo. Si entonces no había cobros, no se compara.</li>
@@ -144,7 +147,7 @@
     <li><strong>Ocupación por día y hora:</strong> el porcentaje de cada hora. Cuanto más intenso el color, más llena. Ayuda a ver cuándo sobran huecos.</li>
   </ul>
   <h3>Servicios, ausencias y clientes</h3>
-  <figure><img src="capturas/a-resumen-clientes.jpg" alt=""><figcaption><b>Figura 2.5</b> · Servicios, ausencias y cancelaciones, y clientes</figcaption></figure>
+  <figure><img src="capturas/a-resumen-clientes.jpg" alt=""><figcaption><b>Figura 2.6</b> · Servicios, ausencias y cancelaciones, y clientes</figcaption></figure>
   <ul>
     <li><strong>Servicios:</strong> lo cobrado y el número de citas realizadas de cada uno.</li>
     <li><strong>Ausencias y cancelaciones:</strong> cuántos vinieron, cuántos no y quién canceló. El dinero <strong>perdido</strong> es una estimación: ausencias sin pagar y horas canceladas por el cliente que no se volvieron a llenar.</li>
@@ -488,7 +491,7 @@
     <li><strong>Cabecera:</strong> foto, nombre, email, teléfono, tipo y estado, los recordatorios que recibe, y los botones de WhatsApp y Email.</li>
     <li><strong>Cifras:</strong> citas próximas, pasadas, canceladas, ausencias («No vino»), total pagado y pendiente de cobro.</li>
     <li><strong>Citas:</strong> todas, con filtros <em>Todas, Próximas, Pasadas</em> y <em>Anuladas y no vino</em>. Las próximas aparecen en <span style="color:#2f6fb3;font-weight:600">azul</span> y las pasadas en <span style="color:#9a948f;font-weight:600">gris</span>. Cada una indica si está pagada y con qué método.</li>
-    <li>Desde cada cita puedes cobrar, generar o ver los tickets, corregir un cobro de PayPal y apuntar o corregir si el cliente vino, igual que en la Agenda.</li>
+    <li>Desde cada cita puedes confirmar la asistencia, cobrar, cancelar (si está pagada con PayPal, se pide el reembolso), generar o ver los tickets, corregir un cobro de PayPal y apuntar o corregir si el cliente vino, igual que en la Agenda.</li>
   </ul>
   <figure><img src="capturas/a-ficha.jpg" alt=""><figcaption><b>Figura 6.8</b> · Ficha de un cliente</figcaption></figure>
 </section>
