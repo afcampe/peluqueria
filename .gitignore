@@ -10,3 +10,4 @@ desktop/release/
 .DS_Store
 *.tsbuildinfo
 server/storage/
+.ejemplo/
