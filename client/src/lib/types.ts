@@ -23,7 +23,7 @@ export type AppointmentStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 
 export type ShownStatus = AppointmentStatus | 'RESERVED' | 'DECLINED';
 export interface Appointment {
   id: string; startAt: string; endAt: string; status: AppointmentStatus; paymentMethod: string; priceCents: number;
-  notes: string | null; cancelledBy: string | null; cancelReason: string | null; holdExpiresAt: string | null;
+  notes: string | null; cancelledBy: string | null; cancelReason: string | null; cancelledAt?: string | null; holdExpiresAt: string | null;
   attendance: 'YES' | 'NO' | null; attendanceAt: string | null; attendanceBy: 'EMAIL' | 'WHATSAPP' | 'ADMIN' | null;
   client: { id: string; name: string; email: string | null; phone: string | null };
   service: Service; payments: Payment[];

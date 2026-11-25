@@ -21,7 +21,7 @@ appointmentsRouter.get('/', h(async (req, res) => {
     where: { clientId: req.user!.id, NOT: { status: 'CANCELLED', cancelledBy: 'SYSTEM' } },
     include: withRelations,
     orderBy: { startAt: 'desc' },
-    take: 300,
+    take: 2000, // el historial se filtra por año y mes en la web
   }));
 }));
 
