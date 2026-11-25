@@ -819,3 +819,18 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
 .wk-block:hover { border-color: var(--text); color: var(--text); }
 .block-appts { list-style: none; padding: 0; margin: 0 0 .75rem; }
 .block-appts li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .4rem .75rem; padding: .4rem 0; border-bottom: 1px solid var(--border); }
+
+/* Usuarios en el móvil: una tarjeta por usuario en lugar de la tabla */
+@media (max-width: 720px) {
+  .users-table, .users-table tbody { display: block; border: 0; background: none; }
+  .users-table thead { display: none; }
+  .users-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem .75rem; align-items: center; margin-bottom: .6rem; padding: .8rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+  .users-table td { display: block; padding: 0; border: 0; min-width: 0; }
+  .users-table td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .users-table td:nth-child(2) { grid-column: 1 / -1; grid-row: 3; font-size: .85rem; }
+  .users-table td:nth-child(2):has(.muted) { display: none; }
+  .users-table td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; overflow-wrap: anywhere; }
+  .users-table td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
+  .users-table td.td-actions { grid-column: 1 / -1; grid-row: 4; padding-top: .35rem; }
+  .users-table .td-actions > .actions { justify-content: flex-start; }
+}

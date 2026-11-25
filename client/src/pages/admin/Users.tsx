@@ -63,7 +63,7 @@ export function Users() {
       {!list && <Spinner />}
       {list && (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table users-table">
             <thead><tr><th>Nombre</th><th>Tipo</th><th>Contacto</th><th>Estado</th><th /></tr></thead>
             <tbody>
               {list.map((u) => (
