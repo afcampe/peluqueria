@@ -22,8 +22,8 @@ Demo en Railway: cada push a `main` despliega solo. Responder siempre en **espa�
 ## Mapa
 - Citas: `server/src/services/appointments.ts`. Asistencia (enlace email, webhook WhatsApp): `services/attendance.ts`, `routes/attendance.ts`. Recordatorios: `services/reminders.ts`. Tickets y rectificativos: `services/tickets.ts`. Resumen: `services/dashboard.ts`. Lista de espera: `services/waitlist.ts`. Ajustes: `services/settings.ts`. Pagos: `server/src/payments/`. Importar agenda: `services/agendaImport.ts`. Datos de la demo: `src/demo.ts`.
 - Rutas: `server/src/routes/{admin,appointments,auth,public,tickets,imports}.ts`. Tests: `server/test/api.test.ts`.
-- Web: `client/src/pages/{Book,MyAppointments,Profile}.tsx`, `pages/admin/{Dashboard,Agenda,Users,UserDetail,Settings,Reminders,WhatsApp,Import}.tsx`; modales de cancelar/cobrar/devolver en `Agenda.tsx`; `components/BookForClient.tsx`, `MyUpcoming.tsx`, `ui.tsx`; `lib/{format,payment,types}.ts`; estilos en `styles.css` (tokens y tema oscuro arriba).
-- Manuales: `docs/manuales/fuente/*.html` + `capturas/`. El PDF del administrador debe pesar < 5 MB. Figura nueva: `Figura 0.0`, `manual.sh pdf` la numera.
+- Web: `client/src/pages/{Book,MyAppointments,Profile}.tsx`, `pages/admin/{Dashboard,Agenda,Users,UserDetail,Settings,Reminders,WhatsApp,Import}.tsx`; modales de cancelar/cobrar/devolver en `Agenda.tsx`; lista de citas de un cliente (`AppointmentHistory`) y ventana «Ver citas» (`AppointmentsModal`) en `UserDetail.tsx`; `components/BookForClient.tsx`, `BlockModal.tsx` (bloquear horas), `MyUpcoming.tsx`, `ui.tsx`; `lib/{format,payment,types,blocks}.ts`; estilos en `styles.css` (tokens y tema oscuro arriba).
+- Manuales: `docs/manuales/fuente/*.html` + `capturas/`. El PDF del administrador debe pesar < 5 MB y va justo (≈ 4,99 MB): para añadir capturas, reducir antes otras (`djpeg -scale 7/8 | cjpeg -quality 45`); recomprimir a la misma calidad no ahorra. Figura nueva: `Figura 0.0`, `manual.sh pdf` la numera.
 
 ## Reglas de negocio
 - Estado interno `CONFIRMED` = **reservada** (ocupa hora). "Confirmada" es aparte: `attendance` YES/NO/null + `attendanceBy`. Lo que se ve sale de `shownStatus()`: Reservada, Confirmada, No asistirá, Realizada (ya terminó), Cancelada, No se presentó.
@@ -32,6 +32,7 @@ Demo en Railway: cada push a `main` despliega solo. Responder siempre en **espa�
 - Cobro en el local es definitivo. Cancelar con PayPal: primero se devuelve; si falla, no se cancela. Cada devolución con ticket emite rectificativo RAAAA-NNNN. El IVA se guarda en cada ticket.
 - El cliente cambia o cancela hasta 1 h antes; el admin, siempre que no haya terminado. El cliente nunca ve datos de otros.
 - Novedades (email y WhatsApp): casilla sin marcar. Los recordatorios son avisos de servicio.
+- Duración de las citas y horario semanal (tramos, apertura y cierre) solo se cambian si no hay ninguna cita (`gridLocked` en `routes/admin.ts`); el usuario no quiere que se puedan cambiar después. Para no atender horas: **Bloquear horas** (Agenda, `POST /admin/blocks`), que son cierres (`Closure`) de un mismo día; solo horas sin cita, todas o ninguna. Días enteros: Cierres.
 - En la vista Semana, los puntos de pago (8 px, `#066322`/`#9c0a15`) los ajustó el usuario: no tocarlos.
 
 ## Cuidado con
