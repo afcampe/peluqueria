@@ -16,6 +16,7 @@ if ((await prisma.user.count({ where: { role: 'CLIENT' } })) > 0) {
   await demoHistory();
   await demoClients();
   await demoAttendance();
+  await demoTodo();
   console.log('[demo] ya hay clientes: no se crean más datos de ejemplo');
   process.exit(0);
 }
@@ -84,6 +85,7 @@ for (let d = -14; d <= 21; d++) {
 await demoHistory();
 await demoClients();
 await demoAttendance();
+  await demoTodo();
 console.log(`[demo] ${clients.length} clientes y ${created} citas de ejemplo creados`);
 await prisma.$disconnect();
 
@@ -193,4 +195,68 @@ async function demoAttendance() {
     await prisma.appointment.update({ where: { id: a.id }, data: { attendance: i === 4 || i === 12 ? 'NO' : 'YES', attendanceAt: new Date(), attendanceBy: (['WHATSAPP', 'EMAIL', 'ADMIN'] as const)[i % 3] } });
   }
   if (list[6]) await prisma.appointment.update({ where: { id: list[6].id }, data: { attendance: 'NO', attendanceAt: new Date(), attendanceBy: 'WHATSAPP' } });
+}
+
+/** Un ejemplo de cada caso de «Por resolver». Se crea una sola vez: lo que se resuelva después no vuelve. */
+async function demoTodo() {
+  const key = 'demo-por-resolver';
+  if (await prisma.setting.findUnique({ where: { key } })) return;
+  const s = await getSettings();
+  const now = DateTime.now().setZone(s.timezone);
+  const users = await prisma.user.findMany({ where: { role: 'CLIENT', status: 'ACTIVE', phone: { not: null }, email: { endsWith: '@example.com' } }, orderBy: { createdAt: 'asc' }, take: 10 });
+  const service = await prisma.service.findFirst({ where: { active: true }, orderBy: { sortOrder: 'asc' } });
+  if (users.length < 5 || !service) return;
+
+  let n = 0;
+  /** Cita nueva en una hora libre de ese día (null si está cerrado o completo). */
+  const add = async (offset: number, data: { attendance?: string; attendanceBy?: string } = {}) => {
+    const day = now.plus({ days: offset }).startOf('day');
+    const ranges = s.weeklySchedule[String(day.weekday) as keyof typeof s.weeklySchedule] ?? [];
+    const closed = await prisma.closure.count({ where: { startAt: { lt: day.endOf('day').toJSDate() }, endAt: { gt: day.toJSDate() } } });
+    if (closed) return null;
+    for (const r of ranges) {
+      const [h, m] = r.start.split(':').map(Number);
+      for (let t = day.set({ hour: h, minute: m }); t.plus({ minutes: s.slotMinutes }).toFormat('HH:mm') <= r.end; t = t.plus({ minutes: s.slotMinutes })) {
+        const startAt = t.toJSDate();
+        const endAt = t.plus({ minutes: s.slotMinutes }).toJSDate();
+        if (offset === 0 && startAt <= new Date()) continue;
+        if (await prisma.appointment.count({ where: { status: { not: 'CANCELLED' }, startAt: { lt: endAt }, endAt: { gt: startAt } } })) continue;
+        const client = users[n++ % users.length];
+        return prisma.appointment.create({
+          data: { clientId: client.id, serviceId: service.id, startAt, endAt, paymentMethod: 'cash', priceCents: service.priceCents, status: 'CONFIRMED', ...data, ...(data.attendance && { attendanceAt: new Date() }) },
+        });
+      }
+    }
+    return null;
+  };
+  /** Los próximos (o anteriores) días con hueco, hasta `count` citas. */
+  const spread = async (count: number, step: 1 | -1, make: (offset: number, i: number) => ReturnType<typeof add>) => {
+    const out: NonNullable<Awaited<ReturnType<typeof add>>>[] = [];
+    for (let d = step; Math.abs(d) <= 10 && out.length < count; d += step) {
+      const a = await make(d, out.length);
+      if (a) out.push(a);
+    }
+    return out;
+  };
+
+  // Mañana sin confirmar: dos citas sin respuesta en cada uno de los próximos 5 días abiertos.
+  for (const _ of [1, 2]) await spread(5, 1, (d) => add(d));
+  // No pueden venir: una respuesta de cada tipo.
+  await spread(3, 1, (d, i) => add(d, { attendance: 'NO', attendanceBy: ['WHATSAPP', 'EMAIL', 'ADMIN'][i] }));
+  // Sin cobrar.
+  await spread(2, -1, (d) => add(d));
+  // Avisos que han fallado.
+  const fails = [['EMAIL', 'connect ECONNREFUSED smtp.example.com:587'], ['WHATSAPP', '(#131026) Message undeliverable']];
+  for (const [i, a] of (await spread(2, 1, (d) => add(d + 1))).entries()) {
+    await prisma.appointmentReminder.create({ data: { appointmentId: a.id, startAt: a.startAt, offsetMinutes: 2880, channel: fails[i][0], status: 'FAILED', detail: fails[i][1] } });
+  }
+  // Agenda en papel: una página por revisar y otra que no se pudo leer (sin foto).
+  const rows = [{ key: 'ej1', date: now.plus({ days: 14 }).toISODate(), time: '12:30', name: 'Ramón', serviceId: service.id, clientId: null, include: true, uncertain: true, crossedOut: false, note: null }];
+  await prisma.agendaImport.create({ data: { status: 'READY', fileName: 'ejemplo-pagina-1.jpg', rows: JSON.stringify(rows) } });
+  await prisma.agendaImport.create({ data: { status: 'ERROR', fileName: 'ejemplo-pagina-2.jpg', error: 'No se pudo leer la foto (ejemplo).' } });
+  // Aviso amarillo: recordatorio por WhatsApp activado sin la API configurada.
+  const business = await prisma.setting.findUnique({ where: { key: 'business' } });
+  const value = { ...(business ? JSON.parse(business.value) : {}), reminders: { ...s.reminders, enabled: true, email: false, whatsapp: true } };
+  await prisma.setting.upsert({ where: { key: 'business' }, create: { key: 'business', value: JSON.stringify(value) }, update: { value: JSON.stringify(value) } });
+  await prisma.setting.create({ data: { key, value: JSON.stringify(now.toISO()) } });
 }

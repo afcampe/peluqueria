@@ -21,9 +21,8 @@ interface Data {
   todo: {
     unpaid: { count: number; totalCents: number; items: Brief[] };
     declined: (Brief & { by: string | null })[];
-    unconfirmed: Brief[];
-    noReminder: (Brief & { whatsappLink: string | null })[];
-    failedReminders: { id: string; channel: string; detail: string | null; startAt: string; client: { id: string; name: string } }[];
+    unconfirmed: (Brief & { noReminder: boolean; whatsappLink: string | null })[];
+    failedReminders: { id: string; channel: string; reason: string; detail: string | null; whatsappLink: string | null; startAt: string; client: { id: string; name: string; phone: string | null } }[];
     imports: number; warnings: string[];
   };
   waitlist: WaitEntry[];
@@ -135,7 +134,7 @@ function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; 
   const [cash, setCash] = useState<Appointment | null>(null);
   const [booking, setBooking] = useState<Brief['client'] | null>(null);
   const [error, setError] = useState('');
-  const n = t.unpaid.count + t.declined.length + t.unconfirmed.length + t.noReminder.length + t.failedReminders.length + t.imports + t.warnings.length;
+  const n = t.unpaid.count + t.declined.length + t.unconfirmed.length + t.failedReminders.length + t.imports + t.warnings.length;
 
   const confirm = async (a: Brief) => {
     setError('');
@@ -166,10 +165,10 @@ function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; 
         {t.unconfirmed.length > 0 && (
           <div className="todo">
             <h3>Mañana sin confirmar <small>{t.unconfirmed.length}</small></h3>
-            <p className="muted small">No han confirmado que vienen. Si llaman, apúntalo aquí.</p>
+            <p className="muted small">No han confirmado que vienen. Escríbeles, o apúntalo si te lo dicen.</p>
             <ul>{t.unconfirmed.map((a) => (
-              <li key={a.id}><div>{who(a)} <span className="muted small">{time(a.startAt)}{a.client.phone && <> · <a href={`tel:${a.client.phone}`}>{a.client.phone}</a></>}</span></div>
-                <div className="actions"><button className="btn btn-sm btn-ok" onClick={() => confirm(a)}>Confirmar</button></div></li>
+              <li key={a.id}><div>{who(a)} <span className="muted small">{time(a.startAt)}{a.client.phone && <> · <a href={`tel:${a.client.phone}`}>{a.client.phone}</a></>}</span>{a.noReminder && <div className="warn-text small">No recibirá el aviso automático</div>}</div>
+                <div className="actions"><button className="btn btn-sm btn-ok" onClick={() => confirm(a)}>Confirmar</button>{a.whatsappLink && <a className="btn btn-sm btn-wa" href={a.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a>}</div></li>
             ))}</ul>
           </div>
         )}
@@ -191,20 +190,14 @@ function Todo({ todo: t, week, today, onChange, onGive }: { todo: Data['todo']; 
             {t.unpaid.count > t.unpaid.items.length && <p className="small muted">y {t.unpaid.count - t.unpaid.items.length} más en la <Link to="/admin/agenda">agenda</Link>.</p>}
           </div>
         )}
-        {t.noReminder.length > 0 && (
-          <div className="todo">
-            <h3>Mañana sin recordatorio <small>{t.noReminder.length}</small></h3>
-            <p className="muted small">No recibirán el aviso automático.</p>
-            <ul>{t.noReminder.map((a) => (
-              <li key={a.id}><div>{who(a)} <span className="muted small">{time(a.startAt)}</span></div>
-                <div className="actions">{a.whatsappLink ? <a className="btn btn-sm btn-wa" href={a.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a> : <span className="muted small">sin teléfono</span>}</div></li>
-            ))}</ul>
-          </div>
-        )}
         {t.failedReminders.length > 0 && (
           <div className="todo">
             <h3>Avisos que han fallado <small>{t.failedReminders.length}</small></h3>
-            <ul>{t.failedReminders.map((r) => <li key={r.id}><div>{who(r)} <span className="muted small">{dateShort(r.startAt)} {time(r.startAt)} · {r.channel === 'EMAIL' ? 'email' : 'WhatsApp'}</span></div></li>)}</ul>
+            <p className="muted small">El cliente no lo ha recibido: avísale tú.</p>
+            <ul>{t.failedReminders.map((r) => (
+              <li key={r.id}><div>{who(r)} <span className="muted small">{dateShort(r.startAt)} {time(r.startAt)} · {r.channel === 'EMAIL' ? 'email' : 'WhatsApp'}{r.client.phone && <> · <a href={`tel:${r.client.phone}`}>{r.client.phone}</a></>}</span><div className="warn-text small" title={r.detail ?? undefined}>{r.reason}</div></div>
+                <div className="actions">{r.whatsappLink ? <a className="btn btn-sm btn-wa" href={r.whatsappLink} target="_blank" rel="noreferrer">WhatsApp</a> : <span className="muted small">sin teléfono</span>}</div></li>
+            ))}</ul>
           </div>
         )}
         {t.imports > 0 && (

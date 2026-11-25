@@ -123,6 +123,19 @@ async function weekGaps(s: Settings, now: Date) {
   });
 }
 
+/** Motivo de un aviso fallido en lenguaje claro; si no se reconoce, el texto original. */
+export function failReason(channel: string, detail: string | null) {
+  const d = detail ?? '';
+  const mail = channel === 'EMAIL';
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|EAI_AGAIN|ESOCKET|timeout|fetch failed/i.test(d)) return `No se pudo conectar con ${mail ? 'el servidor de correo' : 'WhatsApp'}`;
+  if (mail && /EAUTH|Invalid login|\b535\b/i.test(d)) return 'El usuario o la contraseña del correo no son correctos';
+  if (mail && /\b55[0134]\b|No recipients|user unknown/i.test(d)) return 'El buzón del cliente no existe o rechaza el correo';
+  if (!mail && /131026|undeliverable/i.test(d)) return 'El teléfono no tiene WhatsApp o no puede recibir el mensaje';
+  if (!mail && /131047|re-engagement/i.test(d)) return 'Hace falta una plantilla aprobada: el cliente no ha escrito en las últimas 24 h';
+  if (!mail && /\b190\b|access token|OAuth/i.test(d)) return 'La clave de WhatsApp no es válida o ha caducado';
+  return d || 'Motivo desconocido';
+}
+
 async function pendingTasks(s: Settings, now: Date) {
   const local = DateTime.fromJSDate(now).setZone(s.timezone);
   const tomorrow = local.plus({ days: 1 });
@@ -135,20 +148,23 @@ async function pendingTasks(s: Settings, now: Date) {
     dayAppointments(tomorrow.startOf('day').toJSDate(), tomorrow.endOf('day').toJSDate()),
     prisma.appointmentReminder.findMany({
       where: { status: 'FAILED', createdAt: { gte: local.minus({ hours: 48 }).toJSDate() }, startAt: { gt: now }, appointment: { status: 'CONFIRMED' } },
-      include: { appointment: { select: { startAt: true, client: { select: { id: true, name: true } } } } }, orderBy: { createdAt: 'desc' },
+      include: { appointment: { select: { startAt: true, client: { select: { id: true, name: true, phone: true } } } } }, orderBy: { createdAt: 'desc' },
     }),
     prisma.agendaImport.count({ where: { status: { in: ['READY', 'ERROR'] } } }),
     // Han dicho que no pueden venir y la cita sigue en pie.
     prisma.appointment.findMany({ where: { status: 'CONFIRMED', attendance: 'NO', startAt: { gt: now } }, include, orderBy: { startAt: 'asc' } }),
   ]);
 
-  // Solo si los recordatorios están activados: quién tiene cita mañana y no lo recibirá.
+  // Citas de mañana sin respuesta. Si los recordatorios están activados, se indica a quién no le llegará.
   const on = reminderChannels(s);
-  const noReminder = on.email || on.whatsapp
-    ? tomorrowAppts.filter((a) => a.status === 'CONFIRMED' && !(
-        (on.email && a.client.remindEmail && a.client.email && emailConfigured()) ||
-        (on.whatsapp && a.client.remindWhatsapp && normalizePhone(a.client.phone) && whatsappApiConfigured())))
-    : [];
+  const willRemind = (c: (typeof tomorrowAppts)[number]['client']) =>
+    (on.email && c.remindEmail && c.email && emailConfigured()) ||
+    (on.whatsapp && c.remindWhatsapp && normalizePhone(c.phone) && whatsappApiConfigured());
+  const unconfirmed = tomorrowAppts.filter((a) => a.status === 'CONFIRMED' && !a.attendance).map((a) => ({
+    ...brief(a),
+    noReminder: (on.email || on.whatsapp) && !willRemind(a.client),
+    whatsappLink: waLink(a.client.phone, `Hola ${a.client.name}, te recordamos tu cita de mañana a las ${DateTime.fromJSDate(a.startAt).setZone(s.timezone).toFormat('HH:mm')} en ${s.shopName}. ¿Nos confirmas que vienes?`),
+  }));
   const warnings: string[] = [];
   if (on.email && !emailConfigured()) warnings.push('Los recordatorios por email están activados, pero falta configurar el correo (SMTP): no se envían.');
   if (on.whatsapp && !whatsappApiConfigured()) warnings.push('Los recordatorios por WhatsApp están activados, pero falta configurar la API: no se envían.');
@@ -156,9 +172,12 @@ async function pendingTasks(s: Settings, now: Date) {
   return {
     unpaid: { count: past.length, totalCents: past.reduce((n, a) => n + a.priceCents, 0), items: past.slice(0, 5).map(brief) },
     declined: declined.map((a) => ({ ...brief(a), by: a.attendanceBy })),
-    unconfirmed: tomorrowAppts.filter((a) => a.status === 'CONFIRMED' && !a.attendance).map(brief),
-    noReminder: noReminder.map((a) => ({ ...brief(a), whatsappLink: waLink(a.client.phone, `Hola ${a.client.name}, te recordamos tu cita de mañana a las ${DateTime.fromJSDate(a.startAt).setZone(s.timezone).toFormat('HH:mm')} en ${s.shopName}.`) })),
-    failedReminders: failed.map((f) => ({ id: f.id, channel: f.channel, detail: f.detail, startAt: f.appointment.startAt, client: f.appointment.client })),
+    unconfirmed,
+    failedReminders: failed.map((f) => ({
+      id: f.id, channel: f.channel, reason: failReason(f.channel, f.detail), detail: f.detail, startAt: f.appointment.startAt,
+      client: f.appointment.client,
+      whatsappLink: waLink(f.appointment.client.phone, `Hola ${f.appointment.client.name}, te recordamos tu cita en ${s.shopName} el ${DateTime.fromJSDate(f.appointment.startAt).setZone(s.timezone).setLocale('es').toFormat("cccc d 'de' LLLL 'a las' HH:mm")}.`),
+    })),
     imports, warnings,
   };
 }

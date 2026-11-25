@@ -1132,11 +1132,26 @@ describe('resumen del administrador', () => {
     expect(d.week[1].gaps).toHaveLength(15);
     expect(d.week[5]).toMatchObject({ open: false, gaps: [] }); // sábado
     expect(d.week[0].gaps.map((g) => g.start)).not.toContain(retaken.startAt.toISOString());
-    expect(d.todo.noReminder).toEqual([]); // recordatorios desactivados: no se avisa
+    expect(d.todo.unconfirmed.find((x) => x.id === tomorrow.id)).toMatchObject({ noReminder: false }); // recordatorios desactivados: no se marca
     await call('PUT', '/api/admin/settings', { reminders: { enabled: true, email: true, whatsapp: false, offsetsMinutes: [1440] } }, adminToken);
     const on = await dashboard(now);
-    expect(on.todo.noReminder.map((x) => x.id)).toContain(tomorrow.id); // sin SMTP nadie lo recibe
+    expect(on.todo.unconfirmed.find((x) => x.id === tomorrow.id)).toMatchObject({ noReminder: true }); // sin SMTP nadie lo recibe
+    // Quien ya ha respondido (sí o no) sale de la lista
+    for (const answer of ['YES', 'NO']) {
+      await prisma.appointment.update({ where: { id: tomorrow.id }, data: { attendance: answer } });
+      expect((await dashboard(now)).todo.unconfirmed.map((x) => x.id)).not.toContain(tomorrow.id);
+    }
+    await prisma.appointment.update({ where: { id: tomorrow.id }, data: { attendance: null } });
     expect(on.todo.warnings).toHaveLength(1);
+    // Aviso fallido: motivo claro y WhatsApp para avisar a mano
+    await prisma.appointmentReminder.create({ data: { appointmentId: tomorrow.id, startAt: tomorrow.startAt, offsetMinutes: 1440, channel: 'EMAIL', status: 'FAILED', detail: 'connect ECONNREFUSED 127.0.0.1:587', createdAt: now } });
+    const failed = (await dashboard(now)).todo.failedReminders;
+    expect(failed).toHaveLength(1);
+    expect(failed[0].reason).toBe('No se pudo conectar con el servidor de correo');
+    expect(failed[0]).toHaveProperty('whatsappLink');
+    const { failReason } = await import('../src/services/dashboard.js');
+    expect(failReason('WHATSAPP', '(#131026) Message undeliverable')).toContain('no tiene WhatsApp');
+    expect(failReason('EMAIL', 'algo raro')).toBe('algo raro');
     await call('PUT', '/api/admin/settings', { reminders: { enabled: false } }, adminToken);
   });
 
