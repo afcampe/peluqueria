@@ -38,7 +38,7 @@
     <li><a href="#agenda">Agenda</a>
       <ol><li>Vista Lista</li><li>Vista Semana</li><li>Vista Mes</li><li>La tarjeta de una cita</li></ol></li>
     <li><a href="#gestion">Gestionar citas</a>
-      <ol><li>Nueva cita</li><li>Citas periódicas</li><li>Cambiar la hora</li><li>Confirmar la asistencia</li><li>No vino / Sí vino</li><li>Cancelar</li><li>WhatsApp y recordatorio por email</li></ol></li>
+      <ol><li>Nueva cita</li><li>Citas periódicas</li><li>Cambiar la hora</li><li>Confirmar la asistencia</li><li>No vino / Sí vino</li><li>Cancelar</li><li>WhatsApp y recordatorio por email</li><li>Recordar todas las citas de mañana</li></ol></li>
     <li><a href="#cobros">Cobros, tickets y devoluciones</a>
       <ol><li>Cobrar en efectivo</li><li>Generar ticket</li><li>Ver un ticket</li><li>Devoluciones</li><li>Corregir cobro</li><li>Tickets rectificativos</li></ol></li>
     <li><a href="#usuarios">Usuarios</a>
@@ -172,7 +172,7 @@
   </ul>
 
   <h3>Vista Lista</h3>
-  <p>Muestra las citas agrupadas por día, con todas sus opciones. El título de cada día indica cuántas hay reservadas, confirmadas y realizadas. Usa los botones <span class="btn-ref">Hoy</span>, <span class="btn-ref">Mañana</span> y <span class="btn-ref">7 días</span>, o elige un rango con <span class="ui">Desde</span> y <span class="ui">Hasta</span>.</p>
+  <p>Muestra las citas agrupadas por día, con todas sus opciones. El título de cada día indica cuántas hay reservadas, confirmadas y realizadas. Usa los botones <span class="btn-ref">Hoy</span>, <span class="btn-ref">Mañana</span> y <span class="btn-ref">7 días</span>, o elige un rango con <span class="ui">Desde</span> y <span class="ui">Hasta</span>. Con <span class="btn-ref">Mañana</span>, si hay citas reservadas, aparecen también los botones para recordarlas todas de una vez (capítulo 4).</p>
   <figure><img src="capturas/a-agenda-lista.jpg" alt=""><figcaption><b>Figura 3.2</b> · Vista Lista</figcaption></figure>
 
   <h3>Vista Semana</h3>
@@ -348,6 +348,20 @@
     <li>El último envío a mano de cada cita queda en la lista de últimos avisos de Configuración como «enviado a mano».</li>
   </ul>
   <div class="warn"><p>Si el servidor de correo (SMTP) no está configurado, la ventana te avisa: el email no llega al cliente y no consta como enviado.</p></div>
+
+  <h3>Recordar todas las citas de mañana</h3>
+  <p>En la Agenda, vista Lista, pulsa <span class="btn-ref">Mañana</span>. Si hay citas reservadas, debajo de los filtros aparecen <span class="btn-ref green">WhatsApp a todos</span> y <span class="btn-ref">Email a todos</span>, para avisar a todos los clientes de mañana sin ir cita por cita.</p>
+  <ol class="steps">
+    <li>Pulsa el botón del canal que quieras. Se abre una ventana con cada cita: hora, cliente y su email o teléfono. Los que no se pueden avisar salen en rojo (sin email, sin teléfono o teléfono no válido).</li>
+    <li>Con <span class="ui">Ver el mensaje</span> puedes leer el texto antes de enviarlo. Es el de Configuración → Recordatorios de citas. Si el cliente aún no ha respondido, lleva la pregunta para confirmar.</li>
+    <li><strong>Email:</strong> pulsa <span class="btn-ref dark">Enviar N emails</span> y se mandan todos.</li>
+    <li><strong>WhatsApp:</strong> con la API de WhatsApp Business se mandan todos con <span class="btn-ref dark">Enviar</span>. Sin ella, pulsa <span class="btn-ref green">Abrir chat</span> en cada cliente y envía el mensaje, que ya va escrito.</li>
+  </ol>
+  <figure class="sm"><img src="capturas/a-recordar-manana.jpg" alt=""><figcaption><b>Figura 4.10</b> · Recordar por WhatsApp todas las citas de mañana</figcaption></figure>
+  <ul>
+    <li>No se avisa de las citas canceladas, de las de quien ya ha dicho que no vendrá ni de las de clientes dados de baja.</li>
+    <li>Cada envío queda en los últimos avisos de Configuración como «enviado a mano». No sustituye a los recordatorios automáticos.</li>
+  </ul>
 </section>
 
 <!-- ============================================================ 5 -->
@@ -745,7 +759,7 @@
       <tr><td>Realizada y pagada</td><td>No se cancela ni se reembolsa.</td></tr>
       <tr><td>Realizada</td><td>Automático al terminar la hora. Desde entonces no se mueve ni se cancela.</td></tr>
       <tr><td>No vino / Sí vino</td><td>Desde que llega la hora. No si está cobrada en el local; con PayPal, sí. «Sí vino» lo corrige.</td></tr>
-      <tr><td>Recordatorios</td><td>Automáticos según Configuración y el perfil del cliente. A mano, con «Email» o «WhatsApp».</td></tr>
+      <tr><td>Recordatorios</td><td>Automáticos según Configuración y el perfil del cliente. A mano, con «Email» o «WhatsApp», o a todas las citas de mañana desde la Agenda.</td></tr>
       <tr><td>Corregir cobro</td><td>Solo pagos de PayPal de citas que no han terminado. No cancela la cita.</td></tr>
       <tr><td>Tickets rectificativos</td><td>Automáticos al devolver un cobro con ticket. Serie RAAAA-NNNN.</td></tr>
       <tr><td>Numeración de tickets</td><td>AAAA-NNNN, consecutiva, común a todas las formas de pago, empieza cada año.</td></tr>
