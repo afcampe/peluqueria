@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { BlockModal } from '../../components/BlockModal';
 import { RecurrencePlanner, type SeriesPlan } from '../../components/RecurrencePlanner';
 import { EmailReminderButton } from '../../components/EmailReminderButton';
+import { TomorrowReminders } from '../../components/TomorrowReminders';
 import { SlotPicker } from '../../components/SlotPicker';
 import { TicketButtons } from '../../components/TicketButton';
 import { Link } from 'react-router-dom';
@@ -96,6 +97,11 @@ export function Agenda() {
   const blocksOn = (d: string) => (status ? [] : closures.filter((c) => isBlock(c) && isoToLocalDate(c.startAt) === d));
   const listDays = [...new Set([...byDay.keys(), ...(status ? [] : closures.filter(isBlock).map((c) => isoToLocalDate(c.startAt)).filter((d) => d >= range.from && d <= range.to))])].sort();
 
+  // Con «Mañana» elegido: botones para recordar de una vez todas las citas reservadas de mañana.
+  const tomorrow = localISODate(new Date(), 1);
+  const remindable = view === 'list' && from === tomorrow && to === tomorrow
+    ? (list ?? []).filter((a) => a.status === 'CONFIRMED' && a.attendance !== 'NO').length : 0;
+
   const step = (dir: 1 | -1) => setAnchor(view === 'week' ? addDays(anchor, 7 * dir) : addMonths(anchor, dir));
   const goToday = () => { setAnchor(localISODate()); setSelectedDay(localISODate()); };
   const title = view === 'week' ? weekLabel(startOfWeek(anchor)) : monthLabel(anchor);
@@ -141,6 +147,8 @@ export function Agenda() {
           <label>Hasta<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         </div>
       )}
+
+      {remindable > 0 && <TomorrowReminders count={remindable} />}
 
       <Alert kind="ok">{flash}</Alert>
       <Alert>{error}</Alert>

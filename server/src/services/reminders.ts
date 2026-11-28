@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
-import { normalizePhone, sendWhatsApp, sendWhatsAppButtons, sendWhatsAppTemplate, whatsappApiConfigured } from '../notifications/whatsapp.js';
+import { normalizePhone, sendWhatsApp, sendWhatsAppButtons, sendWhatsAppTemplate, waLink, whatsappApiConfigured } from '../notifications/whatsapp.js';
 import { HttpError, badRequest } from '../lib/errors.js';
 import { attendanceUrl, buttonPayload } from './attendance.js';
 import { getSettings, type Settings } from './settings.js';
@@ -190,14 +190,82 @@ export async function sendEmailReminder(appointmentId: string) {
   } catch (e) {
     res = { status: 'FAILED', detail: (e instanceof Error ? e.message : 'Error al enviar').slice(0, 300) };
   }
-  // Un solo registro manual por cita, hora y canal: al repetirlo se actualiza.
-  const key = { appointmentId: a.id, startAt: a.startAt, offsetMinutes: MANUAL, channel: 'EMAIL' };
+  await recordManual(a, 'EMAIL', res);
+  if (res.status === 'FAILED') throw new HttpError(502, `No se pudo enviar el email: ${res.detail}`);
+  return { to: a.client.email, simulated };
+}
+
+/** Un solo registro manual por cita, hora y canal: al repetirlo se actualiza. */
+async function recordManual(a: { id: string; startAt: Date }, channel: Channel, res: { status: string; detail: string }) {
+  const key = { appointmentId: a.id, startAt: a.startAt, offsetMinutes: MANUAL, channel };
   await prisma.appointmentReminder.upsert({
     where: { appointmentId_startAt_offsetMinutes_channel: key },
     create: { ...key, ...res }, update: { ...res, createdAt: new Date() },
   });
-  if (res.status === 'FAILED') throw new HttpError(502, `No se pudo enviar el email: ${res.detail}`);
-  return { to: a.client.email, simulated };
+}
+
+// ---------------------------------------------------------------- Recordatorio a mano de todas las citas de mañana
+
+/** Citas reservadas de mañana (en la zona de la peluquería) a las que se puede recordar. */
+async function tomorrowAppointments(s: Settings) {
+  const day = DateTime.now().setZone(s.timezone).plus({ days: 1 }).startOf('day');
+  const appts = await prisma.appointment.findMany({
+    where: { status: 'CONFIRMED', startAt: { gte: day.toJSDate(), lt: day.plus({ days: 1 }).toJSDate() } },
+    orderBy: { startAt: 'asc' },
+    include: { client: { select: { name: true, email: true, phone: true, status: true } }, service: { select: { name: true } } },
+  });
+  // Quien ya ha dicho que no viene o está de baja no recibe el aviso.
+  return { date: day.toISODate()!, appts: appts.filter((a) => a.attendance !== 'NO' && a.client.status !== 'DELETED') };
+}
+
+/** Texto del WhatsApp que se escribe a mano (sin API no hay botones: se pregunta en el propio texto). */
+const whatsappText = (a: Sendable, s: Settings) =>
+  renderReminder(s.reminders.whatsappBody, a, s) + (asks(a, s) ? `\n\n${s.reminders.confirmQuestion}` : '');
+
+/** Lo que se va a enviar: una fila por cita, con el destino o el motivo por el que no se puede. */
+export async function previewTomorrowReminders(channel: Channel) {
+  const s = await getSettings();
+  const { date, appts } = await tomorrowAppointments(s);
+  const api = whatsappApiConfigured();
+  const rows = appts.map((a) => {
+    const base = { appointmentId: a.id, name: a.client.name, startAt: a.startAt, service: a.service.name };
+    if (channel === 'EMAIL') return { ...base, to: a.client.email, reason: a.client.email ? null : 'Sin email' };
+    const phone = normalizePhone(a.client.phone);
+    return { ...base, to: phone ? `+${phone}` : a.client.phone, reason: phone ? null : a.client.phone ? 'Teléfono no válido' : 'Sin teléfono', link: phone ? waLink(phone, whatsappText(a, s)) : null };
+  });
+  const first = appts[0];
+  return {
+    date, channel, rows,
+    simulated: channel === 'EMAIL' ? !emailConfigured() : !api,
+    // Ejemplo del texto con la primera cita
+    sample: !first ? null : channel === 'EMAIL'
+      ? { subject: renderReminder(s.reminders.emailSubject, first, s), body: renderReminder(s.reminders.emailBody, first, s) + emailConfirm(first, s).text }
+      : { subject: null, body: whatsappText(first, s) },
+  };
+}
+
+/** Envía el recordatorio de cada cita de mañana por el canal elegido (WhatsApp solo con la API). */
+export async function sendTomorrowReminders(channel: Channel) {
+  if (channel === 'WHATSAPP' && !whatsappApiConfigured()) throw badRequest('La API de WhatsApp no está configurada: abre los chats uno a uno');
+  const s = await getSettings();
+  const { appts } = await tomorrowAppointments(s);
+  const simulated = channel === 'EMAIL' && !emailConfigured();
+  let sent = 0;
+  const skipped: { name: string; detail: string }[] = [];
+  const failed: { name: string; detail: string }[] = [];
+  for (const a of appts) {
+    let res: { status: string; detail: string };
+    try {
+      res = await sendOne(channel, a, s);
+      if (simulated && res.status === 'SENT') res = { status: 'SKIPPED', detail: 'El SMTP no está configurado: el email no ha salido' };
+    } catch (e) {
+      res = { status: 'FAILED', detail: (e instanceof Error ? e.message : 'Error al enviar').slice(0, 300) };
+    }
+    await recordManual(a, channel, res);
+    if (res.status === 'SENT') sent++;
+    else (res.status === 'FAILED' ? failed : skipped).push({ name: a.client.name, detail: res.detail });
+  }
+  return { total: appts.length, sent, skipped, failed, simulated };
 }
 
 /** Últimos avisos para el panel. */

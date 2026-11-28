@@ -192,6 +192,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .filters { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
 .filters label { margin: 0; }
 .filters .grow { flex: 1; min-width: 200px; }
+.tomorrow-reminders { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: -.25rem 0 1rem; }
+.tomorrow-sample { margin: 0 0 .75rem; }
+.tomorrow-sample summary { cursor: pointer; color: var(--accent-strong); }
 .eyebrow { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .25em; color: var(--accent); margin: 0 0 .5rem; }
 
 /* -------------------------------------------------------------- Portada */
@@ -834,3 +837,4 @@ button.day-cell:hover { border-color: var(--accent); color: var(--text); }
   .users-table td.td-actions { grid-column: 1 / -1; grid-row: 4; padding-top: .35rem; }
   .users-table .td-actions > .actions { justify-content: flex-start; }
 }
+.wa-list .nowrap { white-space: nowrap; margin-left: .5rem; }

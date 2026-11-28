@@ -960,6 +960,40 @@ describe('recordatorio por email enviado a mano', () => {
   });
 });
 
+describe('recordatorio a mano de todas las citas de mañana', () => {
+  it('lista las reservadas de mañana y las envía por email; WhatsApp sin API da enlaces', async () => {
+    const at = (h: number) => DateTime.now().setZone('Europe/Madrid').plus({ days: 1 }).set({ hour: h, minute: 0, second: 0, millisecond: 0 }).toJSDate();
+    const me = await prisma.user.findUniqueOrThrow({ where: { email: 'c@c.es' } });
+    const ficha = await prisma.user.create({ data: { name: 'Mañana sin email', phone: '600111222', acceptsEmail: false } });
+    const mk = (clientId: string, h: number, extra: object = {}) => prisma.appointment.create({ data: { clientId, serviceId, startAt: at(h), endAt: new Date(at(h).getTime() + 18e5), status: 'CONFIRMED', paymentMethod: 'cash', priceCents: 1500, ...extra } });
+    const ok = await mk(me.id, 6);
+    const noEmail = await mk(ficha.id, 7);
+    const no = await mk(me.id, 5, { attendance: 'NO' });
+    const cancelled = await mk(me.id, 4, { status: 'CANCELLED' });
+    expect((await call('GET', '/api/admin/reminders/tomorrow?channel=EMAIL', undefined, clientToken)).status).toBe(403);
+
+    const p = (await call('GET', '/api/admin/reminders/tomorrow?channel=EMAIL', undefined, adminToken)).body;
+    const ids = p.rows.map((r: { appointmentId: string }) => r.appointmentId);
+    expect(ids).toEqual(expect.arrayContaining([ok.id, noEmail.id]));
+    expect(ids).not.toContain(no.id);
+    expect(ids).not.toContain(cancelled.id);
+    expect(p.rows.find((r: { appointmentId: string }) => r.appointmentId === noEmail.id).reason).toBe('Sin email');
+    expect(p.sample.body).not.toContain('{');
+
+    const r = (await call('POST', '/api/admin/reminders/tomorrow', { channel: 'EMAIL' }, adminToken)).body;
+    expect(r).toMatchObject({ simulated: true, sent: 0 });
+    expect(await prisma.appointmentReminder.findMany({ where: { appointmentId: ok.id } })).toMatchObject([{ offsetMinutes: 0, channel: 'EMAIL', status: 'SKIPPED' }]);
+    expect(await prisma.appointmentReminder.count({ where: { appointmentId: no.id } })).toBe(0);
+
+    const w = (await call('GET', '/api/admin/reminders/tomorrow?channel=WHATSAPP', undefined, adminToken)).body;
+    expect(w.simulated).toBe(true);
+    expect(w.rows.find((x: { appointmentId: string }) => x.appointmentId === noEmail.id).link).toContain('https://wa.me/34600111222?text=');
+    expect((await call('POST', '/api/admin/reminders/tomorrow', { channel: 'WHATSAPP' }, adminToken)).status).toBe(400);
+    await prisma.appointmentReminder.deleteMany({ where: { appointmentId: { in: [ok.id, noEmail.id, no.id, cancelled.id] } } });
+    await prisma.appointment.deleteMany({ where: { id: { in: [ok.id, noEmail.id, no.id, cancelled.id] } } });
+  });
+});
+
 describe('reservar a un cliente desde Usuarios', () => {
   it('el calendario cuenta los huecos de cada día y la reserva queda a nombre del cliente', async () => {
     const start = await slotIn(62);

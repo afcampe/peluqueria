@@ -11,7 +11,7 @@ import { addToWaitlist, listWaitlist, removeFromWaitlist } from '../services/wai
 import { answerByAdmin } from '../services/attendance.js';
 import { business, dashboard, integrations } from '../services/dashboard.js';
 import { mergeClient } from '../services/agendaImport.js';
-import { assertReminderPrefs, defaultReminderPrefs, previewEmailReminder, recentReminders, sendEmailReminder, sendTestReminder, syncReminderPrefs } from '../services/reminders.js';
+import { assertReminderPrefs, defaultReminderPrefs, previewEmailReminder, previewTomorrowReminders, recentReminders, sendEmailReminder, sendTestReminder, sendTomorrowReminders, syncReminderPrefs } from '../services/reminders.js';
 import { remindersSchema } from '../services/settings.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { emailConfigured, sendEmail } from '../notifications/email.js';
@@ -401,6 +401,11 @@ adminRouter.get('/reminders/preview', h(async (req, res) => {
   else throw badRequest('Indica la cita o el cliente');
 }));
 adminRouter.post('/appointments/:id/remind-email', h(async (req, res) => { res.json(await sendEmailReminder(req.params.id)); }));
+
+/** Recordatorio a mano de todas las citas de mañana, por email o por WhatsApp. */
+const channelSchema = z.object({ channel: z.enum(['EMAIL', 'WHATSAPP']) });
+adminRouter.get('/reminders/tomorrow', h(async (req, res) => { res.json(await previewTomorrowReminders(channelSchema.parse(req.query).channel)); }));
+adminRouter.post('/reminders/tomorrow', h(async (req, res) => { res.json(await sendTomorrowReminders(channelSchema.parse(req.body).channel)); }));
 
 /** Manda un recordatorio de ejemplo al propio administrador (email) o al teléfono indicado. */
 adminRouter.post('/reminders/test', h(async (req, res) => {
